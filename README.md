@@ -12,6 +12,7 @@ Customer management, scheduling, quotes, invoices, before/after photos, texting 
 - **Server functions (Supabase Edge Functions):**
   - `team`: owner creates logins, changes roles, turns access off, resets passwords.
   - `messaging`: sends email through Resend and texts through phone.com; reports which services are connected.
+  - `sms-sync`: runs every minute (Supabase cron) and pulls incoming and outgoing texts from phone.com into `messages`, matched to customers by phone number. The first run brought in the last 30 days.
 
 ## Server settings (Supabase → Edge Functions → Secrets)
 

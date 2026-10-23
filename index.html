@@ -394,6 +394,26 @@ body.role-crew [data-act="editJob"], body.role-crew [data-act="newInvoice"], bod
 body.role-crew [data-act="openInvoice"], body.role-crew [data-act="calNew"], body.role-crew [data-act="calBookCust"],
 body.role-crew [data-act="calBookQuote"], body.role-crew [data-act="openImport"], body.role-crew [data-act="emailCompose"],
 body.role-crew [data-act="askDelete"]:not([data-col="photos"]), body.role-crew .tobook{display:none!important}
+/* text conversations */
+.conv-row{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;gap:2px 10px;width:100%;text-align:left;border:0;border-top:1px solid var(--line);background:none;padding:12px 4px;cursor:pointer;color:var(--ink);position:relative}
+.list > .conv-row:first-child{border-top:0}
+.conv-row:hover{background:var(--surface-2)}
+.conv-row .cv-n{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.conv-row.unread .cv-n{font-weight:750}
+.conv-row .cv-t{font-size:.76rem;white-space:nowrap}
+.conv-row .cv-p{grid-column:1;font-size:.86rem;color:var(--muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.conv-row.unread .cv-p{color:var(--ink)}
+.cv-u{grid-column:2;justify-self:end;background:var(--accent);color:var(--accent-ink);border-radius:999px;min-width:20px;height:20px;padding:0 6px;display:inline-grid;place-items:center;font-size:.72rem;font-weight:700}
+.thread{display:flex;flex-direction:column;gap:6px}
+.tday{align-self:center;font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:8px 0 2px}
+.tmsg{display:flex;flex-direction:column;gap:2px;max-width:85%;align-self:flex-start}
+.tmsg.out{align-self:flex-end;align-items:flex-end}
+.bubble.in{background:var(--surface-2);border:1px solid var(--line);border-radius:12px 12px 12px 4px}
+.bubble.out{background:var(--accent-soft);border-radius:12px 12px 4px 12px}
+.tmeta{font-size:.7rem;color:var(--muted)}
+.pill.text-in{background:var(--mark-soft);color:var(--mark-ink);border-color:transparent}
+#tb-msg{position:relative}
+.tb-dot{position:absolute;top:2px;right:0;background:#C8372D;color:#fff;border-radius:999px;font-size:.62rem;font-weight:700;min-width:16px;height:16px;padding:0 4px;display:grid;place-items:center}
 /* sign-in */
 .auth{min-height:100vh;min-height:100dvh;display:grid;place-items:center;background:var(--side-bg);padding-block:24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 .auth-card{background:var(--surface);color:var(--ink);border-radius:14px;box-shadow:var(--shadow);width:min(420px,100%);padding:28px;display:flex;flex-direction:column;gap:16px}
@@ -498,7 +518,7 @@ const PAY_METHODS = ['Card','Check','Cash','Zelle','Venmo','ACH','Other'];
 
 /* ---------- state ---------- */
 const S = {customers:[], jobs:[], invoices:[], photos:[], messages:[], settingsDoc:null, view:'today',
-  jobFilter:'upcoming', custQuery:'', custStatus:'All', photoQuery:'', invFilter:'Open', invQuery:'', msgQuery:'', msgChan:'all', rep:{id:'summary', period:'ytd', from:'', to:''}, cal:{mode:'month', anchor:'', sel:null, showQuotes:true}, settingsDirty:false, dbState:'connecting',
+  jobFilter:'upcoming', custQuery:'', custStatus:'All', photoQuery:'', invFilter:'Open', invQuery:'', msgQuery:'', msgChan:'all', msgTab:'conv', rep:{id:'summary', period:'ytd', from:'', to:''}, cal:{mode:'month', anchor:'', sel:null, showQuotes:true}, settingsDirty:false, dbState:'connecting',
   canWrite:null, canAdmin:false, uid:null, assetsOn:true, downloadsOn:true, role:null, profile:null, team:[], activity:null, integ:{email:false, sms:false}, mapsKey:null};
 // data, photo storage and downloads are defined in the Supabase data layer below
 let drawerState=null; // {kind, args, detail:boolean}
@@ -666,8 +686,8 @@ try{ new MutationObserver(()=>{ if(getTheme()!=='system') applyTheme(); }).obser
 const NAV = [['today','Dashboard'],['calendar','Calendar'],['jobs','Jobs'],['customers','Customers'],['photos','Photos'],['invoices','Invoices'],['messages','Messages'],['reports','Reports']];
 function renderShell(){
   $('#logo1').innerHTML=LOGO; $('#logo2').innerHTML=LOGO;
-  const navBtn = ([v,l]) => { const badge = v==='invoices' ? S.invoices.filter(x=>invStatus(x)==='Overdue').length : 0;
-    return `<button class="nav" data-act="nav" data-view="${v}" ${S.view===v?'aria-current="page"':''}>${I[v]}<span style="flex:1">${l}</span>${badge?`<span class="nav-badge" aria-label="${badge} overdue">${badge}</span>`:''}</button>`; };
+  const navBtn = ([v,l]) => { const badge = v==='invoices' ? S.invoices.filter(x=>invStatus(x)==='Overdue').length : v==='messages' ? unreadTexts() : 0;
+    return `<button class="nav" data-act="nav" data-view="${v}" ${S.view===v?'aria-current="page"':''}>${I[v]}<span style="flex:1">${l}</span>${badge?`<span class="nav-badge" aria-label="${badge} ${v==='messages'?'unread':'overdue'}">${badge}</span>`:''}</button>`; };
   const nav = NAV.filter(([v])=> S.role!=='crew' || !['invoices','messages','reports'].includes(v));
   const office = nav.filter(([v])=>['invoices','messages','reports'].includes(v));
   $('#sidenav').innerHTML = `<div class="side-label">Field</div>${nav.filter(([v])=>!['invoices','messages','reports'].includes(v)).map(navBtn).join('')}${office.length?`<div class="side-label">Office</div>${office.map(navBtn).join('')}`:''}`;
@@ -675,7 +695,7 @@ function renderShell(){
   const tabs = NAV.filter(n=>n[0]!=='messages' && n[0]!=='reports' && !(S.role==='crew' && n[0]==='invoices'));
   $('#tabbar').style.gridTemplateColumns = `repeat(${tabs.length},1fr)`;
   $('#tabbar').innerHTML = tabs.map(([v,l])=>`<button class="tab" data-act="nav" data-view="${v}" ${S.view===v?'aria-current="page"':''}>${I[v]}${l}</button>`).join('');
-  $('#tb-msg').innerHTML=I.messages; $('#tb-rep').innerHTML=I.reports; $('#tb-set').innerHTML=I.settings;
+  { const u=S.role!=='crew'?unreadTexts():0; $('#tb-msg').innerHTML=I.messages+(u?`<span class="tb-dot" aria-label="${u} unread">${u>9?'9+':u}</span>`:''); } $('#tb-rep').innerHTML=I.reports; $('#tb-set').innerHTML=I.settings;
   document.querySelectorAll('[data-bizname]').forEach(el=>el.textContent=settings().businessName||'Your Window Co.');
 }
 function banner(){
@@ -1146,8 +1166,48 @@ function viewInvoices(){
      ${list.map(v=>{const t=totals(v);return `<tr class="click" data-act="openInvoice" data-id="${v.id}"><td class="mono">${esc(v.number)}</td><td>${hl(custName(v.customerId), iq)}</td><td style="white-space:nowrap">${esc(fmtDate(v.date))}</td><td style="white-space:nowrap">${esc(fmtDate(v.dueDate))}</td><td class="n">${money(t.total)}</td><td class="n">${money(t.balance)}</td><td>${pill(invStatus(v))}</td></tr>`}).join('')}
      </tbody></table></div>` : `<p class="muted">${iq?`No invoices match “${esc(iq)}”${fl!=='All'?` in ${esc(fl)}. <button class="btn ghost sm" data-act="invFilter" data-s="All">Search all invoices</button>`:'.'}`:'No invoices here.'}</p>`}</section>`;
 }
+/* ---------- two-way texting ---------- */
+const d10 = p => String(p||'').replace(/\D/g,'').slice(-10);
+let _phoneIdx={src:null, map:new Map()};
+function custByPhone(num){
+  if(_phoneIdx.src!==S.customers){ const m=new Map(); S.customers.forEach(c=>{ const k=d10(c.phone); if(k.length===10 && !m.has(k)) m.set(k,c); }); _phoneIdx={src:S.customers, map:m}; }
+  return _phoneIdx.map.get(d10(num)) || null;
+}
+const fmtNum = n => { const x=d10(n); return x.length===10?`(${x.slice(0,3)}) ${x.slice(3,6)}-${x.slice(6)}`:String(n||'Unknown number'); };
+function msgCustomerId(m){ if(m.customerId) return m.customerId; const c=m.number?custByPhone(m.number):null; return c?c.id:''; }
+function conversations(){
+  const map=new Map();
+  S.messages.forEach(m=>{
+    if(m.channel==='email') return;
+    const cid=msgCustomerId(m); const num=d10(m.number||m.to||m.from);
+    const k = cid ? 'c:'+cid : (num ? 'n:'+num : null); if(!k) return;
+    let g=map.get(k); if(!g){ g={key:k, cid, number: cid ? d10(cust(cid)?.phone)||num : num, msgs:[], unread:0}; map.set(k,g); }
+    g.msgs.push(m); if(m.direction==='in' && !m.read) g.unread++;
+  });
+  return [...map.values()].map(g=>{ g.msgs.sort((a,b)=>(a.createdAt||0)-(b.createdAt||0)); g.last=g.msgs[g.msgs.length-1]; return g; }).sort((a,b)=>(b.last.createdAt||0)-(a.last.createdAt||0));
+}
+const unreadTexts = () => S.messages.reduce((n,m)=>n+(m.channel!=='email' && m.direction==='in' && !m.read ? 1 : 0),0);
+function convName(g){ return g.cid ? custLabel(cust(g.cid)) : fmtNum(g.number); }
+function threadHtml(g){
+  if(!g || !g.msgs.length) return '<p class="muted">No texts yet. Send the first one below.</p>';
+  let lastDay='';
+  return `<div class="thread">${g.msgs.map(m=>{ const dir=m.direction==='in'?'in':'out'; const day=m.createdAt?new Date(m.createdAt).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}):''; const sep=day&&day!==lastDay?`<div class="tday">${esc(day)}</div>`:''; lastDay=day||lastDay;
+    return `${sep}<div class="tmsg ${dir}"><div class="bubble ${dir}">${esc(m.body)}</div><span class="tmeta">${m.createdAt?esc(new Date(m.createdAt).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})):''}${dir==='out'&&m.viaPhoneCom?' · from phone.com app':''}${dir==='out'&&!m.sent&&!m.viaPhoneCom&&!m.pcPending&&!m.pcId?' · logged':''}</span></div>`; }).join('')}</div>`;
+}
+async function sendSms(number, body, extra={}){
+  const r=await callFn('messaging',{action:'sms', to:number, text:body});
+  if(!r.ok){ toast(r.error,'bad'); return false; }
+  const cid = extra.customerId || (custByPhone(number)?.id || '');
+  await write(()=>saveDoc('messages',newId('messages'),{customerId:cid, to:fmtNum(number), number:d10(number), toDigits:d10(number), body, channel:'phone.com', direction:'out', sent:true, pcPending:true, read:true, jobId:extra.jobId||'', invoiceId:extra.invoiceId||'', createdAt:Date.now(), by:S.uid||''}),'Text sent');
+  return true;
+}
+async function markThreadRead(key){
+  const g=conversations().find(x=>x.key===key); if(!g) return;
+  for(const m of g.msgs.filter(m=>m.direction==='in' && !m.read)){ try{ await saveDoc('messages', m.id, {...m, read:true}); }catch(e){} }
+}
 function msgItem(m, o={}){
   const isEmail = m.channel==='email';
+  if(!isEmail && m.direction==='in') return `<div class="msg"><div class="meta">${o.showCust?`<button class="btn ghost sm" style="padding:0" data-act="openThread" data-k="${msgCustomerId(m)?'c:'+msgCustomerId(m):'n:'+d10(m.number)}">${hl(msgCustomerId(m)?custName(msgCustomerId(m)):fmtNum(m.number), o.q||'')}</button>`:''}<span class="pill text-in">Reply</span><span>${esc(fmtStamp(m.createdAt))}</span></div><div class="bubble in">${esc(m.body)}</div></div>`;
   return `<div class="msg"><div class="meta">${o.showCust?`<button class="btn ghost sm" style="padding:0" data-act="openCustomer" data-id="${m.customerId}">${hl(custName(m.customerId), o.q||'')}</button>`:''}<span class="pill ${isEmail?'email':'text'}">${isEmail?'Email':'Text'}</span><span>${esc(m.to||'')}</span><span>${esc(fmtStamp(m.createdAt))}</span></div>
     ${isEmail?`<div class="email-card"><div class="email-subj">${esc(m.subject||'(no subject)')}</div><div class="email-body">${esc(String(m.body||'').slice(0,400))}${String(m.body||'').length>400?'…':''}</div></div>`:`<div class="bubble">${esc(m.body)}</div>`}</div>`;
 }
@@ -1157,13 +1217,21 @@ function viewMessages(){
   if(S.msgChan!=='all') list = list.filter(m=>(m.channel==='email'?'email':'text')===S.msgChan);
   if(mq) list = list.filter(m=>{ const c=cust(m.customerId); return (c && custMatch(c,mq)) || (String(m.body||'')+' '+String(m.subject||'')).toLowerCase().includes(mq.toLowerCase()); });
   list = list.slice(0,100);
+  const convs = conversations().filter(g=>!mq || (g.cid?custMatch(cust(g.cid),mq):g.number.includes(mq.replace(/\D/g,'')||'#')) || g.msgs.some(m=>String(m.body||'').toLowerCase().includes(mq.toLowerCase())));
+  const convHtml = convs.length ? `<div class="list">${convs.map(g=>{ const l=g.last; return `<button class="conv-row${g.unread?' unread':''}" data-act="openThread" data-k="${g.key}">
+      <span class="cv-n">${hl(convName(g), mq)}${g.cid?'':' <span class="pill lead">New contact</span>'}</span>
+      <span class="cv-t muted">${esc(fmtStamp(l.createdAt))}</span>
+      <span class="cv-p">${l.direction==='in'?'':'You: '}${esc(String(l.body||'').slice(0,140))}</span>
+      ${g.unread?`<span class="cv-u" aria-label="${g.unread} unread">${g.unread}</span>`:''}</button>`; }).join('')}</div>`
+    : (mq ? '<p class="muted">No conversations match.</p>' : emptyBox('No text conversations yet','When customers text your phone.com number, their messages show up here within a minute.','compose','Write a text'));
   return `
   <div class="page-head"><div><p class="eyebrow">Texts & email</p><h1>Messages</h1></div><div class="actions"><button class="btn" data-act="emailCompose">${I.mail} New email</button><button class="btn primary" data-act="compose">${I.plus} New text</button></div></div>
   <div class="notice info">${S.integ.sms&&S.integ.email?'Texts send from your phone.com number and emails from your business address. Every message is saved to the customer\'s history.':`${S.integ.sms?'Texts send straight from your phone.com number.':'Texting through phone.com isn\'t connected yet, so copy texts into phone.com and tap <strong>Log as sent</strong>.'} ${S.integ.email?'Emails send from your business address.':'Email sending isn\'t connected yet, so copy emails into your mail app and tap <strong>Log as sent</strong>.'}`}</div>
-  ${S.messages.length?`<div class="search"><label class="sr" for="msg-q">Search messages</label><input type="search" id="msg-q" autocomplete="off" placeholder="Type a customer's first or last name…" value="${esc(S.msgQuery)}">
-    <div class="chips">${[['all','All'],['text','Texts'],['email','Emails']].map(([k,l])=>`<button class="chip" data-act="msgChan" data-c="${k}" aria-pressed="${S.msgChan===k}">${l}</button>`).join('')}</div></div>`:''}
-  <section class="panel">${(mq||S.msgChan!=='all')&&!list.length?`<p class="muted">No messages match.</p>`:list.length?list.map(m=>msgItem(m,{showCust:true,q:mq})).join('')
-    : emptyBox('No messages logged yet','Use templates like "Appointment reminder" or "Invoice" to reach customers quickly by text or email.','compose','Write a text')}</section>`;
+  <div class="seg" role="tablist" aria-label="Message views">${[['conv','Text conversations'],['all','All messages']].map(([k,l])=>`<button class="seg-btn" role="tab" aria-selected="${S.msgTab===k}" aria-checked="${S.msgTab===k}" data-act="msgTab" data-t="${k}">${l}${k==='conv'&&unreadTexts()?` <span class="cv-u" style="position:static">${unreadTexts()}</span>`:''}</button>`).join('')}</div>
+  ${S.messages.length?`<div class="search"><label class="sr" for="msg-q">Search messages</label><input type="search" id="msg-q" autocomplete="off" placeholder="Type a name, phone number or words from a message…" value="${esc(S.msgQuery)}">
+    ${S.msgTab==='all'?`<div class="chips">${[['all','All'],['text','Texts'],['email','Emails']].map(([k,l])=>`<button class="chip" data-act="msgChan" data-c="${k}" aria-pressed="${S.msgChan===k}">${l}</button>`).join('')}</div>`:''}</div>`:''}
+  ${S.msgTab==='conv'?`<section class="panel">${convHtml}</section>`:`<section class="panel">${(mq||S.msgChan!=='all')&&!list.length?`<p class="muted">No messages match.</p>`:list.length?list.map(m=>msgItem(m,{showCust:true,q:mq})).join('')
+    : emptyBox('No messages logged yet','Use templates like "Appointment reminder" or "Invoice" to reach customers quickly by text or email.','compose','Write a text')}</section>`}`;
 }
 function etplRow(t,i,ro){
   return `<div class="etpl panel" style="display:flex;flex-direction:column;gap:10px;background:var(--surface-2);box-shadow:none">
@@ -1264,11 +1332,15 @@ function openDrawer(kind, args={}, refresh){
   const scroll = refresh && root.querySelector('.drawer') ? root.querySelector('.drawer').scrollTop : 0;
   // Preserve range slider positions on refresh
   const ranges = refresh ? [...root.querySelectorAll('input[type=range][id]')].map(r=>[r.id,r.value]) : [];
+  const typed = refresh ? [...root.querySelectorAll('textarea[id],input[type=text][id],select[id]')].map(e=>[e.id,e.value]) : [];
+  const keepScrolled = refresh && drawerState && drawerState._scrolled;
   drawerState = {kind, args, detail:isDetail};
   root.innerHTML = `<div class="drawer-wrap" data-act="backdrop"><div class="drawer" role="dialog" aria-modal="true" aria-labelledby="dtitle">
     <div class="dhead">${out.back?`<button class="icon-btn" data-act="back" aria-label="Back">‹</button>`:''}<h2 id="dtitle">${out.title}</h2><button class="icon-btn" data-act="close" aria-label="Close">×</button></div>
     <div class="dbody">${out.body}</div></div></div>`;
   ranges.forEach(([id,v])=>{ const r=document.getElementById(id); if(r){ r.value=v; updateCmp(r); } });
+  typed.forEach(([id,v])=>{ const e=document.getElementById(id); if(e && v) e.value=v; });
+  if(keepScrolled) drawerState._scrolled=true;
   if(refresh) root.querySelector('.drawer').scrollTop=scroll;
   else { const f=root.querySelector('input:not([type=hidden]):not([type=file]),select,textarea'); if(f && !isDetail && window.matchMedia('(min-width:900px)').matches) f.focus(); }
   if(out.after) out.after();
@@ -1284,7 +1356,7 @@ const DRAWERS = {
     const jobs = S.jobs.filter(j=>j.customerId===id).sort((a,b)=>(b.date+(b.time||'')).localeCompare(a.date+(a.time||'')));
     const invs = S.invoices.filter(v=>v.customerId===id).sort((a,b)=>(+b.number||0)-(+a.number||0));
     const photos = S.photos.filter(p=>p.customerId===id).sort((a,b)=>b.createdAt-a.createdAt);
-    const msgs = S.messages.filter(m=>m.customerId===id).sort((a,b)=>b.createdAt-a.createdAt);
+    const msgs = S.messages.filter(m=>msgCustomerId(m)===id).sort((a,b)=>b.createdAt-a.createdAt); const unreadHere = msgs.filter(m=>m.direction==='in'&&!m.read).length;
     const last=lastService(id), due=nextDue(c), bal=custBalance(id);
     const L=mapLinks(c);
     return {detail:true, back:stack.length>0, title:esc(custLabel(c)), body:`
@@ -1321,14 +1393,14 @@ const DRAWERS = {
       <section class="panel office-only"><div class="panel-head"><h3>Invoices</h3></div>
         ${invs.length?`<div class="list">${invs.map(v=>`<button class="row" data-act="openInvoice" data-id="${v.id}" data-stack="1"><span class="t">#${esc(v.number)}</span><span class="s">${esc(fmtDate(v.date))}</span><span class="r">${pill(invStatus(v))}<span class="num" style="font-size:.84rem">${money(totals(v).total)}</span></span></button>`).join('')}</div>`:'<p class="muted">No invoices yet.</p>'}
       </section>
-      <section class="panel office-only"><div class="panel-head"><h3>Texts & email</h3><span class="btnrow"><button class="btn ghost sm" data-act="compose" data-cid="${id}">New text</button><button class="btn ghost sm" data-act="emailCompose" data-cid="${id}">New email</button></span></div>
+      <section class="panel office-only"><div class="panel-head"><h3>Texts & email${unreadHere?` <span class="cv-u" style="position:static">${unreadHere} new</span>`:''}</h3><span class="btnrow">${c.phone?`<button class="btn ghost sm" data-act="openThread" data-k="c:${id}" data-stack="1">Open conversation</button>`:''}<button class="btn ghost sm" data-act="compose" data-cid="${id}">New text</button><button class="btn ghost sm" data-act="emailCompose" data-cid="${id}">New email</button></span></div>
         ${msgs.length?msgs.slice(0,10).map(m=>msgItem(m)).join(''):'<p class="muted">No texts or emails logged.</p>'}
       </section>
       <div><button class="btn danger sm" data-act="askDelete" data-col="customers" data-id="${id}">Delete customer</button></div>
       <div id="confirm-slot"></div>`};
   },
-  customerForm({id}){
-    const c = id ? cust(id) : {status:'Lead', type:'Residential', frequency:'none'};
+  customerForm({id, phone}){
+    const c = id ? cust(id) : {status:'Lead', type:'Residential', frequency:'none', phone: phone ? fmtNum(phone) : ''};
     if(!c) return null;
     const loc = (c.lat!=null && c.lat!=='') ? `${c.lat}, ${c.lng}` : '';
     const np = nameParts(c);
@@ -1524,6 +1596,24 @@ const DRAWERS = {
         <div class="btnrow"><button class="btn primary" type="submit">Set password</button><button class="btn" type="button" data-act="back">Cancel</button></div>
       </form>`};
   },
+  thread({k}){
+    const g = conversations().find(x=>x.key===k) || (k.startsWith('c:') ? {key:k, cid:k.slice(2), number:d10(cust(k.slice(2))?.phone), msgs:[], unread:0} : {key:k, cid:'', number:k.slice(2), msgs:[], unread:0});
+    const c = g.cid ? cust(g.cid) : null; if(g.cid && !c) return null;
+    const tpls = settings().templates;
+    return {detail:true, back:stack.length>0, title: esc(convName(g)), body:`
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between">
+        <span class="copyline"><span class="mono">${esc(fmtNum(g.number))}</span>${g.number?`<button class="btn sm" data-act="copy" data-text="${esc(fmtNum(g.number))}">Copy</button>`:''}</span>
+        ${c?`<button class="btn sm" data-act="openCustomer" data-id="${c.id}" data-stack="1">Customer file</button>`:`<button class="btn sm primary" data-act="newCustomerFromNumber" data-num="${esc(g.number)}">${I.plus} Add as customer</button>`}
+      </div>
+      <section class="panel" id="thread-box">${threadHtml(g)}</section>
+      <form data-form="threadReply" data-k="${esc(k)}" style="display:flex;flex-direction:column;gap:8px">
+        <div class="field"><label for="tr-tpl">Template</label><select id="tr-tpl"><option value="">Type your own</option>${tpls.map(t=>`<option>${esc(t.name)}</option>`).join('')}</select></div>
+        <div class="field"><label for="tr-body">Reply</label><textarea id="tr-body" name="body" style="min-height:90px" placeholder="Type a text…"></textarea><span class="hint" id="tr-count"></span></div>
+        <div class="btnrow">${S.integ.sms?`<button class="btn primary" type="submit">Send text</button>`:`<button class="btn primary" type="button" data-act="copyThreadReply">Copy</button><button class="btn" type="submit">Log as sent</button>`}</div>
+        ${S.integ.sms?'<p class="hint">Sends from your phone.com number. Replies show up here within about a minute.</p>':'<p class="hint">Texting isn\'t connected, so copy the reply into phone.com, then log it.</p>'}
+      </form>`,
+      after(){ const b=document.querySelector('.drawer'); if(b && !drawerState._scrolled){ b.scrollTop=b.scrollHeight; drawerState._scrolled=true; } }};
+  },
   pickJob(){
     const t=todayISO();
     const list = S.jobs.filter(j=>j.status!=='Cancelled').sort((a,b)=>Math.abs(parseISO(a.date)-parseISO(t))-Math.abs(parseISO(b.date)-parseISO(t))).slice(0,25);
@@ -1709,11 +1799,14 @@ const A = {
     if(!cid||!body) return toast('Choose a customer and write a message.','bad');
     if(!c||!c.phone) return toast('This customer has no phone number on file.','bad');
     el.disabled=true; el.textContent='Sending…';
-    const r=await callFn('messaging',{action:'sms', to:c.phone, text:body});
-    if(!r.ok){ el.disabled=false; el.textContent='Send text'; return toast(r.error,'bad'); }
-    await write(()=>saveDoc('messages',newId('messages'),{customerId:cid, to:c.phone, body, channel:'phone.com', sent:true, jobId:f.dataset.job||'', invoiceId:f.dataset.inv||'', createdAt:Date.now(), by:S.uid||''}),'Text sent');
+    const ok=await sendSms(c.phone, body, {customerId:cid, jobId:f.dataset.job||'', invoiceId:f.dataset.inv||''});
+    if(!ok){ el.disabled=false; el.textContent='Send text'; return; }
     back();
   },
+  openThread(d){ const k=d.k; d.stack ? go('thread',{k}) : (stack.length=0, openDrawer('thread',{k})); markThreadRead(k); },
+  msgTab(d){ S.msgTab=d.t; render(); },
+  newCustomerFromNumber(d){ go('customerForm',{phone:d.num}); },
+  copyThreadReply(){ copyText($('#tr-body').value, 'Copied. Paste it into phone.com.'); },
   async sendEmail(d,el){
     const f=el.closest('form'); const cid=$('#e-cust').value, to=$('#e-to').value.trim(), subject=$('#e-subj').value.trim(), body=$('#e-body').value.trim();
     if(!cid) return toast('Choose a customer.','bad'); if(!/^\S+@\S+\.\S+$/.test(to)) return toast('Enter the customer\'s email address.','bad'); if(!body) return toast('Write a message first.','bad');
@@ -1881,6 +1974,13 @@ const F = {
     const c=cust(cid); if(c && to && !c.email && /\S+@\S+\.\S+/.test(to)) await write(()=>saveDoc('customers',c.id,{...c,email:to,updatedAt:Date.now()}));
     if(f.dataset.inv){ const v=inv(f.dataset.inv); if(v && v.status==='Draft') await write(()=>saveDoc('invoices',v.id,{...v,status:'Sent',updatedAt:Date.now()})); }
     back();
+  },
+  async threadReply(f){
+    const k=f.dataset.k; const body=$('#tr-body').value.trim(); if(!body) return toast('Type a message first.','bad');
+    const g=conversations().find(x=>x.key===k); const cid=k.startsWith('c:')?k.slice(2):''; const number = g ? g.number : (cid ? d10(cust(cid)?.phone) : k.slice(2));
+    if(d10(number).length!==10) return toast('This conversation has no valid phone number.','bad');
+    if(S.integ.sms){ const ok=await sendSms(number, body, {customerId:cid}); if(ok){ $('#tr-body').value=''; const tc=$('#tr-count'); if(tc) tc.textContent=''; } }
+    else { if(await write(()=>saveDoc('messages',newId('messages'),{customerId:cid, to:fmtNum(number), number:d10(number), body, channel:'phone.com', direction:'out', read:true, createdAt:Date.now(), by:S.uid||''}),'Logged')) $('#tr-body').value=''; }
   },
   async mypw(f){
     const fd=Object.fromEntries(new FormData(f)); if(fd.pw.length<8) return toast('Use at least 8 characters.','bad'); if(fd.pw!==fd.pw2) return toast('The two passwords don\'t match.','bad');
@@ -2192,6 +2292,7 @@ document.addEventListener('input', e=>{
   else if(t.id==='msg-q'){ S.msgQuery=t.value; render(); }
   else if(t.closest && t.closest('#items')) recalcItems();
   else if(t.id==='e-to'||t.id==='e-subj'||t.id==='e-body') updateMailto();
+  else if(t.id==='tr-body'){ const tc=$('#tr-count'); if(tc) tc.textContent = t.value.length ? `${t.value.length} characters${t.value.length>160?' (sends as more than one text)':''}` : ''; }
   else if(t.closest && t.closest('form[data-form=settings]')) S.settingsDirty=true;
   else if(t.id==='m-body'){ $('#m-count').textContent=t.value.length+' characters'; updateSmsLink(); }
   else if(t.dataset.cmp) updateCmp(t);
@@ -2204,6 +2305,7 @@ document.addEventListener('change', e=>{
   else if(t.id==='rep-period'){ S.rep.period=t.value; if(t.value==='custom'&&!S.rep.from){ const P=repPeriod(); S.rep.from=P.from; S.rep.to=P.to; } render(); }
   else if(t.id==='rep-from'){ S.rep.from=t.value; render(); }
   else if(t.id==='rep-to'){ S.rep.to=t.value; render(); }
+  else if(t.id==='tr-tpl'){ const tpl=settings().templates.find(x=>x.name===t.value); if(tpl){ const k=t.form.dataset.k; const cid=k.startsWith('c:')?k.slice(2):''; $('#tr-body').value=fillTemplate(tpl.text, cid, {}); } }
   else if(t.id==='cal-q'){ S.cal.showQuotes=t.checked; render(); }
   else if(t.id==='imp-file'){ const f=t.files&&t.files[0]; t.value=''; if(f) readImportFile(f); }
   else if(t.classList.contains('imp-map')){ IMP.map[t.dataset.field] = t.value===''?null:+t.value; openDrawer('importCust',{},true); }
@@ -2328,6 +2430,7 @@ function applyChange(t, p){
   if(t==='settings'){ if(p.new && p.new.id==='app'){ S.settingsDoc=p.new.data; scheduleRender(); } return; }
   if(t==='profiles'){ if(p.new && p.new.id===S.uid && (p.new.role!==S.role || !p.new.active)){ location.reload(); return; } loadTeam(); return; }
   const m=STORE[t]; if(!m) return;
+  if(t==='messages' && p.eventType==='INSERT' && p.new && p.new.data && p.new.data.direction==='in' && !p.new.data.read){ const d=p.new.data; const c=msgCustomerId(d); toast(`New text from ${c?custLabel(cust(c)):fmtNum(d.number)}`); }
   if(p.eventType==='DELETE'){ if(p.old && p.old.id) m.delete(p.old.id); } else if(p.new){ m.set(p.new.id, {id:p.new.id, ...(p.new.data||{})}); }
   S[t]=[...m.values()]; scheduleRender();
 }
