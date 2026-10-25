@@ -393,7 +393,41 @@ body.role-crew [data-act="newJob"], body.role-crew [data-act="newCustomer"], bod
 body.role-crew [data-act="editJob"], body.role-crew [data-act="newInvoice"], body.role-crew [data-act="invoiceFromJob"],
 body.role-crew [data-act="openInvoice"], body.role-crew [data-act="calNew"], body.role-crew [data-act="calBookCust"],
 body.role-crew [data-act="calBookQuote"], body.role-crew [data-act="openImport"], body.role-crew [data-act="openJobImport"], body.role-crew [data-act="openJobExport"], body.role-crew [data-act="openCustExport"], body.role-crew [data-act="emailCompose"],
-body.role-crew [data-act="askDelete"]:not([data-col="photos"]), body.role-crew .tobook{display:none!important}
+body.role-crew [data-act="askDelete"]:not([data-col="photos"]):not([data-col="vehicle_logs"]), body.role-crew [data-act="newVehicle"], body.role-crew [data-act="editVehicle"], body.role-crew .fleet-manage, body.role-crew .tobook{display:none!important}
+/* fleet */
+.veh-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+@media(max-width:520px){.veh-grid{grid-template-columns:minmax(0,1fr)}}
+.veh-card{display:flex;flex-direction:column;gap:12px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;cursor:pointer;color:var(--ink);box-shadow:var(--card-shadow);min-width:0}
+.veh-card:hover{border-color:var(--accent)}
+.veh-top{display:flex;gap:10px;align-items:flex-start}
+.veh-ic{width:38px;height:38px;border-radius:9px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;flex:none}
+.veh-ic svg{width:22px;height:22px}
+.veh-name{font-weight:700;font-size:1.02rem;overflow-wrap:anywhere}
+.veh-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;font-size:.88rem}
+.veh-stats > span{display:flex;flex-direction:column;gap:1px;min-width:0;overflow-wrap:anywhere}
+.veh-stats > span:last-child{grid-column:1 / -1}
+.veh-stats .lbl{font-size:.68rem}
+.doc-chips{display:flex;gap:6px;flex-wrap:wrap}
+.doc-chip{display:inline-flex;align-items:center;gap:4px;font-size:.74rem;font-weight:600;padding:3px 8px;border-radius:999px;background:var(--good-soft);color:var(--good)}
+.doc-chip svg{width:13px;height:13px}
+.doc-chip.missing{background:var(--surface-2);color:var(--muted);border:1px dashed var(--line)}
+.doc-chip.soon{background:var(--warn-soft);color:var(--warn)}
+.doc-chip.bad{background:var(--bad-soft);color:var(--bad)}
+.veh-alerts{display:flex;flex-direction:column;gap:2px;font-size:.8rem;font-weight:600;border-top:1px solid var(--line);padding-top:8px}
+.veh-alerts .bad{color:var(--bad)} .veh-alerts .soon{color:var(--warn)}
+.doc-slots{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:560px){.doc-slots{grid-template-columns:minmax(0,1fr)}}
+.doc-slot{display:flex;flex-direction:column;gap:8px;border:1px solid var(--line);border-radius:8px;padding:10px;min-width:0;background:var(--surface-2)}
+.doc-slot-h{display:flex;justify-content:space-between;gap:6px;align-items:center;flex-wrap:wrap}
+.doc-empty{aspect-ratio:1.6;border:1.5px dashed var(--line);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--muted);font-size:.84rem;max-width:100%}
+.doc-empty svg{width:26px;height:26px}
+.doc-thumb{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:6px;overflow:hidden;background:var(--surface);border:1px solid var(--line);color:var(--accent);flex:none;text-decoration:none;flex-direction:column;font-size:.6rem;font-weight:700}
+.doc-thumb img{width:100%;height:100%;object-fit:cover}
+.doc-thumb svg{width:20px;height:20px}
+.doc-thumb.big{width:100%;height:auto;aspect-ratio:1.6;max-width:100%}
+.doc-thumb.big img{object-fit:contain;background:var(--surface)}
+.doc-thumb.big svg{width:34px;height:34px}
+.doc-thumb.loading{background:linear-gradient(90deg,var(--surface-2),var(--surface),var(--surface-2))}
 /* settings tabs */
 .set-tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:thin;margin-bottom:-6px}
 .set-tab{border:0;background:none;padding:10px 14px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;border-bottom:2.5px solid transparent;margin-bottom:-1px;display:inline-flex;align-items:center;gap:6px;font-size:.92rem}
@@ -451,7 +485,7 @@ body.role-crew [data-act="askDelete"]:not([data-col="photos"]), body.role-crew .
 .bubble.out{background:var(--accent-soft);border-radius:12px 12px 4px 12px}
 .tmeta{font-size:.7rem;color:var(--muted)}
 .pill.text-in{background:var(--mark-soft);color:var(--mark-ink);border-color:transparent}
-#tb-msg{position:relative}
+#tb-msg,#tb-fleet{position:relative}
 .tb-dot{position:absolute;top:2px;right:0;background:#C8372D;color:#fff;border-radius:999px;font-size:.62rem;font-weight:700;min-width:16px;height:16px;padding:0 4px;display:grid;place-items:center}
 /* sign-in */
 .auth{min-height:100vh;min-height:100dvh;display:grid;place-items:center;background:var(--side-bg);padding-block:24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -480,6 +514,7 @@ body.role-crew [data-act="askDelete"]:not([data-col="photos"]), body.role-crew .
     <header class="topbar">
       <div class="brand"><span id="logo2"></span><div style="min-width:0"><div class="brand-name" data-bizname>Your Window Co.</div></div></div>
       <div class="spacer"></div>
+      <button class="icon-btn" data-act="nav" data-view="fleet" aria-label="Fleet" id="tb-fleet"></button>
       <button class="icon-btn" data-act="nav" data-view="reports" aria-label="Reports" id="tb-rep"></button>
       <button class="icon-btn" data-act="nav" data-view="messages" aria-label="Messages" id="tb-msg"></button>
       <button class="icon-btn" data-act="nav" data-view="settings" aria-label="Settings" id="tb-set"></button>
@@ -500,6 +535,8 @@ const I = {
   calendar:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/><path d="M7 13h2M11 13h2M15 13h2M7 16.5h2M11 16.5h2"/></svg>',
   jobs:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>',
   customers:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v10h13V10"/><rect x="10" y="13" width="4" height="4"/></svg>',
+  fleet:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 16.5V7.5a1 1 0 0 1 1-1h10v10"/><path d="M13.5 9.5h4l3 3.5v3.5h-2"/><path d="M2.5 16.5h2M9 16.5h6"/><circle cx="6.8" cy="16.8" r="2"/><circle cx="16.8" cy="16.8" r="2"/></svg>',
+  doc:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6.5a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1V7.5z"/><path d="M14 3v4.5h4.5M8.5 12.5h7M8.5 16h5"/></svg>',
   photos:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M12 5v14"/><path d="m14.5 15 2-2.5 2.5 3"/><path d="M5.5 15.5 9 10"/></svg>',
   invoices:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2.5h12v19l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>',
   messages:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg>',
@@ -556,7 +593,7 @@ const SOURCES = ['Referral','Google','Facebook','Nextdoor','Yard sign','Door han
 const PAY_METHODS = ['Card','Check','Cash','Zelle','Venmo','ACH','Other'];
 
 /* ---------- state ---------- */
-const S = {customers:[], jobs:[], invoices:[], photos:[], messages:[], settingsDoc:null, view:'today',
+const S = {customers:[], jobs:[], invoices:[], photos:[], messages:[], vehicles:[], vehicle_logs:[], settingsDoc:null, view:'today',
   jobFilter:'upcoming', custQuery:'', custStatus:'All', photoQuery:'', invFilter:'Open', invQuery:'', msgQuery:'', msgChan:'all', msgTab:'conv', rep:{id:'summary', period:'ytd', from:'', to:''}, cal:{mode:'month', anchor:'', sel:null, showQuotes:true}, settingsDirty:false, dbState:'connecting',
   canWrite:null, canAdmin:false, uid:null, assetsOn:true, downloadsOn:true, role:null, profile:null, team:[], activity:null, integ:{email:false, sms:false}, setTab:'general', api:{loaded:false, loading:false, data:null, busy:{}, err:null}, mapsKey:null};
 // data, photo storage and downloads are defined in the Supabase data layer below
@@ -635,7 +672,7 @@ function svButtons(c, small){
 const SB_URL='https://quthcaplccvgpvlietyo.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1dGhjYXBsY2N2Z3B2bGlldHlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3MTM4ODMsImV4cCI6MjEwODI4OTg4M30.C4vsmsN7LhahIbwiCGdAy3Cwbl7FVbXV3mMZaS5fN5A';
 let sb=null;
-const STORE={customers:new Map(), jobs:new Map(), invoices:new Map(), photos:new Map(), messages:new Map()};
+const STORE={customers:new Map(), jobs:new Map(), invoices:new Map(), photos:new Map(), messages:new Map(), vehicles:new Map(), vehicle_logs:new Map()};
 const genId = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random()).replace(/[^a-z0-9]/gi,'').slice(0,20);
 function pgErr(error){ const m=String(error&&error.message||''); if(error&&(error.code==='42501'||/row-level security|permission/i.test(m))) return {code:'invalid_argument', message:m}; if(/fetch|network/i.test(m)) return {code:'unavailable', message:m}; return {code:'unavailable', message:m}; }
 function applyLocal(col, id, body){ const m=STORE[col]; if(!m) return; if(body===null) m.delete(id); else m.set(id,{id,...body}); S[col]=[...m.values()]; scheduleRender(); }
@@ -722,19 +759,19 @@ applyTheme();
 try{ new MutationObserver(()=>{ if(getTheme()!=='system') applyTheme(); }).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']}); }catch(e){}
 
 /* ---------- shell ---------- */
-const NAV = [['today','Dashboard'],['calendar','Calendar'],['jobs','Jobs'],['customers','Customers'],['photos','Photos'],['invoices','Invoices'],['messages','Messages'],['reports','Reports']];
+const NAV = [['today','Dashboard'],['calendar','Calendar'],['jobs','Jobs'],['customers','Customers'],['photos','Photos'],['fleet','Fleet'],['invoices','Invoices'],['messages','Messages'],['reports','Reports']];
 function renderShell(){
   $('#logo1').innerHTML=LOGO; $('#logo2').innerHTML=LOGO;
-  const navBtn = ([v,l]) => { const badge = v==='invoices' ? S.invoices.filter(x=>invStatus(x)==='Overdue').length : v==='messages' ? unreadTexts() : 0;
-    return `<button class="nav" data-act="nav" data-view="${v}" ${S.view===v?'aria-current="page"':''}>${I[v]}<span style="flex:1">${l}</span>${badge?`<span class="nav-badge" aria-label="${badge} ${v==='messages'?'unread':'overdue'}">${badge}</span>`:''}</button>`; };
+  const navBtn = ([v,l]) => { const badge = v==='invoices' ? S.invoices.filter(x=>invStatus(x)==='Overdue').length : v==='messages' ? unreadTexts() : v==='fleet' ? fleetAttention().length : 0;
+    return `<button class="nav" data-act="nav" data-view="${v}" ${S.view===v?'aria-current="page"':''}>${I[v]}<span style="flex:1">${l}</span>${badge?`<span class="nav-badge" aria-label="${badge} ${v==='messages'?'unread':v==='fleet'?'need attention':'overdue'}">${badge}</span>`:''}</button>`; };
   const nav = NAV.filter(([v])=> S.role!=='crew' || !['invoices','messages','reports'].includes(v));
   const office = nav.filter(([v])=>['invoices','messages','reports'].includes(v));
   $('#sidenav').innerHTML = `<div class="side-label">Field</div>${nav.filter(([v])=>!['invoices','messages','reports'].includes(v)).map(navBtn).join('')}${office.length?`<div class="side-label">Office</div>${office.map(navBtn).join('')}`:''}`;
   $('#nav-settings').innerHTML = I.settings+'Settings'; S.view==='settings' ? $('#nav-settings').setAttribute('aria-current','page') : $('#nav-settings').removeAttribute('aria-current');
-  const tabs = NAV.filter(n=>n[0]!=='messages' && n[0]!=='reports' && !(S.role==='crew' && n[0]==='invoices'));
+  const tabs = NAV.filter(n=>n[0]!=='messages' && n[0]!=='reports' && n[0]!=='fleet' && !(S.role==='crew' && n[0]==='invoices'));
   $('#tabbar').style.gridTemplateColumns = `repeat(${tabs.length},1fr)`;
   $('#tabbar').innerHTML = tabs.map(([v,l])=>`<button class="tab" data-act="nav" data-view="${v}" ${S.view===v?'aria-current="page"':''}>${I[v]}${l}</button>`).join('');
-  { const u=S.role!=='crew'?unreadTexts():0; $('#tb-msg').innerHTML=I.messages+(u?`<span class="tb-dot" aria-label="${u} unread">${u>9?'9+':u}</span>`:''); } $('#tb-rep').innerHTML=I.reports; $('#tb-set').innerHTML=I.settings;
+  { const u=S.role!=='crew'?unreadTexts():0; $('#tb-msg').innerHTML=I.messages+(u?`<span class="tb-dot" aria-label="${u} unread">${u>9?'9+':u}</span>`:''); } { const n=fleetAttention().length; $('#tb-fleet').innerHTML=I.fleet+(n?`<span class="tb-dot" aria-label="${n} vehicle alerts">${n>9?'9+':n}</span>`:''); } $('#tb-rep').innerHTML=I.reports; $('#tb-set').innerHTML=I.settings;
   document.querySelectorAll('[data-bizname]').forEach(el=>el.textContent=settings().businessName||'Your Window Co.');
 }
 function banner(){
@@ -746,7 +783,7 @@ function render(){
   renderShell();
   if(S.view==='settings' && S.settingsDirty && document.querySelector('#view form[data-form=settings]')){ if(drawerState && drawerState.detail) openDrawer(drawerState.kind, drawerState.args, true); return; }
   if(S.role==='crew' && ['invoices','messages','reports'].includes(S.view)) S.view='today';
-  const v = {today:viewToday, calendar:viewCalendar, jobs:viewJobs, customers:viewCustomers, photos:viewPhotos, invoices:viewInvoices, messages:viewMessages, reports:viewReports, settings:viewSettings}[S.view] || viewToday;
+  const v = {today:viewToday, calendar:viewCalendar, jobs:viewJobs, customers:viewCustomers, photos:viewPhotos, invoices:viewInvoices, messages:viewMessages, fleet:viewFleet, reports:viewReports, settings:viewSettings}[S.view] || viewToday;
   const keepFocus = document.activeElement && document.activeElement.id && $('#view').contains(document.activeElement) ? document.activeElement.id : null;
   const sel = keepFocus ? [document.activeElement.selectionStart, document.activeElement.selectionEnd] : null;
   const keepVals = S.view==='settings' ? [...document.querySelectorAll('#view input[id]:not([type=checkbox]):not([type=radio]):not([type=file])')].filter(i=>!i.closest('form[data-form=settings]') && i.value).map(i=>[i.id,i.value]) : [];
@@ -778,6 +815,7 @@ function viewCrewToday(){
   const day = d => S.jobs.filter(j=>j.date===d && !['Cancelled','Quoted'].includes(j.status)).sort((a,b)=>(a.time||'99').localeCompare(b.time||'99'));
   const a=day(t), b=day(tm);
   return `<div class="page-head"><div><p class="eyebrow">${esc(fmtDay(t))}</p><h1>Hi${S.profile&&S.profile.full_name?', '+esc(S.profile.full_name.split(' ')[0]):''}</h1></div></div>
+  ${fleetNotice()}
   <section class="panel"><div class="panel-head"><h2>Today's route</h2><span class="muted" style="font-size:.84rem">${a.length} job${a.length===1?'':'s'}</span></div>${a.length?`<div class="list">${a.map(j=>jobRow(j)).join('')}</div>`:'<p class="muted">Nothing scheduled today.</p>'}</section>
   <section class="panel"><div class="panel-head"><h2>Tomorrow</h2><span class="muted" style="font-size:.84rem">${b.length} job${b.length===1?'':'s'}</span></div>${b.length?`<div class="list">${b.map(j=>jobRow(j)).join('')}</div>`:'<p class="muted">Nothing scheduled tomorrow yet.</p>'}</section>`;
 }
@@ -811,6 +849,7 @@ function viewToday(){
     <div class="stat" style="--dot:var(--violet)"><span class="k">Collected in ${parseISO(t).toLocaleDateString('en-US',{month:'short'})}</span><span class="v">${money(paidMonth)}</span><span class="d">Payments recorded</span></div>
     <button class="stat quote wide" data-act="jobFilter" data-f="quoted" style="text-align:left;cursor:pointer;font:inherit"><span class="k">Open quotes</span><span class="v">${money(quoteVal)}</span><span class="d">${quotes.length} quote${quotes.length===1?'':'s'} out${quoteOld?` · ${quoteOld} older than a week`:''}</span></button>
   </div>
+  ${fleetNotice()}
   <section class="panel"><div class="panel-head"><h2>Today's route</h2><button class="btn ghost sm" data-act="nav" data-view="jobs">All jobs</button></div>
     ${todays.length ? `<div class="list">${todays.map(j=>jobRow(j)).join('')}</div>` : emptyBox('No jobs on the schedule today','Booked jobs show here in time order with the address, gate notes and a Street View link for the crew.', 'newJob','Schedule a job')}
     ${pastDue.length?`<div class="notice" style="margin-top:12px">${pastDue.length} past job${pastDue.length===1?' is':'s are'} still marked Scheduled. <button class="btn sm" data-act="jobFilter" data-f="upcoming" style="margin-left:auto">Review</button></div>`:''}
@@ -852,6 +891,7 @@ const REPORTS=[
   ['quotes','Quote conversion','How many quotes turn into jobs'],
   ['sources','Lead sources','Where new customers come from'],
   ['recurring','Recurring revenue','Repeat customers and what they are worth per year'],
+  ['fleet','Fleet costs','Maintenance and repair spending by vehicle'],
 ];
 const PERIODS=[['month','This month'],['lastmonth','Last month'],['quarter','This quarter'],['ytd','Year to date'],['lastyear','Last year'],['12m','Last 12 months'],['custom','Custom dates']];
 function repPeriod(){
@@ -891,6 +931,18 @@ function groupedBars(labels, series){
     <div class="chart-scroll"><svg class="chart" viewBox="0 0 ${W} ${H}" style="min-width:${Math.min(W,560)}px" role="img" aria-label="${esc(series.map(x=>x.name).join(' and '))} by month">${g}</svg></div>`;
 }
 const RP = {
+  fleet(P){
+    const logs=S.vehicle_logs.filter(l=>l.date>=P.from && l.date<=P.to && (+l.cost||0)>0);
+    const g={}; logs.forEach(l=>{ const r=g[l.vehicleId] ||= {n:0,cost:0,types:{}}; r.n++; r.cost+=+l.cost||0; r.types[l.type||'Other']=(r.types[l.type||'Other']||0)+(+l.cost||0); });
+    const list=Object.entries(g).sort((a,b)=>b[1].cost-a[1].cost); const tot=list.reduce((a,[,r])=>a+r.cost,0); const max=list[0]?list[0][1].cost:0;
+    const byType={}; logs.forEach(l=>byType[l.type||'Other']=(byType[l.type||'Other']||0)+(+l.cost||0)); const topType=Object.entries(byType).sort((a,b)=>b[1]-a[1])[0];
+    return {kpis:[['Fleet spending',money(tot),`${logs.length} paid service record${logs.length===1?'':'s'}`],['Vehicles',String(S.vehicles.length),''],['Biggest category',topType?esc(topType[0]):'—',topType?money(topType[1]):'']],
+      head:['Vehicle','Records','Spent','Biggest category','Share'], num:[1,2],
+      rows:list.map(([vid,r])=>{ const tt=Object.entries(r.types).sort((a,b)=>b[1]-a[1])[0]; return [`<button class="linkish" data-act="openVehicle" data-id="${vid}">${esc(vehName(veh(vid)))}</button>`, r.n, money(r.cost), esc(tt?tt[0]:''), shareBar(r.cost,max)]; }),
+      foot:['Total', logs.length, money(tot), '', ''],
+      csv:[['Date','Vehicle','Type','Description','Odometer','Cost','Shop'],...logs.sort((a,b)=>a.date.localeCompare(b.date)).map(l=>[l.date,vehName(veh(l.vehicleId)),l.type||'',l.desc||'',l.odometer||'',(+l.cost||0).toFixed(2),l.vendor||''])],
+      note:'Based on service records dated in this period that have a cost. The CSV lists every record.'};
+  },
   summary(P){
     const months=monthsBetween(P.from,P.to); const row={}; months.forEach(m=>row[m]={n:0,inv:0,tax:0,col:0});
     liveInvoices().forEach(v=>{ if(v.date>=P.from && v.date<=P.to){ const r=row[v.date.slice(0,7)]; if(r){ const t=totals(v); r.n++; r.inv+=t.sub; r.tax+=t.tax; } } });
@@ -1317,7 +1369,7 @@ function activityHtml(){
   if(!S.activity) return '<p class="muted">Loading…</p>';
   if(!S.activity.length) return '<p class="muted">No activity yet.</p>';
   const nm=id=>{ const m=S.team.find(x=>x.id===id); return m?(m.full_name||m.email):'Someone'; };
-  const what={customers:'customer',jobs:'job',invoices:'invoice',photos:'photo',settings:'settings'};
+  const what={customers:'customer',jobs:'job',invoices:'invoice',photos:'photo',settings:'settings',vehicles:'vehicle',vehicle_logs:'vehicle service record'};
   return S.activity.map(a=>`<div class="act-row"><span class="muted mono" style="font-size:.76rem;white-space:nowrap">${esc(new Date(a.at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}))}</span><span>${esc(nm(a.user_id))} ${a.action==='insert'?'added':a.action==='delete'?'deleted':'updated'} ${esc(what[a.tbl]||a.tbl)}${a.summary?` <span class="muted">${esc(a.summary)}</span>`:''}</span></div>`).join('');
 }
 async function loadActivity(){ if(S.role!=='owner') return; const {data}=await sb.from('activity').select('*').order('at',{ascending:false}).limit(60); S.activity=data||[]; const box=document.getElementById('activity-box'); if(box) box.innerHTML=activityHtml(); }
@@ -1461,6 +1513,236 @@ async function loadApis(force){
   refreshApis();
 }
 async function refreshInteg(){ const r=await callFn('messaging',{action:'status'}); if(r.ok){ S.integ={email:!!r.email, sms:!!r.sms}; S.mapsKey=r.mapsKey||null; } }
+
+/* ---------- fleet ---------- */
+const VEH_STATUS=['Active','In the shop','Out of service','Sold'];
+const DEFAULT_SCHEDULE=[{name:'Oil & filter change', miles:5000, months:6},{name:'Tire rotation', miles:7500, months:12},{name:'Brake inspection', miles:15000, months:12},{name:'Air filter', miles:15000, months:12}];
+const LOG_TYPES_EXTRA=['Mileage update','Repair','Tires','State inspection','Registration renewal','Insurance renewal','Cleaning / ladder rack','Other'];
+const veh = id => S.vehicles.find(v=>v.id===id);
+const vehName = v => v ? (v.name || [v.year,v.make,v.model].filter(Boolean).join(' ') || 'Vehicle') : 'Removed vehicle';
+const vehDesc = v => [v.year,v.make,v.model].filter(Boolean).join(' ');
+const vLogs = id => S.vehicle_logs.filter(l=>l.vehicleId===id).sort((a,b)=>(b.date||'').localeCompare(a.date||'') || (+b.odometer||0)-(+a.odometer||0) || (b.createdAt||0)-(a.createdAt||0));
+const fmtMi = n => (n==null||n==='') ? '—' : Math.round(+n).toLocaleString('en-US')+' mi';
+function vOdo(v){ return Math.max(+v.odometer||0, ...vLogs(v.id).map(l=>+l.odometer||0), 0) || null; }
+function schedule(v){ return (v.schedule && v.schedule.length) ? v.schedule : DEFAULT_SCHEDULE; }
+function schedStatus(v){
+  const odo=vOdo(v); const t=todayISO(); const logs=vLogs(v.id);
+  return schedule(v).map(it=>{
+    const last=logs.find(l=>(l.type||'').toLowerCase()===it.name.toLowerCase());
+    if(!last) return {...it, last:null, state:'unknown', label:'No record yet'};
+    const nextMi = (it.miles && last.odometer) ? (+last.odometer + +it.miles) : null;
+    const nextDate = it.months ? addMonths(last.date, +it.months) : null;
+    const miLeft = (nextMi!=null && odo!=null) ? nextMi-odo : null;
+    const daysLeft = nextDate ? Math.round((parseISO(nextDate)-parseISO(t))/864e5) : null;
+    let state='ok';
+    if((miLeft!=null && miLeft<0) || (daysLeft!=null && daysLeft<0)) state='overdue';
+    else if((miLeft!=null && miLeft<=500) || (daysLeft!=null && daysLeft<=30)) state='soon';
+    const parts=[]; if(nextMi!=null) parts.push(miLeft!=null&&miLeft<0?`${fmtMi(-miLeft)} over`:`at ${fmtMi(nextMi)}`); if(nextDate) parts.push(daysLeft<0?`${-daysLeft} days late`:`by ${fmtDate(nextDate)}`);
+    return {...it, last, nextMi, nextDate, miLeft, daysLeft, state, label:parts.join(' or ')};
+  });
+}
+const DOC_SLOTS=[['registration','Registration','regExp'],['insurance','Insurance card','insExp']];
+function docDates(v){
+  const t=todayISO(); const out=[];
+  [['Registration',v.regExp],['Insurance',v.insExp],['State inspection',v.inspExp]].forEach(([l,d])=>{ if(!d) return; const days=Math.round((parseISO(d)-parseISO(t))/864e5); out.push({label:l, date:d, days, state: days<0?'overdue':days<=30?'soon':'ok'}); });
+  return out;
+}
+function vehAlerts(v){
+  if(v.status==='Sold' || v.status==='Out of service') return [];
+  const a=[];
+  schedStatus(v).forEach(it=>{ if(it.state==='overdue') a.push({sev:2, text:`${it.name} overdue (${it.label})`}); else if(it.state==='soon') a.push({sev:1, text:`${it.name} due soon (${it.label})`}); });
+  docDates(v).forEach(d=>{ if(d.state==='overdue') a.push({sev:2, text:`${d.label} expired ${fmtDate(d.date)}`}); else if(d.state==='soon') a.push({sev:1, text:`${d.label} expires ${fmtDate(d.date)}`}); });
+  if(!(v.docs&&v.docs.insurance)) a.push({sev:1, text:'No insurance card uploaded'});
+  if(!(v.docs&&v.docs.registration)) a.push({sev:1, text:'No registration uploaded'});
+  return a.sort((x,y)=>y.sev-x.sev);
+}
+function fleetAttention(){ return S.vehicles.filter(v=>vehAlerts(v).some(a=>a.sev>=1 && !/^No (insurance|registration)/.test(a.text) || a.sev===2)); }
+function fleetNotice(){
+  const list=fleetAttention(); if(!list.length) return '';
+  return `<div class="notice" style="align-items:center;flex-wrap:wrap">${I.fleet.replace('<svg','<svg style="width:20px;height:20px;flex:none"')}<span><strong>Fleet:</strong> ${list.map(v=>`${esc(vehName(v))} (${esc(vehAlerts(v)[0].text.toLowerCase())})`).slice(0,3).join('; ')}${list.length>3?` and ${list.length-3} more`:''}.</span><button class="btn sm" data-act="nav" data-view="fleet" style="margin-left:auto">Open fleet</button></div>`;
+}
+/* fleet files: private storage, short-lived links */
+const FL={url:new Map(), want:new Set(), timer:null};
+function fleetUrl(path){ if(!path) return ''; const u=FL.url.get(path); if(u) return u; FL.want.add(path); if(!FL.timer) FL.timer=setTimeout(fetchFleetUrls,40); return ''; }
+async function fetchFleetUrls(){
+  FL.timer=null; const paths=[...FL.want].filter(p=>!FL.url.has(p)); FL.want.clear(); if(!paths.length||!sb) return;
+  const {data}=await sb.storage.from('fleet').createSignedUrls(paths, 60*60*6);
+  paths.forEach(p=>FL.url.set(p, '#')); (data||[]).forEach(x=>{ if(x.signedUrl && x.path) FL.url.set(x.path, x.signedUrl); });
+  scheduleRender();
+}
+function fileThumb(f, big){
+  if(!f) return '';
+  const u=fleetUrl(f.path);
+  if(/^image\//.test(f.type)) return u && u!=='#' ? `<a href="${esc(u)}" target="_blank" rel="noopener" class="doc-thumb${big?' big':''}" aria-label="Open ${esc(f.name||'image')} full size"><img src="${esc(u)}" alt=""></a>` : `<span class="doc-thumb${big?' big':''} loading" aria-hidden="true"></span>`;
+  return `<a href="${esc(u&&u!=='#'?u:'#')}" target="_blank" rel="noopener" class="doc-thumb pdf${big?' big':''}">${I.doc}<span>PDF</span></a>`;
+}
+function vehCard(v){
+  const al=vehAlerts(v); const st=schedStatus(v); const nx=st.filter(x=>x.state!=='unknown').sort((a,b)=>({overdue:0,soon:1,ok:2}[a.state])-({overdue:0,soon:1,ok:2}[b.state]))[0];
+  const docChip=([k,l,exp])=>{ const has=v.docs&&v.docs[k]; const d=v[exp]; const days=d?Math.round((parseISO(d)-parseISO(todayISO()))/864e5):null; const cls=!has?'missing':days!=null&&days<0?'bad':days!=null&&days<=30?'soon':'ok';
+    return `<span class="doc-chip ${cls}">${I.doc}${l}${d?` · ${days<0?'expired':'exp.'} ${esc(fmtDate(d))}`:has?'':' · not uploaded'}</span>`; };
+  return `<button class="veh-card" data-act="openVehicle" data-id="${v.id}">
+    <div class="veh-top"><span class="veh-ic" aria-hidden="true">${I.fleet}</span><div style="min-width:0;flex:1"><div class="veh-name">${esc(vehName(v))}</div><div class="muted" style="font-size:.84rem">${esc([vehDesc(v)!==v.name?vehDesc(v):'', v.plate?`Plate ${v.plate}`:''].filter(Boolean).join(' · '))}</div></div>${pill(v.status||'Active').replace('pill active','pill paid').replace('pill in-the-shop','pill partial').replace('pill out-of-service','pill overdue')}</div>
+    <div class="veh-stats"><span><span class="lbl">Odometer</span>${esc(fmtMi(vOdo(v)))}</span><span><span class="lbl">Driver</span>${esc(v.driver||'—')}</span><span><span class="lbl">Next service</span>${nx?esc(`${nx.name}, ${nx.label}`):'Log a service to start tracking'}</span></div>
+    <div class="doc-chips">${DOC_SLOTS.map(docChip).join('')}</div>
+    ${al.length?`<div class="veh-alerts">${al.slice(0,3).map(a=>`<span class="${a.sev===2?'bad':'soon'}">${a.sev===2?'●':'○'} ${esc(a.text)}</span>`).join('')}</div>`:''}
+  </button>`;
+}
+function viewFleet(){
+  const list=[...S.vehicles].sort((a,b)=>(a.status==='Sold')-(b.status==='Sold') || vehName(a).localeCompare(vehName(b)));
+  const active=list.filter(v=>v.status!=='Sold');
+  const yr=todayISO().slice(0,4);
+  const spent=S.vehicle_logs.filter(l=>(l.date||'').startsWith(yr)).reduce((a,l)=>a+(+l.cost||0),0);
+  const att=fleetAttention();
+  const due=active.reduce((n,v)=>n+schedStatus(v).filter(x=>x.state==='overdue'||x.state==='soon').length,0);
+  const exp=active.reduce((n,v)=>n+docDates(v).filter(d=>d.state!=='ok').length,0);
+  return `
+  <div class="page-head"><div><p class="eyebrow">Vehicles & maintenance</p><h1>Fleet</h1></div><div class="actions"><button class="btn primary" data-act="newVehicle">${I.plus} Vehicle</button></div></div>
+  ${S.vehicles.length?`<div class="stats">
+    <div class="stat" style="--dot:var(--accent)"><span class="k">Vehicles</span><span class="v">${active.length}</span><span class="d">${list.length-active.length?`${list.length-active.length} sold`:'in service'}</span></div>
+    <div class="stat" style="--dot:var(--warn)"><span class="k">Service due</span><span class="v">${due}</span><span class="d">overdue or within 500 mi / 30 days</span></div>
+    <div class="stat" style="--dot:var(--bad)"><span class="k">Papers expiring</span><span class="v">${exp}</span><span class="d">registration, insurance, inspection</span></div>
+    <div class="stat office-only" style="--dot:var(--violet)"><span class="k">Spent in ${yr}</span><span class="v">${money(spent)}</span><span class="d">maintenance & repairs</span></div>
+  </div>`:''}
+  ${att.length?`<section class="panel"><div class="panel-head"><h2>Needs attention</h2></div><div class="list">${att.map(v=>`<button class="row" data-act="openVehicle" data-id="${v.id}"><span class="t">${esc(vehName(v))}</span><span class="s">${vehAlerts(v).map(a=>esc(a.text)).join(' · ')}</span><span class="r">${pill(vehAlerts(v)[0].sev===2?'Overdue':'Due soon').replace('pill due-soon','pill partial')}</span></button>`).join('')}</div></section>`:''}
+  ${list.length?`<div class="veh-grid">${list.map(vehCard).join('')}</div>`
+    : `<section class="panel">${emptyBox('No vehicles yet','Add each truck or van with its plate, VIN and mileage. Then upload the registration and insurance card, and log services so the app can tell you when maintenance is due.','newVehicle','Add a vehicle')}</section>`}`;
+}
+function vehicleDrawer({id}){
+  const v=veh(id); if(!v) return null;
+  const logs=vLogs(id); const st=schedStatus(v); const odo=vOdo(v);
+  const yr=todayISO().slice(0,4); const spentYr=logs.filter(l=>(l.date||'').startsWith(yr)).reduce((a,l)=>a+(+l.cost||0),0); const spentAll=logs.reduce((a,l)=>a+(+l.cost||0),0);
+  const docSlot=([k,label,exp])=>{ const f=v.docs&&v.docs[k]; const d=v[exp]; const days=d?Math.round((parseISO(d)-parseISO(todayISO()))/864e5):null;
+    return `<div class="doc-slot">
+      <div class="doc-slot-h"><strong>${label}</strong>${d?`<span class="${days<0?'pill overdue':days<=30?'pill partial':'pill paid'}">${days<0?'Expired':'Expires'} ${esc(fmtDate(d))}</span>`:'<span class="muted" style="font-size:.8rem">No expiration date</span>'}</div>
+      ${f?`${fileThumb(f,true)}<div class="muted" style="font-size:.78rem;overflow-wrap:anywhere">${esc(f.name||'')} · added ${esc(fmtDate(f.at?iso(new Date(f.at)):''))}</div>`:`<div class="doc-empty">${I.doc}<span>Not uploaded</span></div>`}
+      <div class="btnrow fleet-manage">
+        <label class="upl btn sm ${f?'':'primary'}" for="fu-${k}">${I.upload} ${f?'Replace':'Upload'}<input type="file" id="fu-${k}" accept="image/*,application/pdf" data-fleet-upload="${k}" data-vid="${id}"></label>
+        ${f?`<button class="btn sm ghost" data-act="delFleetDoc" data-vid="${id}" data-slot="${k}">Remove</button>`:''}
+      </div></div>`; };
+  const others=(v.docs&&v.docs.other)||[];
+  return {detail:true, back:stack.length>0, title:esc(vehName(v)), body:`
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${pill(v.status||'Active').replace('pill active','pill paid').replace('pill in-the-shop','pill partial').replace('pill out-of-service','pill overdue')}<span class="muted">${esc(vehDesc(v))}</span></div>
+    <div class="btnrow"><button class="btn primary" data-act="logService" data-vid="${id}">${I.plus} Log service</button><button class="btn" data-act="logMileage" data-vid="${id}">Update mileage</button><button class="btn" data-act="editVehicle" data-id="${id}">Edit</button></div>
+    <div class="facts">
+      <div class="fact"><div class="k">Odometer</div><div class="v num" style="font-size:.98rem">${esc(fmtMi(odo))}</div></div>
+      <div class="fact"><div class="k">Plate</div><div class="v" style="font-size:.95rem">${esc(v.plate||'—')}${v.plateState?` <span class="muted" style="font-size:.8rem">${esc(v.plateState)}</span>`:''}</div></div>
+      <div class="fact"><div class="k">Driver / crew</div><div class="v" style="font-size:.95rem">${esc(v.driver||'—')}</div></div>
+      <div class="fact office-only"><div class="k">Spent ${yr}</div><div class="v num" style="font-size:.95rem">${money(spentYr)}</div></div>
+      <div class="fact office-only"><div class="k">Spent all time</div><div class="v num" style="font-size:.95rem">${money(spentAll)}</div></div>
+      <div class="fact"><div class="k">Inspection due</div><div class="v" style="font-size:.9rem">${v.inspExp?esc(fmtDate(v.inspExp)):'—'}</div></div>
+    </div>
+    <section class="panel" style="display:flex;flex-direction:column;gap:12px"><div class="panel-head" style="margin:0"><h3>Registration & insurance</h3></div>
+      <div class="doc-slots">${DOC_SLOTS.map(docSlot).join('')}</div>
+      ${v.insCompany||v.insPolicy?`<dl class="kv"><dt>Insurance company</dt><dd>${esc(v.insCompany||'—')}</dd><dt>Policy #</dt><dd class="mono">${esc(v.insPolicy||'—')}</dd>${v.insPhone?`<dt>Claims phone</dt><dd>${esc(v.insPhone)}</dd>`:''}</dl>`:''}
+      <div id="fleet-upl-status" class="hint"></div>
+      <div><div class="lbl" style="margin-bottom:6px">Other documents</div>
+        ${others.length?`<div class="list">${others.map((f,i)=>`<div class="row" style="cursor:default;grid-template-columns:auto 1fr auto"><span>${fileThumb(f)}</span><span class="t" style="grid-column:2;font-weight:600">${esc(f.title||f.name||'Document')}<span class="s" style="display:block;font-weight:400">${esc(f.name||'')} · ${esc(fmtDate(f.at?iso(new Date(f.at)):''))}</span></span><span class="r fleet-manage"><button class="btn sm ghost" data-act="delFleetDoc" data-vid="${id}" data-slot="other" data-i="${i}">Remove</button></span></div>`).join('')}</div>`:'<p class="muted" style="font-size:.86rem">Title, loan papers, warranty, inspection report…</p>'}
+        <div class="fleet-manage" style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end;margin-top:8px"><div class="field" style="flex:1 1 160px"><label for="fo-title">Document name</label><input type="text" id="fo-title" placeholder="Title, warranty, etc."></div><label class="upl btn sm" for="fu-other">${I.upload} Add document<input type="file" id="fu-other" accept="image/*,application/pdf" data-fleet-upload="other" data-vid="${id}"></label></div>
+      </div>
+    </section>
+    <section class="panel"><div class="panel-head"><h3>Maintenance schedule</h3><span class="muted" style="font-size:.8rem">Current: ${esc(fmtMi(odo))}</span></div>
+      <div class="tablewrap"><table><thead><tr><th>Service</th><th>Every</th><th>Last done</th><th>Next due</th><th></th></tr></thead><tbody>
+      ${st.map(it=>`<tr><td style="font-weight:600">${esc(it.name)}</td><td class="muted" style="white-space:nowrap">${[it.miles?Math.round(it.miles).toLocaleString('en-US')+' mi':'', it.months?it.months+' mo':''].filter(Boolean).join(' / ')||'—'}</td><td style="white-space:nowrap">${it.last?`${esc(fmtDate(it.last.date))}${it.last.odometer?`<div class="muted" style="font-size:.78rem">${esc(fmtMi(it.last.odometer))}</div>`:''}`:'<span class="muted">—</span>'}</td><td>${it.last?esc(it.label):'<span class="muted">Log the last one</span>'}</td><td>${it.state==='overdue'?pill('Overdue'):it.state==='soon'?pill('Due soon').replace('pill due-soon','pill partial'):it.state==='ok'?pill('OK').replace('pill ok','pill paid'):`<button class="btn sm" data-act="logService" data-vid="${id}" data-type="${esc(it.name)}">Log it</button>`}</td></tr>`).join('')}
+      </tbody></table></div>
+      <p class="hint" style="margin-top:6px">Due soon means within 500 miles or 30 days. Change the schedule with Edit.</p></section>
+    <section class="panel"><div class="panel-head"><h3>Service history</h3><span class="muted" style="font-size:.8rem">${logs.length} record${logs.length===1?'':'s'}</span></div>
+      ${logs.length?`<div class="list">${logs.map(l=>`<div class="row" style="cursor:default"><span class="t">${esc(fmtDate(l.date))} · ${esc(l.type||'Service')}</span><span class="s">${[l.odometer?fmtMi(l.odometer):'', l.vendor, l.desc].filter(Boolean).map(esc).join(' · ')}${l.receipt?` · <a href="${esc(fleetUrl(l.receipt.path)||'#')}" target="_blank" rel="noopener">receipt</a>`:''}</span><span class="r"><span class="num">${l.cost?money(l.cost):''}</span><button class="btn sm ghost" data-act="editLog" data-id="${l.id}">Edit</button></span></div>`).join('')}</div>`:'<p class="muted">No services logged yet. Log the most recent oil change and other work so the schedule knows when the next one is due.</p>'}
+    </section>
+    ${v.vin||v.notes||v.purchaseDate?`<section class="panel"><dl class="kv">${v.vin?`<dt>VIN</dt><dd class="mono">${esc(v.vin)}</dd>`:''}${v.color?`<dt>Color</dt><dd>${esc(v.color)}</dd>`:''}${v.purchaseDate?`<dt>Purchased</dt><dd>${esc(fmtDate(v.purchaseDate))}</dd>`:''}${v.notes?`<dt>Notes</dt><dd style="white-space:pre-wrap">${esc(v.notes)}</dd>`:''}</dl></section>`:''}
+    <div class="fleet-manage"><button class="btn danger sm" data-act="askDelete" data-col="vehicles" data-id="${id}">Delete vehicle</button></div><div id="confirm-slot"></div>`};
+}
+function vehicleFormDrawer({id}){
+  const v = id ? veh(id) : {status:'Active', schedule:DEFAULT_SCHEDULE};
+  if(!v) return null;
+  const schedTxt = schedule(v).map(x=>`${x.name} | ${x.miles||''} | ${x.months||''}`).join('\n');
+  return {back:stack.length>0, title:id?'Edit vehicle':'New vehicle', body:`
+  <form data-form="vehicle" data-id="${id||''}" style="display:flex;flex-direction:column;gap:14px">
+    <div class="fgrid">
+      <div class="field full"><label for="v-name">Name</label><input type="text" id="v-name" name="name" value="${esc(v.name)}" placeholder="Truck 1, Blue van…"></div>
+      <div class="field"><label for="v-year">Year</label><input type="number" id="v-year" name="year" min="1980" max="2100" inputmode="numeric" value="${esc(v.year)}"></div>
+      <div class="field"><label for="v-make">Make</label><input type="text" id="v-make" name="make" value="${esc(v.make)}" placeholder="Ford"></div>
+      <div class="field"><label for="v-model">Model</label><input type="text" id="v-model" name="model" value="${esc(v.model)}" placeholder="Transit 250"></div>
+      <div class="field"><label for="v-color">Color</label><input type="text" id="v-color" name="color" value="${esc(v.color)}"></div>
+      <div class="field"><label for="v-plate">License plate</label><input type="text" id="v-plate" name="plate" value="${esc(v.plate)}" style="text-transform:uppercase"></div>
+      <div class="field"><label for="v-pstate">Plate state</label><input type="text" id="v-pstate" name="plateState" value="${esc(v.plateState||'NJ')}" maxlength="2" style="text-transform:uppercase"></div>
+      <div class="field full"><label for="v-vin">VIN</label><input type="text" id="v-vin" name="vin" value="${esc(v.vin)}" maxlength="17" class="mono" style="text-transform:uppercase" autocomplete="off" spellcheck="false"></div>
+      <div class="field"><label for="v-status">Status</label><select id="v-status" name="status">${VEH_STATUS.map(x=>`<option ${v.status===x?'selected':''}>${x}</option>`).join('')}</select></div>
+      <div class="field"><label for="v-driver">Driver / crew</label><input type="text" id="v-driver" name="driver" value="${esc(v.driver)}" placeholder="Mike's crew"></div>
+      <div class="field"><label for="v-odo">Current odometer (miles)</label><input type="number" id="v-odo" name="odometer" min="0" inputmode="numeric" value="${esc(v.odometer)}"><span class="hint">Mileage from service records counts too; the higher number is used.</span></div>
+      <div class="field"><label for="v-bought">Purchase date</label><input type="date" id="v-bought" name="purchaseDate" value="${esc(v.purchaseDate)}"></div>
+    </div>
+    <h3>Registration, insurance & inspection</h3>
+    <div class="fgrid">
+      <div class="field"><label for="v-reg">Registration expires</label><input type="date" id="v-reg" name="regExp" value="${esc(v.regExp)}"></div>
+      <div class="field"><label for="v-insp">State inspection due</label><input type="date" id="v-insp" name="inspExp" value="${esc(v.inspExp)}"></div>
+      <div class="field"><label for="v-insco">Insurance company</label><input type="text" id="v-insco" name="insCompany" value="${esc(v.insCompany)}"></div>
+      <div class="field"><label for="v-ins">Insurance expires</label><input type="date" id="v-ins" name="insExp" value="${esc(v.insExp)}"></div>
+      <div class="field"><label for="v-pol">Policy #</label><input type="text" id="v-pol" name="insPolicy" value="${esc(v.insPolicy)}" class="mono"></div>
+      <div class="field"><label for="v-insph">Claims phone</label><input type="tel" id="v-insph" name="insPhone" value="${esc(v.insPhone)}"></div>
+    </div>
+    <p class="hint">Upload the registration and insurance card from the vehicle's page after saving.</p>
+    <div class="field"><label for="v-sched">Maintenance schedule, one per line: Service | every X miles | every Y months</label><textarea id="v-sched" name="schedule" style="min-height:120px;font-family:var(--f-mono);font-size:.85rem">${esc(schedTxt)}</textarea><span class="hint">Leave miles or months blank if only one applies. Logging a service with the same name resets its countdown.</span></div>
+    <div class="field"><label for="v-notes">Notes</label><textarea id="v-notes" name="notes" placeholder="Ladder rack, tire size, key location…">${esc(v.notes)}</textarea></div>
+    <div class="btnrow"><button class="btn primary" type="submit">Save vehicle</button><button class="btn" type="button" data-act="back">Cancel</button></div>
+  </form>`};
+}
+function vehLogDrawer({vid, id, type, mileage}){
+  const l = id ? S.vehicle_logs.find(x=>x.id===id) : {vehicleId:vid, date:todayISO(), type: mileage?'Mileage update':(type||''), odometer:''};
+  if(!l) return null; const v=veh(l.vehicleId); if(!v) return null;
+  const types=[...schedule(v).map(x=>x.name), ...LOG_TYPES_EXTRA]; if(l.type && !types.includes(l.type)) types.unshift(l.type);
+  const isMi = l.type==='Mileage update';
+  return {back:true, title: id?'Edit service record':isMi?`Mileage · ${esc(vehName(v))}`:`Log service · ${esc(vehName(v))}`, body:`
+  <form data-form="vehLog" data-id="${id||''}" data-vid="${l.vehicleId}" style="display:flex;flex-direction:column;gap:14px">
+    <div class="fgrid">
+      <div class="field"><label for="vl-date">Date</label><input type="date" id="vl-date" name="date" value="${esc(l.date)}" required></div>
+      <div class="field"><label for="vl-odo">Odometer (miles)</label><input type="number" id="vl-odo" name="odometer" min="0" inputmode="numeric" value="${esc(l.odometer)}" placeholder="${esc(vOdo(v)||'')}" ${isMi?'required':''}></div>
+      ${isMi?`<input type="hidden" name="type" value="Mileage update">`:`
+      <div class="field"><label for="vl-type">What was done</label><select id="vl-type" name="type" required><option value="">Choose…</option>${types.map(t=>`<option ${l.type===t?'selected':''}>${esc(t)}</option>`).join('')}</select></div>
+      <div class="field office-only"><label for="vl-cost">Cost</label><input type="number" id="vl-cost" name="cost" min="0" step="0.01" inputmode="decimal" value="${esc(l.cost)}"></div>
+      <div class="field"><label for="vl-vendor">Shop</label><input type="text" id="vl-vendor" name="vendor" value="${esc(l.vendor)}" placeholder="Jiffy Lube, dealer, did it ourselves…"></div>
+      <div class="field full"><label for="vl-desc">Details</label><textarea id="vl-desc" name="desc" style="min-height:70px">${esc(l.desc)}</textarea></div>
+      <div class="field full"><span class="lbl">Receipt (optional)</span>${l.receipt?`<span style="display:flex;gap:8px;align-items:center">${fileThumb(l.receipt)} <span class="muted" style="font-size:.84rem">${esc(l.receipt.name||'')}</span></span>`:''}<label class="upl btn sm" for="vl-receipt" style="align-self:flex-start">${I.camera} ${l.receipt?'Replace receipt':'Add receipt photo or PDF'}<input type="file" id="vl-receipt" accept="image/*,application/pdf"></label><span class="hint" id="vl-receipt-name"></span></div>`}
+    </div>
+    <div class="btnrow"><button class="btn primary" type="submit">Save</button><button class="btn" type="button" data-act="back">Cancel</button>${id?`<button class="btn danger sm" type="button" data-act="askDelete" data-col="vehicle_logs" data-id="${id}" style="margin-left:auto">Delete</button>`:''}</div>
+    <div id="confirm-slot"></div>
+  </form>`};
+}
+async function putFleetFile(file, vid){
+  if(!file) return null;
+  const isPdf = file.type==='application/pdf' || /\.pdf$/i.test(file.name||'');
+  if(!isPdf && !/^image\//.test(file.type||'') && !/\.(jpe?g|png|heic|heif|webp|gif)$/i.test(file.name||'')) throw {code:'unsupported_type'};
+  let blob=file, type=isPdf?'application/pdf':(file.type||'image/jpeg');
+  if(!isPdf){ try{ blob=await shrinkDoc(file); type='image/jpeg'; }catch(e){ blob=file; } }
+  if(blob.size>15*1024*1024) throw {code:'too_large'};
+  const path=`${vid}/${genId()}${isPdf?'.pdf':'.jpg'}`;
+  const {error}=await sb.storage.from('fleet').upload(path, blob, {contentType:type, upsert:false});
+  if(error) throw {code:/size|large/i.test(error.message)?'too_large':/mime|type/i.test(error.message)?'unsupported_type':'unavailable', message:error.message};
+  return {path, type, name:file.name||'', at:Date.now(), by:S.uid||''};
+}
+async function shrinkDoc(file){
+  const bmp=await createImageBitmap(file); const max=2400; const k=Math.min(1, max/Math.max(bmp.width,bmp.height));
+  const cv=document.createElement('canvas'); cv.width=Math.round(bmp.width*k); cv.height=Math.round(bmp.height*k);
+  cv.getContext('2d').drawImage(bmp,0,0,cv.width,cv.height);
+  return await new Promise((res,rej)=>cv.toBlob(b=>b?res(b):rej(new Error('encode')),'image/jpeg',0.88));
+}
+async function uploadFleetFile(input){
+  const slot=input.dataset.fleetUpload, vid=input.dataset.vid; const file=input.files&&input.files[0]; input.value='';
+  const v=veh(vid); if(!v||!file) return;
+  const stEl=$('#fleet-upl-status'); if(stEl) stEl.textContent='Uploading…';
+  try{
+    const f=await putFleetFile(file, vid);
+    const docs={...(v.docs||{})}; let old=null;
+    if(slot==='other'){ const title=(($('#fo-title')||{}).value||'').trim(); docs.other=[...(docs.other||[]), {...f, title:title||file.name}]; }
+    else { old=docs[slot]; docs[slot]=f; }
+    const ok=await write(()=>saveDoc('vehicles', vid, {...v, docs, updatedAt:Date.now()}), slot==='insurance'?'Insurance card uploaded':slot==='registration'?'Registration uploaded':'Document added');
+    if(ok && old && old.path) sb.storage.from('fleet').remove([old.path]).catch(()=>{});
+    if(!ok) sb.storage.from('fleet').remove([f.path]).catch(()=>{});
+  }catch(e){ toast(e&&e.code==='unsupported_type'?'Use a photo (JPG, PNG, HEIC) or a PDF.':errMsg(e),'bad'); }
+  const s2=$('#fleet-upl-status'); if(s2) s2.textContent='';
+}
+function parseSchedule(txt){
+  return String(txt||'').split('\n').map(l=>l.split('|').map(x=>x.trim())).filter(p=>p[0]).map(([name,mi,mo])=>({name, miles:+String(mi||'').replace(/[^\d]/g,'')||0, months:+String(mo||'').replace(/[^\d.]/g,'')||0})).filter(x=>x.miles||x.months);
+}
 
 /* ---------- drawer ---------- */
 function openDrawer(kind, args={}, refresh){
@@ -1726,6 +2008,9 @@ const DRAWERS = {
       </form><div id="confirm-slot"></div>`};
   },
   importCust(){ return importDrawer(); },
+  vehicle(a){ return vehicleDrawer(a); },
+  vehicleForm(a){ return vehicleFormDrawer(a); },
+  vehLog(a){ return vehLogDrawer(a); },
   exportCust(){
     const total=S.customers.length; const shown=(S._custShown||[]).length; const filtered = S.view==='customers' && shown!==total;
     return {title:'Export customers', body:`
@@ -2013,6 +2298,17 @@ const A = {
     if(!r.ok) return toast(r.error,'bad');
     S.api.data=r; await refreshInteg(); refreshApis(); toast('Removed');
   },
+  newVehicle(){ go('vehicleForm',{}); },
+  editVehicle(d){ go('vehicleForm',{id:d.id}); },
+  openVehicle(d){ stack.length=0; openDrawer('vehicle',{id:d.id}); },
+  logService(d){ go('vehLog',{vid:d.vid, type:d.type}); },
+  logMileage(d){ go('vehLog',{vid:d.vid, mileage:true}); },
+  editLog(d){ go('vehLog',{id:d.id}); },
+  async delFleetDoc(d){
+    const v=veh(d.vid); if(!v) return; const docs={...(v.docs||{})}; let f;
+    if(d.slot==='other'){ const arr=[...(docs.other||[])]; f=arr.splice(+d.i,1)[0]; docs.other=arr; } else { f=docs[d.slot]; delete docs[d.slot]; }
+    if(await write(()=>saveDoc('vehicles', v.id, {...v, docs, updatedAt:Date.now()}),'Removed') && f && f.path) sb.storage.from('fleet').remove([f.path]).catch(()=>{});
+  },
   repPick(d){ S.rep.id=d.id; render(); if(!window.matchMedia('(min-width:900px)').matches) window.scrollTo(0,0); },
   async repCsv(){ const c=S._repCsv; if(c&&c.rows.length) await saveFile(c.name, toCSV(c.rows)); },
   calNav(d){ const a=parseISO(S.cal.anchor); if(S.cal.mode==='month'){ a.setDate(1); a.setMonth(a.getMonth()+(+d.dir)); } else a.setDate(a.getDate()+7*(+d.dir)); S.cal.anchor=iso(a); S.cal.sel=null; render(); },
@@ -2035,12 +2331,21 @@ const A = {
   async invMark(d){ const v=inv(d.id); if(!v) return; await write(()=>saveDoc('invoices',v.id,{...v,status:d.s,updatedAt:Date.now()}), d.s==='Void'?'Invoice voided':'Marked as sent'); },
   async rmPayment(d){ const v=inv(d.id); if(!v) return; const p=[...(v.payments||[])]; p.splice(+d.i,1); await write(()=>saveDoc('invoices',v.id,{...v,payments:p,updatedAt:Date.now()}),'Payment removed'); },
   askDelete(d){
-    const what = {customers:'this customer (their jobs, invoices and photos stay in your records)', jobs:'this job', invoices:'this invoice', photos:'this photo'}[d.col];
+    const what = {customers:'this customer (their jobs, invoices and photos stay in your records)', jobs:'this job', invoices:'this invoice', photos:'this photo', vehicles:'this vehicle, its service history and its documents', vehicle_logs:'this service record'}[d.col];
     $('#confirm-slot').innerHTML = `<div class="confirm"><strong>Delete ${what}?</strong><span>This can't be undone.</span><div class="btnrow"><button class="btn danger" data-act="doDelete" data-col="${d.col}" data-id="${d.id}">Yes, delete</button><button class="btn" data-act="cancelDelete">Keep it</button></div></div>`;
     $('#confirm-slot').scrollIntoView({block:'nearest'});
   },
   cancelDelete(){ $('#confirm-slot').innerHTML=''; },
   async doDelete(d){
+    if(d.col==='vehicles'){
+      const v=veh(d.id); if(!v) return; const logs=vLogs(v.id);
+      const files=[...(v.docs?[v.docs.registration, v.docs.insurance, ...(v.docs.other||[])]:[]), ...logs.map(l=>l.receipt)].filter(f=>f&&f.path).map(f=>f.path);
+      for(const l of logs){ try{ await db.collection('vehicle_logs').doc(l.id).delete(); }catch(e){} }
+      const ok=await write(()=>db.collection('vehicles').doc(v.id).delete(),'Vehicle deleted');
+      if(ok){ if(files.length) sb.storage.from('fleet').remove(files).catch(()=>{}); closeDrawer(); render(); }
+      return;
+    }
+    if(d.col==='vehicle_logs'){ const l=S.vehicle_logs.find(x=>x.id===d.id); const ok=await write(()=>db.collection('vehicle_logs').doc(d.id).delete(),'Record deleted'); if(ok){ if(l&&l.receipt&&l.receipt.path) sb.storage.from('fleet').remove([l.receipt.path]).catch(()=>{}); back(); } return; }
     if(d.col==='photos'){ const p=S.photos.find(x=>x.id===d.id); const ok=await write(()=>db.collection('photos').doc(d.id).delete(),'Photo deleted'); if(ok&&p&&assets){ try{ await assets.delete(p.assetId); }catch(e){} } if(ok) back(); return; }
     if(d.col==='jobs'){ const j=job(d.id); if(j&&j.invoiceId){ /* keep invoice */ } }
     const ok = await write(()=>db.collection(d.col).doc(d.id).delete(), 'Deleted');
@@ -2196,6 +2501,32 @@ const F = {
     const r=await callFn('integrations',{action:'set', key, value});
     if(!r.ok) return toast(r.error,'bad');
     S.api.data=r; inp.value=''; await refreshInteg(); refreshApis(); toast('Saved. Click Test connection to check it.');
+  },
+  async vehicle(f){
+    const fd=Object.fromEntries(new FormData(f)); const id=f.dataset.id;
+    if(!fd.name.trim() && !fd.make.trim() && !fd.plate.trim()) return toast('Give the vehicle a name, make or plate.','bad');
+    const vin=fd.vin.trim().toUpperCase(); if(vin && !/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) return toast('A VIN is 17 letters and numbers (no I, O or Q). Check it or leave it blank.','bad');
+    const sched=parseSchedule(fd.schedule);
+    const prev = id ? veh(id) : {createdAt:Date.now(), docs:{}};
+    const data={...prev, name:fd.name.trim(), year:fd.year?+fd.year:'', make:fd.make.trim(), model:fd.model.trim(), color:fd.color.trim(), plate:fd.plate.trim().toUpperCase(), plateState:fd.plateState.trim().toUpperCase(), vin,
+      status:fd.status, driver:fd.driver.trim(), odometer:fd.odometer?+fd.odometer:'', purchaseDate:fd.purchaseDate, regExp:fd.regExp, inspExp:fd.inspExp, insCompany:fd.insCompany.trim(), insExp:fd.insExp, insPolicy:fd.insPolicy.trim(), insPhone:fd.insPhone.trim(),
+      schedule: sched.length?sched:DEFAULT_SCHEDULE, notes:fd.notes, updatedAt:Date.now()};
+    const docId=id||newId('vehicles');
+    if(await write(()=>saveDoc('vehicles',docId,data), id?'Vehicle saved':'Vehicle added')){ stack.length=0; openDrawer('vehicle',{id:docId}); }
+  },
+  async vehLog(f){
+    const fd=Object.fromEntries(new FormData(f)); const id=f.dataset.id, vid=f.dataset.vid; const v=veh(vid); if(!v) return;
+    if(!fd.type) return toast('Choose what was done.','bad');
+    if(fd.type==='Mileage update' && !fd.odometer) return toast('Enter the odometer reading.','bad');
+    const odo=fd.odometer?+fd.odometer:''; const cur=vOdo(v)||0;
+    if(odo && cur && odo < cur*0.5) return toast(`That's much lower than the current ${fmtMi(cur)}. Check the reading.`,'bad');
+    const prev = id ? S.vehicle_logs.find(x=>x.id===id) : {vehicleId:vid, createdAt:Date.now(), by:S.uid||''};
+    let receipt = prev.receipt||null; const rf=$('#vl-receipt')&&$('#vl-receipt').files[0];
+    if(rf){ try{ const nf=await putFleetFile(rf, vid); if(receipt&&receipt.path) sb.storage.from('fleet').remove([receipt.path]).catch(()=>{}); receipt=nf; }catch(e){ return toast(e&&e.code==='unsupported_type'?'The receipt must be a photo or PDF.':errMsg(e),'bad'); } }
+    const data={...prev, vehicleId:vid, date:fd.date, odometer:odo, type:fd.type, cost: fd.cost!==undefined&&fd.cost!==''?Math.round(+fd.cost*100)/100:(prev.cost||''), vendor:(fd.vendor||'').trim(), desc:(fd.desc||'').trim(), receipt, updatedAt:Date.now()};
+    const ok=await write(()=>saveDoc('vehicle_logs', id||newId('vehicle_logs'), data), fd.type==='Mileage update'?'Mileage updated':'Service logged');
+    if(!ok) return;
+    back();
   },
   async mypw(f){
     const fd=Object.fromEntries(new FormData(f)); if(fd.pw.length<8) return toast('Use at least 8 characters.','bad'); if(fd.pw!==fd.pw2) return toast('The two passwords don\'t match.','bad');
@@ -2798,6 +3129,8 @@ document.addEventListener('input', e=>{
 document.addEventListener('change', e=>{
   const t=e.target;
   if(t.dataset.upload) uploadPhotos(t);
+  else if(t.dataset.fleetUpload) uploadFleetFile(t);
+  else if(t.id==='vl-receipt'){ const n=$('#vl-receipt-name'); if(n) n.textContent = t.files&&t.files[0] ? `Selected: ${t.files[0].name}` : ''; }
   else if(t.classList && t.classList.contains('team-role')){ const id=t.dataset.id, role=t.value; callFn('team',{action:'update', id, role}).then(r=>{ if(!r.ok){ toast(r.error,'bad'); loadTeam(); } else { toast('Role updated'); loadTeam(); } }); }
   else if(t.id==='rep-pick'){ S.rep.id=t.value; render(); }
   else if(t.id==='rep-period'){ S.rep.period=t.value; if(t.value==='custom'&&!S.rep.from){ const P=repPeriod(); S.rep.from=P.from; S.rep.to=P.to; } render(); }
@@ -2925,7 +3258,7 @@ async function loadTeam(){ const {data}=await sb.from('profiles').select('*'); S
 async function loadAll(){
   S.dbState='connecting'; render();
   try{
-    const tabs=['customers','jobs','invoices','photos','messages'];
+    const tabs=['customers','jobs','invoices','photos','messages','vehicles','vehicle_logs'];
     const res=await Promise.all(tabs.map(t=>loadTable(t).catch(()=>[])));
     tabs.forEach((t,i)=>{ STORE[t]=new Map(res[i].map(r=>[r.id,{id:r.id, ...(r.data||{})}])); S[t]=[...STORE[t].values()]; });
     const st=await sb.from('settings').select('data').eq('id','app').maybeSingle(); S.settingsDoc = st.data ? st.data.data : null;
@@ -2944,7 +3277,7 @@ function applyChange(t, p){
 }
 function subscribe(){
   const ch=sb.channel('purewash-live');
-  ['customers','jobs','invoices','photos','messages','settings','profiles'].forEach(t=>ch.on('postgres_changes',{event:'*', schema:'public', table:t}, p=>applyChange(t,p)));
+  ['customers','jobs','invoices','photos','messages','vehicles','vehicle_logs','settings','profiles'].forEach(t=>ch.on('postgres_changes',{event:'*', schema:'public', table:t}, p=>applyChange(t,p)));
   ch.subscribe(status=>{ if(status==='CHANNEL_ERROR' || status==='TIMED_OUT'){ setTimeout(()=>{ sb.removeChannel(ch); subscribe(); loadAll(); }, 5000); } });
 }
 async function importOldPhotos(){

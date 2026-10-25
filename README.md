@@ -8,6 +8,7 @@ Customer management, scheduling, quotes, invoices, before/after photos, texting 
 - **Database, logins and photos:** Supabase project `purewash` (organization MJS, US East).
   - Tables: `customers`, `jobs`, `invoices`, `photos`, `messages`, `settings`, plus `profiles` (staff and roles) and `activity` (who changed what).
   - Roles: **owner** (everything), **office** (customers, scheduling, quotes, invoices, texts, email), **crew** (their jobs, addresses, notes and photos; no prices or invoices). Enforced in the database with row-level security.
+  - Fleet: `vehicles` and `vehicle_logs` (service and mileage records). Registrations, insurance cards and receipts live in the private `fleet` bucket (images or PDFs, 15 MB max). Crew can view vehicles and documents and log service; owner/office manage vehicles and documents.
   - Photos live in the private `photos` storage bucket and are shown through short-lived signed links.
 - **Server functions (Supabase Edge Functions):**
   - `team`: owner creates logins, changes roles, turns access off, resets passwords.
