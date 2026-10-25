@@ -392,7 +392,7 @@ body.role-crew #tb-msg, body.role-crew #tb-rep,
 body.role-crew [data-act="newJob"], body.role-crew [data-act="newCustomer"], body.role-crew [data-act="editCustomer"],
 body.role-crew [data-act="editJob"], body.role-crew [data-act="newInvoice"], body.role-crew [data-act="invoiceFromJob"],
 body.role-crew [data-act="openInvoice"], body.role-crew [data-act="calNew"], body.role-crew [data-act="calBookCust"],
-body.role-crew [data-act="calBookQuote"], body.role-crew [data-act="openImport"], body.role-crew [data-act="emailCompose"],
+body.role-crew [data-act="calBookQuote"], body.role-crew [data-act="openImport"], body.role-crew [data-act="openJobImport"], body.role-crew [data-act="openJobExport"], body.role-crew [data-act="openCustExport"], body.role-crew [data-act="emailCompose"],
 body.role-crew [data-act="askDelete"]:not([data-col="photos"]), body.role-crew .tobook{display:none!important}
 /* text conversations */
 .conv-row{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;gap:2px 10px;width:100%;text-align:left;border:0;border-top:1px solid var(--line);background:none;padding:12px 4px;cursor:pointer;color:var(--ink);position:relative}
@@ -615,7 +615,7 @@ let assets = {
   async upload(blob, opts={}){ const type=opts.type||blob.type||'image/jpeg'; const id=genId()+genId().slice(0,12); const {error}=await sb.storage.from('photos').upload(id, blob, {contentType:type, upsert:false}); if(error) throw {code:/size|large/i.test(error.message)?'too_large':'upstream_error', message:error.message}; return {id}; },
   async delete(id){ await sb.storage.from('photos').remove([id]); return {deleted:true}; },
 };
-const MIME={csv:'text/csv',html:'text/html',json:'application/json',txt:'text/plain'};
+const MIME={xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',csv:'text/csv',html:'text/html',json:'application/json',txt:'text/plain'};
 let downloads = { async save({filename, data}){ const ext=(filename.split('.').pop()||'').toLowerCase(); const blob=data instanceof Blob?data:new Blob([data],{type:MIME[ext]||'application/octet-stream'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),5000); return {status:'saved'}; } };
 let user = null;
 let renderQueued=false;
@@ -1096,9 +1096,9 @@ function viewCustomers(){
   const counts = {All:S.customers.length}; CUST_STATUS.forEach(s=>counts[s]=S.customers.filter(c=>(c.status||'Lead')===s).length);
   let list = S.customers.filter(c => S.custStatus==='All' || (c.status||'Lead')===S.custStatus);
   list = q ? searchCustomers(q, list) : list.sort((a,b)=>custLabel(a).localeCompare(custLabel(b)));
-  S._custHl = q;
+  S._custHl = q; S._custShown = list.map(c=>c.id);
   return `
-  <div class="page-head"><div><p class="eyebrow">CRM</p><h1>Customers</h1></div><div class="actions"><button class="btn" data-act="openImport">${I.upload} Import</button><button class="btn primary" data-act="newCustomer">${I.plus} Customer</button></div></div>
+  <div class="page-head"><div><p class="eyebrow">CRM</p><h1>Customers</h1></div><div class="actions"><button class="btn" data-act="openCustExport">${I.download} Export</button><button class="btn" data-act="openImport">${I.upload} Import</button><button class="btn primary" data-act="newCustomer">${I.plus} Customer</button></div></div>
   <div class="search"><label class="sr" for="cust-q">Search customers</label><input type="search" id="cust-q" autocomplete="off" placeholder="Type any part of a first or last name, address or phone…" value="${esc(S.custQuery)}">
     <div class="chips">${['All',...CUST_STATUS].map(s=>`<button class="chip" data-act="custStatus" data-s="${s}" aria-pressed="${S.custStatus===s}">${s}<span class="n">${counts[s]}</span></button>`).join('')}</div></div>
   <section class="panel">${S.customers.length===0 ? `<div class="empty"><strong>No customers yet</strong><span>Bring in your existing customer list from a CSV or Excel file, or add customers one at a time.</span><div class="btnrow"><button class="btn primary" data-act="openImport">${I.upload} Import CSV or Excel</button><button class="btn" data-act="newCustomer">${I.plus} Add customer</button></div></div>`
@@ -1113,7 +1113,7 @@ function viewJobs(){
   if(S.jobFilter==='quoted'){
     const qv=list.reduce((s,j)=>s+itemsTotal(j.items),0);
     return `
-  <div class="page-head"><div><p class="eyebrow">Schedule & service history</p><h1>Jobs</h1></div><div class="actions"><button class="btn" data-act="newJob" data-quote="1">${I.plus} Quote</button><button class="btn primary" data-act="newJob">${I.plus} Job</button></div></div>
+  <div class="page-head"><div><p class="eyebrow">Schedule & service history</p><h1>Jobs</h1></div><div class="actions"><button class="btn" data-act="openJobExport">${I.download} Export</button><button class="btn" data-act="openJobImport">${I.upload} Import</button><button class="btn" data-act="newJob" data-quote="1">${I.plus} Quote</button><button class="btn primary" data-act="newJob">${I.plus} Job</button></div></div>
   <div class="chips">${[['upcoming','Upcoming'],['quoted','Quotes'],['completed','Completed'],['all','All']].map(([k,l])=>`<button class="chip" data-act="jobFilter" data-f="${k}" aria-pressed="${S.jobFilter===k}">${l}</button>`).join('')}</div>
   <section class="panel">${list.length?`<div class="panel-head"><h2>${list.length} open quote${list.length===1?'':'s'}</h2><span class="num">${money(qv)}</span></div><div class="list">${list.map(j=>`<button class="row" data-act="openJob" data-id="${j.id}"><span class="t">${esc(custName(j.customerId))}</span><span class="s">${esc(itemsSummary(j.items)||'No services listed')}${j.createdAt?` · quoted ${esc(fmtDate(iso(new Date(j.createdAt))))}`:''}${j.date?` · proposed ${esc(fmtDate(j.date))}`:''}</span><span class="r"><span class="num">${money(itemsTotal(j.items))}</span>${pill('Quoted')}</span></button>`).join('')}</div>`
     : emptyBox('No open quotes','When you price a job for a customer, save it as a quote. Book it with one tap when they say yes.','newJob','New quote','data-quote="1"')}</section>`;
@@ -1121,7 +1121,7 @@ function viewJobs(){
   const groups=[]; list.forEach(j=>{ const g=groups[groups.length-1]; if(g&&g.date===j.date) g.items.push(j); else groups.push({date:j.date, items:[j]}); });
   const label = d => d===t?'Today':d===addDays(t,1)?'Tomorrow':d===addDays(t,-1)?'Yesterday':fmtDay(d);
   return `
-  <div class="page-head"><div><p class="eyebrow">Schedule & service history</p><h1>Jobs</h1></div><div class="actions"><button class="btn" data-act="newJob" data-quote="1">${I.plus} Quote</button><button class="btn primary" data-act="newJob">${I.plus} Job</button></div></div>
+  <div class="page-head"><div><p class="eyebrow">Schedule & service history</p><h1>Jobs</h1></div><div class="actions"><button class="btn" data-act="openJobExport">${I.download} Export</button><button class="btn" data-act="openJobImport">${I.upload} Import</button><button class="btn" data-act="newJob" data-quote="1">${I.plus} Quote</button><button class="btn primary" data-act="newJob">${I.plus} Job</button></div></div>
   <div class="chips">${[['upcoming','Upcoming'],['quoted','Quotes'],['completed','Completed'],['all','All']].map(([k,l])=>`<button class="chip" data-act="jobFilter" data-f="${k}" aria-pressed="${S.jobFilter===k}">${l}</button>`).join('')}</div>
   <section class="panel">${S.jobs.length===0 ? emptyBox('No jobs yet','Schedule a job for a customer: pick the services, date and crew. Completed jobs become the customer\'s service history.','newJob','Schedule a job')
    : groups.length ? groups.map(g=>`<div class="datehead"><span class="dname">${esc(label(g.date))}</span><span class="muted" style="font-size:.82rem">${g.date===t||g.date===addDays(t,1)||g.date===addDays(t,-1)?esc(fmtDate(g.date)):''}</span><span class="muted num" style="margin-left:auto;font-size:.82rem">${money(g.items.reduce((s,j)=>s+itemsTotal(j.items),0))}</span></div><div class="list">${g.items.map(j=>jobRow(j)).join('')}</div>`).join('')
@@ -1587,6 +1587,30 @@ const DRAWERS = {
       </form><div id="confirm-slot"></div>`};
   },
   importCust(){ return importDrawer(); },
+  exportCust(){
+    const total=S.customers.length; const shown=(S._custShown||[]).length; const filtered = S.view==='customers' && shown!==total;
+    return {title:'Export customers', body:`
+      <p>Downloads your customer list as a spreadsheet: contact details, address, property details, service frequency and notes, plus last cleaning, next visit and what each customer has spent.</p>
+      <div class="fgrid">
+        <div class="field"><label for="xc-scope">Which customers</label><select id="xc-scope"><option value="all">All customers (${total})</option>${filtered?`<option value="shown" selected>Only the ${shown} shown on the Customers page</option>`:''}</select></div>
+        <div class="field"><label for="xc-fmt">Format</label><select id="xc-fmt"><option value="xlsx">Excel (.xlsx)</option><option value="csv">CSV</option></select></div>
+      </div>
+      <p class="hint">The columns match the import, so you can edit the file and import it back. Customers already in the app are skipped on import.</p>
+      <div class="btnrow"><button class="btn primary" data-act="doCustExport" ${S.downloadsOn&&total?'':'disabled'}>${I.download} Download</button><button class="btn" data-act="close">Cancel</button></div>`};
+  },
+  exportJobs(){
+    const st=S.jobFilter==='quoted'?'quoted':S.jobFilter==='completed'?'completed':S.jobFilter==='upcoming'?'upcoming':'all';
+    return {title:'Export jobs', body:`
+      <p>Downloads jobs as a spreadsheet with one row per service line: date, time, status, customer and address, service, quantity, rate, amount, job total, hours, crew, notes and invoice number.</p>
+      <div class="fgrid">
+        <div class="field"><label for="xj-status">Which jobs</label><select id="xj-status">${[['all','All jobs'],['upcoming','Upcoming (scheduled and in progress)'],['completed','Completed (service history)'],['quoted','Quotes'],['cancelled','Cancelled']].map(([k,l])=>`<option value="${k}" ${k===st?'selected':''}>${l}</option>`).join('')}</select></div>
+        <div class="field"><label for="xj-fmt">Format</label><select id="xj-fmt"><option value="xlsx">Excel (.xlsx)</option><option value="csv">CSV</option></select></div>
+        <div class="field"><label for="xj-from">From date (optional)</label><input type="date" id="xj-from"></div>
+        <div class="field"><label for="xj-to">To date (optional)</label><input type="date" id="xj-to"></div>
+      </div>
+      <p class="hint" id="xj-count">${jobsForExport(st).length} jobs match.</p>
+      <div class="btnrow"><button class="btn primary" data-act="doJobExport" ${S.downloadsOn&&S.jobs.length?'':'disabled'}>${I.download} Download</button><button class="btn" data-act="close">Cancel</button></div>`};
+  },
   teamPw({id}){
     const m=S.team.find(x=>x.id===id); if(!m) return null;
     return {back:true, title:`New password for ${esc(m.full_name||m.email)}`, body:`
@@ -1873,11 +1897,27 @@ const A = {
   async downloadInvoice(d){ const v=inv(d.id); if(!v) return; await saveFile(`invoice-${v.number}.html`, invoiceHTML(v)); },
   setTheme(d){ try{ if(d.t==='system') localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY,d.t); }catch(e){ toast('This browser won\'t save the choice, so it resets next visit.','bad'); } if(d.t!=='system'){ document.documentElement.setAttribute('data-theme',d.t); } else applyTheme(); render(); },
   cpickClear(d){ const {inp,hid}=cpickEls(d.for); const had=!!hid.value; hid.value=''; inp.value=''; inp.focus(); cpickRender(inp); if(had) hid.dispatchEvent(new Event('change',{bubbles:true})); },
-  openImport(){ if(!IMP || !IMP.running) IMP=null; stack.length=0; openDrawer('importCust',{}); },
+  openImport(){ if(IMP && IMP.running) return openDrawer('importCust',{}); IMP=null; IMP_KIND='customers'; stack.length=0; openDrawer('importCust',{}); },
+  openJobImport(){ if(IMP && IMP.running) return openDrawer('importCust',{}); IMP=null; IMP_KIND='jobs'; stack.length=0; openDrawer('importCust',{}); },
   impReset(){ IMP=null; openDrawer('importCust',{}); },
-  impRun(){ runImport(); },
-  impDone(){ IMP=null; closeDrawer(); S.view='customers'; S.custStatus='All'; render(); window.scrollTo(0,0); },
-  async impTemplate(){ await saveFile('customer-import-template.csv', toCSV([IMP_TEMPLATE])); },
+  impRun(){ IMP_KIND==='jobs' ? runJobImport() : runImport(); },
+  impDone(){ const k=IMP_KIND; IMP=null; closeDrawer(); if(k==='jobs'){ S.view='jobs'; S.jobFilter='all'; } else { S.view='customers'; S.custStatus='All'; } render(); window.scrollTo(0,0); },
+  async impTemplate(){ if(IMP_KIND==='jobs') await saveFile('job-import-template.csv', toCSV([JOB_TEMPLATE, ...JOB_TEMPLATE_EXAMPLE])); else await saveFile('customer-import-template.csv', toCSV([IMP_TEMPLATE])); },
+  openCustExport(){ stack.length=0; openDrawer('exportCust',{}); },
+  openJobExport(){ stack.length=0; openDrawer('exportJobs',{}); },
+  async doCustExport(d,el){
+    const scope=($('#xc-scope')||{}).value||'all', fmt=($('#xc-fmt')||{}).value||'xlsx';
+    const list = scope==='shown' ? (S._custShown||[]).map(cust).filter(Boolean) : [...S.customers].sort((a,b)=>custLabel(a).localeCompare(custLabel(b)));
+    if(!list.length) return toast('No customers to export.','bad');
+    el.disabled=true; const ok=await exportTable(`customers-${todayISO()}`, 'Customers', customerExportRows(list), fmt); el.disabled=false;
+    if(ok) closeDrawer();
+  },
+  async doJobExport(d,el){
+    const list=jobsForExport(); const fmt=($('#xj-fmt')||{}).value||'xlsx';
+    if(!list.length) return toast('No jobs match. Change the choices above.','bad');
+    el.disabled=true; const ok=await exportTable(`jobs-${todayISO()}`, 'Jobs', jobExportRows(list), fmt); el.disabled=false;
+    if(ok) closeDrawer();
+  },
 };
 function toCSV(rows){ return rows.map(r=>r.map(x=>{ const s=String(x??''); return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s; }).join(',')).join('\r\n'); }
 async function saveFile(filename, data){
@@ -2067,18 +2107,20 @@ const IMP_FIELDS = [
   ['gate','Access notes',['gate','gate code','access','access notes','entry notes','access instructions']],
   ['tags','Tags',['tags','labels','tag']],
   ['notes','Notes',['notes','note','comments','memo','description','customer notes']],
-  ['loc','Street View pin (link or lat, lng)',['coordinates','lat lng','latlng','street view','map link','google maps']],
+  ['loc','Street View pin (link or lat, lng)',['coordinates','lat lng','latlng','street view','street view pin','map link','google maps']],
 ];
 const IMP_TEMPLATE = ['First Name','Last Name','Company','Phone','Email','Street','City','State','ZIP','Status','Property type','Window panes','Stories','Service frequency','Lead source','Access notes','Tags','Notes'];
 const US_STATES = {ALABAMA:'AL',ALASKA:'AK',ARIZONA:'AZ',ARKANSAS:'AR',CALIFORNIA:'CA',COLORADO:'CO',CONNECTICUT:'CT',DELAWARE:'DE','DISTRICT OF COLUMBIA':'DC',FLORIDA:'FL',GEORGIA:'GA',HAWAII:'HI',IDAHO:'ID',ILLINOIS:'IL',INDIANA:'IN',IOWA:'IA',KANSAS:'KS',KENTUCKY:'KY',LOUISIANA:'LA',MAINE:'ME',MARYLAND:'MD',MASSACHUSETTS:'MA',MICHIGAN:'MI',MINNESOTA:'MN',MISSISSIPPI:'MS',MISSOURI:'MO',MONTANA:'MT',NEBRASKA:'NE',NEVADA:'NV','NEW HAMPSHIRE':'NH','NEW JERSEY':'NJ','NEW MEXICO':'NM','NEW YORK':'NY','NORTH CAROLINA':'NC','NORTH DAKOTA':'ND',OHIO:'OH',OKLAHOMA:'OK',OREGON:'OR',PENNSYLVANIA:'PA','RHODE ISLAND':'RI','SOUTH CAROLINA':'SC','SOUTH DAKOTA':'SD',TENNESSEE:'TN',TEXAS:'TX',UTAH:'UT',VERMONT:'VT',VIRGINIA:'VA',WASHINGTON:'WA','WEST VIRGINIA':'WV',WISCONSIN:'WI',WYOMING:'WY'};
 const STATE_CODES = new Set(Object.values(US_STATES));
 let IMP = null;
+let IMP_KIND = 'customers';
+const impFields = () => IMP_KIND==='jobs' ? JOB_FIELDS : IMP_FIELDS;
 let xlsxP = null;
 const normH = s => String(s||'').toLowerCase().replace(/[^a-z0-9#]+/g,' ').trim();
 
 function guessMap(headers){
   const map={}; const used=new Set();
-  IMP_FIELDS.forEach(([k,,aliases])=>{
+  impFields().forEach(([k,,aliases])=>{
     const i = headers.findIndex((h,ix)=>!used.has(ix) && aliases.includes(normH(h)));
     if(i>=0){ map[k]=i; used.add(i); }
   });
@@ -2115,7 +2157,7 @@ function loadXLSX(){
 }
 async function readImportFile(file){
   const ext=(file.name.split('.').pop()||'').toLowerCase();
-  IMP={fileName:file.name, sheets:null, sheet:0, wb:null, defStatus:'Active', skipDup:true, headers:[], rows:[], map:{}};
+  IMP={kind:IMP_KIND, fileName:file.name, sheets:null, sheet:0, wb:null, defStatus:IMP_KIND==='jobs'?'auto':'Active', skipDup:true, createCust:true, combine:true, headers:[], rows:[], map:{}};
   try{
     if(['csv','txt','tsv'].includes(ext)){ setImpRows(parseCSV(await file.text())); }
     else if(['xlsx','xls','xlsm','ods'].includes(ext)){
@@ -2219,6 +2261,7 @@ async function runImport(){
   if(IMP.result.added) toast(`${IMP.result.added} customer${IMP.result.added===1?'':'s'} imported`);
 }
 function importDrawer(){
+  if(IMP_KIND==='jobs') return jobImportDrawer();
   const title='Import customers';
   const picker = (label, primary) => `<label class="upl btn ${primary?'primary':''}" for="imp-file">${I.upload} ${label}<input type="file" id="imp-file" accept=".csv,.tsv,.txt,.xlsx,.xls,.xlsm,.ods,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"></label>`;
   if(!IMP){
@@ -2274,6 +2317,286 @@ function importDrawer(){
     <div class="btnrow"><button class="btn primary" data-act="impRun" ${plan.recs.length&&S.dbState==='ok'?'':'disabled'}>Import ${plan.recs.length} customer${plan.recs.length===1?'':'s'}</button><button class="btn" data-act="close">Cancel</button></div>`};
 }
 
+/* ---------- exports ---------- */
+async function exportTable(base, sheetName, rows, fmt){
+  if(fmt==='csv') return saveFile(base+'.csv', toCSV(rows));
+  try{
+    const X=await loadXLSX(); const ws=X.utils.aoa_to_sheet(rows);
+    ws['!cols']=rows[0].map((h,i)=>({wch:Math.min(40,Math.max(String(h).length, ...rows.slice(1,200).map(r=>String(r[i]??'').length))+2)}));
+    const wb=X.utils.book_new(); X.utils.book_append_sheet(wb, ws, sheetName);
+    const buf=X.write(wb,{type:'array', bookType:'xlsx'});
+    return saveFile(base+'.xlsx', new Blob([buf],{type:MIME.xlsx}));
+  }catch(e){ toast('Excel export isn\'t available right now, so a CSV was saved instead.','bad'); return saveFile(base+'.csv', toCSV(rows)); }
+}
+const n2 = v => (v===''||v==null||isNaN(+v)) ? '' : +v;
+function customerExportRows(list){
+  const head=[...IMP_TEMPLATE,'Street View pin','Customer since','Last cleaned','Next visit','Next due','Jobs completed','Lifetime billed','Balance owed'];
+  const rows=[head];
+  list.forEach(c=>{
+    const np=nameParts(c); const nx=nextJob(c.id);
+    const done=S.jobs.filter(j=>j.customerId===c.id && j.status==='Completed').length;
+    const billed=S.invoices.filter(v=>v.customerId===c.id && invStatus(v)!=='Void').reduce((a,v)=>a+totals(v).total,0);
+    rows.push([np.first, np.last, c.company||'', c.phone||'', c.email||'', c.street||'', c.city||'', c.state||'', c.zip||'', c.status||'', c.type||'', n2(c.panes), n2(c.stories),
+      FREQ[c.frequency||'none'][0], c.source||'', c.gate||'', (c.tags||[]).join(', '), c.notes||'',
+      (c.lat!=null&&c.lat!=='')?`${c.lat}, ${c.lng}`:'', c.createdAt?iso(new Date(c.createdAt)):'', lastService(c.id)||'', nx?nx.date:'', nextDue(c)||'', done,
+      Math.round(billed*100)/100, Math.round(custBalance(c.id)*100)/100]);
+  });
+  return rows;
+}
+function jobsForExport(stOverride){
+  const st=stOverride || ($('#xj-status')||{}).value || 'all';
+  const from=($('#xj-from')||{}).value||'', to=($('#xj-to')||{}).value||'';
+  const keep={all:()=>true, upcoming:j=>j.status==='Scheduled'||j.status==='In progress', completed:j=>j.status==='Completed', quoted:j=>j.status==='Quoted', cancelled:j=>j.status==='Cancelled'}[st]||(()=>true);
+  return S.jobs.filter(j=>keep(j) && (!from || j.date>=from) && (!to || j.date<=to)).sort((a,b)=>(a.date+(a.time||'')).localeCompare(b.date+(b.time||'')));
+}
+const JOB_TEMPLATE=['Date','Time','Status','Customer','First Name','Last Name','Company','Phone','Email','Street','City','State','ZIP','Service','Quantity','Rate','Amount','Job Total','Estimated Hours','Crew','Notes','Invoice #','Job ID'];
+const JOB_TEMPLATE_EXAMPLE=[
+  ['2026-04-14','9:00 AM','Completed','Example, Jane','Jane','Example','','(908) 555-0100','','12 Example St','Union','NJ','07083','Exterior windows','30','6','180','225','2.5','Mike','Example row: delete it','',''],
+  ['2026-04-14','9:00 AM','Completed','Example, Jane','Jane','Example','','(908) 555-0100','','12 Example St','Union','NJ','07083','Screens','15','3','45','225','','Mike','','',''],
+];
+function jobExportRows(list){
+  const rows=[JOB_TEMPLATE];
+  list.forEach(j=>{
+    const c=cust(j.customerId)||{}; const np=nameParts(c); const v=j.invoiceId?inv(j.invoiceId):null; const total=Math.round(itemsTotal(j.items)*100)/100;
+    const base=[j.date||'', j.time?fmtTime(j.time).replace(/(am|pm)$/,m=>' '+m.toUpperCase()):'', j.status||'', custLabel(c)||'', np.first, np.last, c.company||'', c.phone||'', c.email||'', c.street||'', c.city||'', c.state||'', c.zip||''];
+    const tail=[total, n2(j.hours), j.crew||'', (j.notes||'').replace(/\s*\n\s*/g,' / '), v?v.number:'', j.id];
+    const items=(j.items||[]).filter(i=>i.desc||i.rate);
+    if(!items.length) rows.push([...base,'','','','',...tail]);
+    items.forEach(i=>rows.push([...base, i.desc||'', n2(i.qty), n2(i.rate), Math.round((+i.qty||0)*(+i.rate||0)*100)/100, ...tail]));
+  });
+  return rows;
+}
+
+/* ---------- job import ---------- */
+const JOB_FIELDS = [
+  ['customer','Customer name',['customer','customer name','name','client','client name','full name','display name','contact','contact name','customer full name']],
+  ['firstName','First name',['first name','first','firstname','given name']],
+  ['lastName','Last name',['last name','last','lastname','surname','family name']],
+  ['company','Company',['company','company name','business','business name','organization']],
+  ['phone','Phone',['phone','mobile','cell','mobile phone','cell phone','phone number','main phone','telephone','primary phone']],
+  ['email','Email',['email','e mail','email address']],
+  ['fullAddress','Full address (one column)',['full address','service address','property address','job address','location address','location']],
+  ['street','Street',['street','street address','address','address 1','address line 1','street 1','address1','service street']],
+  ['city','City',['city','town','service city']],
+  ['state','State',['state','st','province']],
+  ['zip','ZIP',['zip','zip code','zipcode','postal code','postcode']],
+  ['date','Date',['date','job date','service date','scheduled date','visit date','appointment date','start date','completed date','date completed','completion date','start','scheduled for']],
+  ['time','Time',['time','start time','arrival time','arrival','appointment time','scheduled time']],
+  ['status','Status',['status','job status','stage','state of job']],
+  ['service','Service',['service','services','item','product','product service','line item','item description','service description','description','work','work performed','job description','job title','title']],
+  ['qty','Quantity',['quantity','qty','item quantity','units','count','panes','number of windows']],
+  ['rate','Rate (price each)',['rate','unit price','price each','item rate','unit cost','price per','each']],
+  ['amount','Amount or job total',['amount','line total','item amount','line amount','total','job total','total price','price','revenue','subtotal','invoice total','job amount','cost']],
+  ['hours','Estimated hours',['estimated hours','est hours','hours','duration','duration hours','time spent','labor hours']],
+  ['crew','Crew',['crew','tech','technician','technicians','assigned to','assignee','employee','team','worker','assigned']],
+  ['notes','Job notes',['notes','job notes','note','comments','instructions','memo','internal notes']],
+];
+const ymd=(y,m,d)=>{ if(!(y>1900&&y<2200&&m>=1&&m<=12&&d>=1&&d<=31)) return ''; const dt=new Date(y,m-1,d); return dt.getMonth()===m-1 ? iso(dt) : ''; };
+function parseDateAny(v){
+  const s=String(v??'').trim(); if(!s) return ''; let m;
+  if((m=s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/))) return ymd(+m[1],+m[2],+m[3]);
+  if((m=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})\b/))){ let y=+m[3]; if(y<100) y+= y<70?2000:1900; return ymd(y,+m[1],+m[2]); }
+  if(/^\d{5}(\.\d+)?$/.test(s)){ const n=+s; if(n>20000&&n<80000){ const d=new Date(Date.UTC(1899,11,30)+Math.floor(n)*864e5); return ymd(d.getUTCFullYear(),d.getUTCMonth()+1,d.getUTCDate()); } }
+  const t=Date.parse(s.replace(/(\d)(st|nd|rd|th)\b/,'$1')); if(!isNaN(t)){ const d=new Date(t); return ymd(d.getFullYear(),d.getMonth()+1,d.getDate()); }
+  return '';
+}
+function parseTimeAny(v){
+  const s=String(v??'').trim().toLowerCase(); if(!s) return '';
+  if(/^0?\.\d+$/.test(s)){ const mins=Math.round(+s*1440); return `${String(Math.floor(mins/60)%24).padStart(2,'0')}:${String(mins%60).padStart(2,'0')}`; }
+  let m=s.match(/(\d{1,2}):(\d{2})(?::\d{2})?\s*([ap])?\.?\s*m?\.?/) || s.match(/\b(\d{1,2})\s*()([ap])\.?\s*m\.?/);
+  if(!m) return '';
+  let h=+m[1], mi=+(m[2]||0); const ap=m[3];
+  if(ap==='p' && h<12) h+=12; if(ap==='a' && h===12) h=0;
+  if(h>23||mi>59) return '';
+  return `${String(h).padStart(2,'0')}:${String(mi).padStart(2,'0')}`;
+}
+const numAny = v => { const t=String(v??'').replace(/[^0-9.\-]/g,''); if(t===''||t==='-'||t==='.') return null; const n=parseFloat(t); return isNaN(n)?null:n; };
+function normJobStatus(raw, date){
+  const v=String(raw||'').toLowerCase().trim();
+  if(v){
+    if(/cancel|void|lost|declin|no.?show|did not|reject/.test(v)) return 'Cancelled';
+    if(/quote|estimate|bid|proposal|awaiting approval|pending approval/.test(v)) return 'Quoted';
+    if(/progress|started|en route|on site|underway/.test(v)) return 'In progress';
+    if(/complete|done|finish|paid|closed|invoiced|billed|archived/.test(v)) return 'Completed';
+    if(/sched|book|upcoming|confirm|open|assigned|planned|pending|active/.test(v)) return 'Scheduled';
+  }
+  if(IMP.defStatus && IMP.defStatus!=='auto') return IMP.defStatus;
+  return date && date<todayISO() ? 'Completed' : 'Scheduled';
+}
+const normNm = s => String(s||'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+const normSt = s => String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+function buildCustMatcher(){
+  const byPhone=new Map(), byEmail=new Map(), byNameSt=new Map(), byName=new Map();
+  const add=(m,k,id)=>{ if(!k) return; if(!m.has(k)) m.set(k,[]); if(!m.get(k).includes(id)) m.get(k).push(id); };
+  S.customers.forEach(c=>{
+    const ph=d10(c.phone); if(ph.length===10) add(byPhone,ph,c.id);
+    if(c.email) add(byEmail,c.email.toLowerCase().trim(),c.id);
+    [normNm(fullName(c)), normNm(c.company)].filter(Boolean).forEach(n=>{ add(byName,n,c.id); if(c.street) add(byNameSt,n+'|'+normSt(c.street),c.id); });
+  });
+  const one = a => a && a.length===1 ? a[0] : null;
+  return w => {
+    const ph=d10(w.phone); if(ph.length===10 && byPhone.has(ph)) return byPhone.get(ph)[0];
+    if(w.email && byEmail.has(w.email.toLowerCase())) return byEmail.get(w.email.toLowerCase())[0];
+    for(const n of [normNm(w.name), normNm(w.company)].filter(Boolean)){
+      if(w.street){ const hit=one(byNameSt.get(n+'|'+normSt(w.street))); if(hit) return hit; }
+      const hit=one(byName.get(n)); if(hit) return hit;
+    }
+    return null;
+  };
+}
+function jobRowWho(g){
+  let first=g('firstName'), last=g('lastName');
+  if(!first && !last){ const nm=g('customer'); if(nm){ if(/,\s*(inc|llc|co|corp|ltd)\.?$/i.test(nm)) first=nm; else { const sp=splitName(nm); first=sp.first; last=sp.last; } } }
+  let street=g('street'), city=g('city'), state=g('state'), zip=g('zip');
+  if(g('fullAddress')){ const p=splitAddress(g('fullAddress')); street=street||p.street; city=city||p.city; state=state||p.state; zip=zip||p.zip; }
+  const name=[first,last].filter(Boolean).join(' ');
+  return {first, last, name, company:g('company'), phone:fmtPhone(g('phone')), email:g('email').toLowerCase(), street, city, state:fixState(state), zip:fixZip(zip)};
+}
+function planJobImport(){
+  const match=buildCustMatcher(); const svcs=settings().services;
+  const newCust=new Map(); const groups=new Map(); const order=[]; let noCust=0, noDate=0, unmatched=0;
+  IMP.rows.forEach((r,ri)=>{
+    const g = k => (IMP.map[k]!=null) ? String(r[IMP.map[k]]??'').trim() : '';
+    const who=jobRowWho(g);
+    if(!who.name && !who.company && d10(who.phone).length!==10 && !who.email){ if(r.some(c=>String(c).trim())) noCust++; return; }
+    const date=parseDateAny(g('date')); if(!date){ noDate++; return; }
+    const time=parseTimeAny(g('time')) || parseTimeAny(String(g('date')).replace(/^\S+/,''));
+    let cid=match(who), pk=null;
+    if(!cid){
+      if(!IMP.createCust){ unmatched++; return; }
+      pk = d10(who.phone).length===10 ? 'p'+d10(who.phone) : who.email ? 'e'+who.email : 'n'+normNm(who.name||who.company)+'|'+normSt(who.street);
+      if(!newCust.has(pk)) newCust.set(pk, {name:who.name, firstName:who.first, lastName:who.last, company:who.company, phone:who.phone, email:who.email, street:who.street, city:who.city, state:who.state, zip:who.zip, status:'Active', type:normType('',who.company), frequency:'none', tags:[], importedFrom:IMP.fileName, createdAt:Date.now(), updatedAt:Date.now()});
+    }
+    const ck = cid ? 'c:'+cid : 'n:'+pk;
+    const gk = IMP.combine ? ck+'|'+date : 'row'+ri;
+    let grp=groups.get(gk);
+    if(!grp){ grp={ck, cid, pk, date, time:'', statusRaw:'', crew:'', hours:'', notes:[], items:[], totalOnly:null}; groups.set(gk,grp); order.push(gk); }
+    if(time && !grp.time) grp.time=time;
+    if(g('status') && !grp.statusRaw) grp.statusRaw=g('status');
+    if(g('crew') && !grp.crew) grp.crew=g('crew');
+    const hr=numAny(g('hours')); if(hr!=null && grp.hours==='') grp.hours=hr;
+    const nt=g('notes'); if(nt && !grp.notes.includes(nt)) grp.notes.push(nt);
+    const svc=g('service'), q=numAny(g('qty')), rt=numAny(g('rate')), amt=numAny(g('amount'));
+    const sv = svc ? svcs.find(x=>x.name.toLowerCase()===svc.toLowerCase()) : null;
+    const desc = sv ? sv.name : (svc || 'Window cleaning');
+    let item=null;
+    if(rt!=null) item={desc, qty: q!=null?q:1, rate:rt};
+    else if(amt!=null) item = (q!=null && q>0) ? {desc, qty:q, rate:Math.round(amt/q*10000)/10000} : {desc, qty:1, rate:amt};
+    else if(sv) item={desc, qty: q!=null?q:1, rate:+sv.price||0};
+    else if(svc) item={desc, qty: q!=null?q:1, rate:0};
+    if(item) grp.items.push(item);
+  });
+  const existing=new Set(S.jobs.map(j=>j.customerId+'|'+j.date));
+  const jobs=[]; let dup=0;
+  order.forEach(k=>{ const grp=groups.get(k);
+    if(grp.cid && IMP.skipDup && existing.has(grp.cid+'|'+grp.date)){ dup++; return; }
+    grp.status=normJobStatus(grp.statusRaw, grp.date); jobs.push(grp); });
+  const usedPk=new Set(jobs.map(j=>j.pk).filter(Boolean));
+  const creating=[...newCust.entries()].filter(([k])=>usedPk.has(k));
+  creating.forEach(([k,c])=>{ const st=jobs.filter(j=>j.pk===k).map(j=>j.status); c.status = st.some(x=>x!=='Quoted'&&x!=='Cancelled') ? 'Active' : st.includes('Quoted') ? 'Quoted' : 'Inactive'; });
+  return {jobs, newCust:creating, dup, noCust, noDate, unmatched};
+}
+async function saveMany(col, docs, onEach){
+  let i=0, done=0, failed=0, lastErr=null, stop=false; const ids=new Array(docs.length);
+  async function worker(){
+    while(!stop && i<docs.length){
+      const ix=i++; const id=newId(col); let tries=0;
+      for(;;){
+        try{ await saveDoc(col, id, docs[ix]); ids[ix]=id; done++; break; }
+        catch(e){ if((e.code==='resource_exhausted'||e.code==='unavailable') && tries<5){ tries++; await new Promise(r=>setTimeout(r, 700*tries+Math.random()*500)); continue; } failed++; lastErr=e; if(e.code==='quota_exceeded'||e.code==='invalid_argument') stop=true; break; }
+      }
+      onEach && onEach();
+    }
+  }
+  await Promise.all([worker(),worker(),worker(),worker()]);
+  return {ids, done, failed: docs.length-done, lastErr};
+}
+async function runJobImport(){
+  if(S.dbState!=='ok'){ toast('Still loading your records. Try again in a moment.','bad'); return; }
+  const plan=planJobImport();
+  if(!plan.jobs.length){ toast('Nothing new to import.','bad'); return; }
+  const total=plan.newCust.length+plan.jobs.length;
+  IMP.running={total, done:0}; openDrawer('importCust',{});
+  const prog=()=>{ IMP.running.done++; const el=$('#imp-prog'); if(el) el.textContent=`${IMP.running.done} of ${IMP.running.total} saved…`; const bar=$('#imp-bar'); if(bar) bar.style.width=(100*IMP.running.done/IMP.running.total)+'%'; };
+  const cr=await saveMany('customers', plan.newCust.map(([,c])=>c), prog);
+  const pkId=new Map(); plan.newCust.forEach(([k],ix)=>{ if(cr.ids[ix]) pkId.set(k, cr.ids[ix]); });
+  const now=Date.now();
+  const jobsToSave=plan.jobs.map(g=>({ customerId: g.cid || pkId.get(g.pk) || '', date:g.date, time:g.time||'', status:g.status, items:g.items, crew:g.crew, hours:g.hours, notes:g.notes.join('\n'),
+      importedFrom:IMP.fileName, createdAt:now, updatedAt:now, ...(g.status==='Completed'?{completedAt:parseISO(g.date).getTime()}:{}), ...(g.status==='Quoted'?{quotedAt:now}:{}) })).filter(j=>j.customerId);
+  const skippedNoCust = plan.jobs.length - jobsToSave.length;
+  const jr=await saveMany('jobs', jobsToSave, prog);
+  IMP.result={added:jr.done, custAdded:cr.done, dup:plan.dup, noCust:plan.noCust, noDate:plan.noDate, unmatched:plan.unmatched, failed:jr.failed+skippedNoCust+cr.failed, err:(jr.lastErr||cr.lastErr)?errMsg(jr.lastErr||cr.lastErr):null};
+  IMP.running=null; openDrawer('importCust',{});
+  if(jr.done) toast(`${jr.done} job${jr.done===1?'':'s'} imported`);
+}
+function jobImportDrawer(){
+  const title='Import jobs';
+  const picker = (label, primary) => `<label class="upl btn ${primary?'primary':''}" for="imp-file">${I.upload} ${label}<input type="file" id="imp-file" accept=".csv,.tsv,.txt,.xlsx,.xls,.xlsm,.ods,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"></label>`;
+  if(!IMP){
+    return {title, body:`
+      <p>Bring in past service history or upcoming scheduled work from a spreadsheet (Excel or CSV), for example an export from Jobber, Housecall Pro, QuickBooks or your own records.</p>
+      <div class="btnrow">${picker('Choose file', true)}<button class="btn" data-act="impTemplate" ${S.downloadsOn?'':'disabled'}>${I.download} Template with examples</button></div>
+      <section class="panel" style="display:flex;flex-direction:column;gap:8px;font-size:.9rem">
+        <h3>How it works</h3>
+        <p class="muted">Each row needs a <strong>customer</strong> (name, phone or email) and a <strong>date</strong>. Everything else is optional: time, status, service, quantity, rate or amount, hours, crew and notes.</p>
+        <p class="muted">Jobs are matched to your existing customers by phone, email, or name and street. Customers that aren't found can be created for you.</p>
+        <p class="muted">A job with several services can be several rows with the same customer and date. They're combined into one job with a line for each service.</p>
+        <p class="muted">If the file has no status, past dates become <strong>Completed</strong> (service history) and future dates become <strong>Scheduled</strong>. Jobs already in the app for the same customer and date are skipped.</p>
+      </section>`};
+  }
+  if(IMP.loading) return {title, body:`<div class="notice info">Reading ${esc(IMP.fileName)}…</div>`};
+  if(IMP.running) return {title, body:`
+    <div class="panel" style="display:flex;flex-direction:column;gap:10px"><strong id="imp-prog">${IMP.running.done} of ${IMP.running.total} saved…</strong>
+    <div style="height:8px;border-radius:99px;background:var(--surface-2);overflow:hidden"><div id="imp-bar" style="height:100%;width:${100*IMP.running.done/IMP.running.total}%;background:var(--accent);transition:width .2s"></div></div>
+    <p class="hint">Keep this open until it finishes.</p></div>`};
+  if(IMP.result){ const r=IMP.result; return {title, body:`
+    <div class="panel" style="display:flex;flex-direction:column;gap:10px">
+      <h3>${r.added} job${r.added===1?'':'s'} imported</h3>
+      <ul style="margin:0;padding-left:18px;color:var(--muted)">
+        ${r.custAdded?`<li>${r.custAdded} new customer${r.custAdded===1?'':'s'} created</li>`:''}
+        ${r.dup?`<li>${r.dup} skipped because the customer already has a job that day</li>`:''}
+        ${r.noDate?`<li>${r.noDate} row${r.noDate===1?'':'s'} skipped with no readable date</li>`:''}
+        ${r.noCust?`<li>${r.noCust} row${r.noCust===1?'':'s'} skipped with no customer</li>`:''}
+        ${r.unmatched?`<li>${r.unmatched} row${r.unmatched===1?'':'s'} skipped because the customer isn't in the app</li>`:''}
+        ${r.failed?`<li style="color:var(--bad)">${r.failed} couldn't be saved. ${esc(r.err||'')}</li>`:''}
+      </ul>
+      <div class="btnrow"><button class="btn primary" data-act="impDone">View jobs</button><button class="btn" data-act="impReset">Import another file</button></div>
+    </div>`}; }
+  if(IMP.error) return {title, body:`<div class="notice bad">${esc(IMP.error)}</div><div class="btnrow">${picker('Choose another file', true)}</div>`};
+
+  const sample = IMP.rows.find(r=>r.some(c=>String(c).trim())) || [];
+  const opts = sel => `<option value="">— Don't import —</option>`+IMP.headers.map((h,i)=>`<option value="${i}" ${sel===i?'selected':''}>${esc(h)}</option>`).join('');
+  const plan = planJobImport();
+  const mapped = Object.values(IMP.map).filter(v=>v!=null).length;
+  const hasWho = ['customer','firstName','lastName','company','phone','email'].some(k=>IMP.map[k]!=null);
+  const lines = plan.jobs.reduce((a,j)=>a+j.items.length,0);
+  const byStatus = {}; plan.jobs.forEach(j=>byStatus[j.status]=(byStatus[j.status]||0)+1);
+  const nameOf = j => j.cid ? custLabel(cust(j.cid)) : (()=>{ const c=(plan.newCust.find(([k])=>k===j.pk)||[])[1]; return c ? (custLabel(c)+' (new)') : 'New customer'; })();
+  return {title, body:`
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between"><div><strong>${esc(IMP.fileName)}</strong><div class="muted" style="font-size:.84rem">${IMP.rows.length} row${IMP.rows.length===1?'':'s'} · ${mapped} column${mapped===1?'':'s'} matched</div></div>${picker('Different file')}</div>
+    ${IMP.sheets&&IMP.sheets.length>1?`<div class="field"><label for="imp-sheet">Sheet</label><select id="imp-sheet">${IMP.sheets.map((s,i)=>`<option value="${i}" ${IMP.sheet===i?'selected':''}>${esc(s)}</option>`).join('')}</select></div>`:''}
+    ${hasWho?'':'<div class="notice">Pick which column holds the customer (name, phone or email) below.</div>'}
+    ${IMP.map.date!=null?'':'<div class="notice">Pick which column holds the job date below.</div>'}
+    <section class="panel"><div class="panel-head"><h3>Match your columns</h3><span class="muted" style="font-size:.8rem">Sample from row 1</span></div>
+      <div class="tablewrap"><table><thead><tr><th>App field</th><th>Your column</th><th>Sample</th></tr></thead><tbody>
+      ${JOB_FIELDS.map(([k,label])=>`<tr><td style="white-space:nowrap;font-weight:600">${esc(label)}</td><td style="min-width:150px"><select class="imp-map" id="imp-map-${k}" data-field="${k}" aria-label="Column for ${esc(label)}">${opts(IMP.map[k])}</select></td><td class="muted" style="font-size:.84rem;max-width:200px;overflow-wrap:anywhere">${IMP.map[k]!=null?esc(String(sample[IMP.map[k]]??'').slice(0,60)):''}</td></tr>`).join('')}
+      </tbody></table></div>
+      <p class="hint" style="margin-top:8px">With a Rate column, each row becomes Quantity × Rate. With only an Amount or total, that amount is used as the price. A service named like one in Settings uses its price if the file has none.</p></section>
+    <section class="panel" style="display:flex;flex-direction:column;gap:12px">
+      <div class="field"><label for="imp-def">Status when the file doesn't say</label><select id="imp-def"><option value="auto" ${IMP.defStatus==='auto'?'selected':''}>By date: past = Completed, upcoming = Scheduled</option>${JOB_STATUS.map(s=>`<option ${IMP.defStatus===s?'selected':''}>${s}</option>`).join('')}</select></div>
+      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="imp-create" ${IMP.createCust?'checked':''}> Create customers that aren't in the app yet</label>
+      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="imp-combine" ${IMP.combine?'checked':''}> Combine rows with the same customer and date into one job</label>
+      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="imp-dup" ${IMP.skipDup?'checked':''}> Skip if the customer already has a job that day</label>
+    </section>
+    <section class="panel"><div class="panel-head"><h3>Preview</h3><span class="muted" style="font-size:.8rem">First ${Math.min(6,plan.jobs.length)} of ${plan.jobs.length}</span></div>
+      ${plan.jobs.length?`<p class="hint" style="margin-bottom:6px">${plan.jobs.length} job${plan.jobs.length===1?'':'s'} (${lines} service line${lines===1?'':'s'}): ${Object.entries(byStatus).map(([k,v])=>`${v} ${k.toLowerCase()}`).join(', ')}.${plan.newCust.length?` ${plan.newCust.length} new customer${plan.newCust.length===1?'':'s'} will be created.`:''}</p>
+        <div class="list">${plan.jobs.slice(0,6).map(j=>`<div class="row" style="cursor:default"><span class="t">${esc(fmtDate(j.date))}${j.time?' · '+esc(fmtTime(j.time)):''} · ${esc(nameOf(j))}</span><span class="s">${esc(itemsSummary(j.items)||'No services listed')}${j.crew?' · '+esc(j.crew):''}</span><span class="r">${pill(j.status)}<span class="num" style="font-size:.84rem">${money(itemsTotal(j.items))}</span></span></div>`).join('')}</div>`
+        :'<p class="muted">No jobs to import with the current matching.</p>'}
+      ${(plan.dup||plan.noDate||plan.noCust||plan.unmatched)?`<p class="hint" style="margin-top:8px">${[plan.dup?`${plan.dup} already in the app will be skipped.`:'', plan.noDate?`${plan.noDate} row${plan.noDate===1?' has':'s have'} no readable date.`:'', plan.noCust?`${plan.noCust} row${plan.noCust===1?' has':'s have'} no customer.`:'', plan.unmatched?`${plan.unmatched} row${plan.unmatched===1?'':'s'} for customers not in the app will be skipped.`:''].filter(Boolean).join(' ')}</p>`:''}
+    </section>
+    <div class="btnrow"><button class="btn primary" data-act="impRun" ${plan.jobs.length&&S.dbState==='ok'?'':'disabled'}>Import ${plan.jobs.length} job${plan.jobs.length===1?'':'s'}</button><button class="btn" data-act="close">Cancel</button></div>`};
+}
+
 /* ---------- events ---------- */
 document.addEventListener('click', e=>{
   const el=e.target.closest('[data-act]'); if(!el) return;
@@ -2312,6 +2635,9 @@ document.addEventListener('change', e=>{
   else if(t.id==='imp-sheet'){ setImpSheet(+t.value); openDrawer('importCust',{},true); }
   else if(t.id==='imp-def'){ IMP.defStatus=t.value; openDrawer('importCust',{},true); }
   else if(t.id==='imp-dup'){ IMP.skipDup=t.checked; openDrawer('importCust',{},true); }
+  else if(t.id==='imp-create'){ IMP.createCust=t.checked; openDrawer('importCust',{},true); }
+  else if(t.id==='imp-combine'){ IMP.combine=t.checked; openDrawer('importCust',{},true); }
+  else if(t.id==='xj-status'||t.id==='xj-from'||t.id==='xj-to'){ const n=jobsForExport().length; const el=$('#xj-count'); if(el) el.textContent=`${n} job${n===1?'':'s'} match.`; }
   else if(t.classList.contains('it-svc') && t.value!==''){ const s=settings().services[+t.value]; const r=t.closest('.item-row'); r.querySelector('.it-desc').value=s.name; r.querySelector('.it-rate').value=s.price; recalcItems(); }
   else if(t.id==='e-tpl' || t.id==='e-cust'){
     const f=t.form; const cid=$('#e-cust').value; const c=cust(cid); const tpl=settings().emailTemplates.find(x=>x.name===$('#e-tpl').value);
