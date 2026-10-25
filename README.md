@@ -12,9 +12,12 @@ Customer management, scheduling, quotes, invoices, before/after photos, texting 
 - **Server functions (Supabase Edge Functions):**
   - `team`: owner creates logins, changes roles, turns access off, resets passwords.
   - `messaging`: sends email through Resend and texts through phone.com; reports which services are connected.
+  - `integrations`: owner-only. Saves keys, tests each connection step by step with fixes, sends test texts/emails, runs a text sync on demand.
   - `sms-sync`: runs every minute (Supabase cron) and pulls incoming and outgoing texts from phone.com into `messages`, matched to customers by phone number. The first run brought in the last 30 days.
 
-## Server settings (Supabase → Edge Functions → Secrets)
+## Server settings
+
+The owner manages keys in the app under **Settings → APIs** (saved in the server-only `app_secrets` table; a key saved there replaces the matching Supabase secret). Keys can also be set in Supabase → Edge Functions → Secrets:
 
 | Secret | What it is |
 |---|---|
@@ -34,3 +37,7 @@ Open the app. Because no accounts exist yet, it asks you to create the **owner**
 ## Not yet included
 
 - Automatic QuickBooks Online sync (CSV export for QuickBooks import is available on the Invoices page).
+
+## Server function source
+
+`supabase/functions/` holds the source of each deployed Edge Function.

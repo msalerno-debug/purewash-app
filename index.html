@@ -394,6 +394,45 @@ body.role-crew [data-act="editJob"], body.role-crew [data-act="newInvoice"], bod
 body.role-crew [data-act="openInvoice"], body.role-crew [data-act="calNew"], body.role-crew [data-act="calBookCust"],
 body.role-crew [data-act="calBookQuote"], body.role-crew [data-act="openImport"], body.role-crew [data-act="openJobImport"], body.role-crew [data-act="openJobExport"], body.role-crew [data-act="openCustExport"], body.role-crew [data-act="emailCompose"],
 body.role-crew [data-act="askDelete"]:not([data-col="photos"]), body.role-crew .tobook{display:none!important}
+/* settings tabs */
+.set-tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:thin;margin-bottom:-6px}
+.set-tab{border:0;background:none;padding:10px 14px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;border-bottom:2.5px solid transparent;margin-bottom:-1px;display:inline-flex;align-items:center;gap:6px;font-size:.92rem}
+.set-tab:hover{color:var(--ink)}
+.set-tab[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+.set-tab .nav-badge{min-width:18px;height:18px;font-size:.68rem;padding:0 5px;background:#C8372D;color:#fff;border-radius:999px;display:inline-grid;place-items:center}
+.set-panel{display:flex;flex-direction:column;gap:14px}
+.set-panel[hidden]{display:none!important}
+.set-form{display:flex;flex-direction:column;gap:14px}
+.set-savebar{position:sticky;bottom:calc(64px + env(safe-area-inset-bottom,0px));z-index:5;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px 14px;box-shadow:var(--shadow)}
+@media(min-width:900px){.set-savebar{bottom:12px}}
+/* APIs */
+.api-card{display:flex;flex-direction:column;gap:14px}
+.api-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.api-head h2{font-size:1.05rem}
+.api-ic{width:36px;height:36px;border-radius:9px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;flex:none}
+.api-ic svg{width:19px;height:19px}
+.api-keys{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.api-key{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:8px 16px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+@media(max-width:700px){.api-key{grid-template-columns:minmax(0,1fr)}}
+.api-key-l{display:flex;flex-direction:column;gap:2px;min-width:0}
+.api-key-l label{font-weight:600;font-size:.9rem}
+.api-key-v{font-size:.82rem;overflow-wrap:anywhere}
+.api-key-in{display:flex;gap:6px;min-width:0}
+.api-key-in input{flex:1;min-width:0}
+.api-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.api-links{display:flex;gap:14px;flex-wrap:wrap;font-size:.84rem;margin-left:auto;align-self:center}
+.checks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.chk{display:grid;grid-template-columns:22px minmax(0,1fr);gap:10px;padding:9px 12px;border-top:1px solid var(--line);font-size:.9rem}
+.chk:first-child{border-top:0}
+.chk-i{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:.72rem;font-weight:800;margin-top:1px}
+.chk.ok .chk-i{background:var(--good-soft);color:var(--good)}
+.chk.bad{background:var(--bad-soft)}
+.chk.bad .chk-i{background:var(--bad);color:#fff}
+.chk.info .chk-i{background:var(--accent-soft);color:var(--accent);font-style:italic;font-family:Georgia,serif}
+.chk-l{font-weight:600}
+.chk-d{font-size:.82rem;color:var(--muted);overflow-wrap:anywhere}
+.chk-f{font-size:.84rem;margin-top:3px}
+.api-preview .mapframe{border-radius:8px;max-height:260px}
 /* text conversations */
 .conv-row{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;gap:2px 10px;width:100%;text-align:left;border:0;border-top:1px solid var(--line);background:none;padding:12px 4px;cursor:pointer;color:var(--ink);position:relative}
 .list > .conv-row:first-child{border-top:0}
@@ -519,7 +558,7 @@ const PAY_METHODS = ['Card','Check','Cash','Zelle','Venmo','ACH','Other'];
 /* ---------- state ---------- */
 const S = {customers:[], jobs:[], invoices:[], photos:[], messages:[], settingsDoc:null, view:'today',
   jobFilter:'upcoming', custQuery:'', custStatus:'All', photoQuery:'', invFilter:'Open', invQuery:'', msgQuery:'', msgChan:'all', msgTab:'conv', rep:{id:'summary', period:'ytd', from:'', to:''}, cal:{mode:'month', anchor:'', sel:null, showQuotes:true}, settingsDirty:false, dbState:'connecting',
-  canWrite:null, canAdmin:false, uid:null, assetsOn:true, downloadsOn:true, role:null, profile:null, team:[], activity:null, integ:{email:false, sms:false}, mapsKey:null};
+  canWrite:null, canAdmin:false, uid:null, assetsOn:true, downloadsOn:true, role:null, profile:null, team:[], activity:null, integ:{email:false, sms:false}, setTab:'general', api:{loaded:false, loading:false, data:null, busy:{}, err:null}, mapsKey:null};
 // data, photo storage and downloads are defined in the Supabase data layer below
 let drawerState=null; // {kind, args, detail:boolean}
 
@@ -710,7 +749,9 @@ function render(){
   const v = {today:viewToday, calendar:viewCalendar, jobs:viewJobs, customers:viewCustomers, photos:viewPhotos, invoices:viewInvoices, messages:viewMessages, reports:viewReports, settings:viewSettings}[S.view] || viewToday;
   const keepFocus = document.activeElement && document.activeElement.id && $('#view').contains(document.activeElement) ? document.activeElement.id : null;
   const sel = keepFocus ? [document.activeElement.selectionStart, document.activeElement.selectionEnd] : null;
+  const keepVals = S.view==='settings' ? [...document.querySelectorAll('#view input[id]:not([type=checkbox]):not([type=radio]):not([type=file])')].filter(i=>!i.closest('form[data-form=settings]') && i.value).map(i=>[i.id,i.value]) : [];
   $('#view').innerHTML = banner() + v();
+  keepVals.forEach(([id,val])=>{ const el=document.getElementById(id); if(el && !el.value) el.value=val; });
   if(keepFocus){ const el=document.getElementById(keepFocus); if(el){ el.focus(); try{ el.setSelectionRange(sel[0],sel[1]); }catch(e){} } }
   if(drawerState && drawerState.detail) openDrawer(drawerState.kind, drawerState.args, true);
 }
@@ -1270,7 +1311,6 @@ function teamSection(){
       <div><button class="btn primary" type="submit">Create login</button></div>
       <div id="tm-result"></div>
     </form>
-    <details><summary style="cursor:pointer;font-weight:600">Recent activity</summary><div id="activity-box" style="margin-top:8px">${activityHtml()}</div></details>
   </section>`;
 }
 function activityHtml(){
@@ -1281,18 +1321,32 @@ function activityHtml(){
   return S.activity.map(a=>`<div class="act-row"><span class="muted mono" style="font-size:.76rem;white-space:nowrap">${esc(new Date(a.at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}))}</span><span>${esc(nm(a.user_id))} ${a.action==='insert'?'added':a.action==='delete'?'deleted':'updated'} ${esc(what[a.tbl]||a.tbl)}${a.summary?` <span class="muted">${esc(a.summary)}</span>`:''}</span></div>`).join('');
 }
 async function loadActivity(){ if(S.role!=='owner') return; const {data}=await sb.from('activity').select('*').order('at',{ascending:false}).limit(60); S.activity=data||[]; const box=document.getElementById('activity-box'); if(box) box.innerHTML=activityHtml(); }
+const SET_TABS=[['general','General'],['business','Business'],['services','Services & prices'],['templates','Templates'],['team','Team',1],['activity','Activity',1],['apis','APIs',1]];
+const FORM_TABS=['business','services','templates'];
+function setTabsVisible(){ return SET_TABS.filter(t=>!t[2] || S.role==='owner'); }
+function applySetTab(){
+  const t=S.setTab;
+  document.querySelectorAll('[data-tabpanel]').forEach(el=>{ el.hidden = el.dataset.tabpanel!==t; });
+  document.querySelectorAll('.set-tab').forEach(el=>{ const on=el.dataset.t===t; el.setAttribute('aria-selected', on); el.tabIndex = on?0:-1; });
+  const sb=document.getElementById('set-savebar'); if(sb) sb.hidden = !FORM_TABS.includes(t) || !S.canAdmin;
+}
 function viewSettings(){
   const s=settings(); const ro = !S.canAdmin;
+  if(!setTabsVisible().some(t=>t[0]===S.setTab)) S.setTab='general';
+  const T=S.setTab; const hid = k => k===T ? '' : 'hidden';
   return `
   <div class="page-head"><div><p class="eyebrow">Business setup</p><h1>Settings</h1></div></div>
-  <section class="panel" style="display:flex;flex-direction:column;gap:12px">
-    <div><h2>Appearance</h2><p class="muted" style="font-size:.88rem;margin-top:4px">Applies to this device only, so each crew member can pick their own.</p></div>
-    <div class="seg" role="radiogroup" aria-label="Theme">${[['light','Light'],['dark','Dark'],['system','Match my device']].map(([k,l])=>`<button class="seg-btn" role="radio" aria-checked="${getTheme()===k}" data-act="setTheme" data-t="${k}">${THEME_ICON[k]}${l}</button>`).join('')}</div>
-  </section>
-  ${accountSection()}
-  ${S.role==='owner'?teamSection():''}
-  ${ro?'<div class="notice">Only the owner can change business settings.</div>':''}
-  <form data-form="settings" class="panel" style="display:flex;flex-direction:column;gap:14px">
+  <div class="set-tabs" role="tablist" aria-label="Settings sections">${setTabsVisible().map(([k,l])=>`<button class="set-tab" role="tab" id="st-${k}" aria-controls="sp-${k}" aria-selected="${k===T}" tabindex="${k===T?0:-1}" data-act="setTab" data-t="${k}">${l}${k==='apis'?apiTabBadge():''}</button>`).join('')}</div>
+  <div class="set-panel" id="sp-general" role="tabpanel" aria-labelledby="st-general" data-tabpanel="general" ${hid('general')}>
+    <section class="panel" style="display:flex;flex-direction:column;gap:12px">
+      <div><h2>Appearance</h2><p class="muted" style="font-size:.88rem;margin-top:4px">Applies to this device only, so each crew member can pick their own.</p></div>
+      <div class="seg" role="radiogroup" aria-label="Theme">${[['light','Light'],['dark','Dark'],['system','Match my device']].map(([k,l])=>`<button class="seg-btn" role="radio" aria-checked="${getTheme()===k}" data-act="setTheme" data-t="${k}">${THEME_ICON[k]}${l}</button>`).join('')}</div>
+    </section>
+    ${accountSection()}
+  </div>
+  <form data-form="settings" class="set-form">
+    ${ro?`<div class="notice" ${FORM_TABS.includes(T)?'':'hidden'} data-ro-note>Only the owner can change these settings.</div>`:''}
+    <section class="panel set-panel" id="sp-business" role="tabpanel" aria-labelledby="st-business" data-tabpanel="business" ${hid('business')}>
     <h2>Business</h2>
     <div class="fgrid">
       <div class="field full"><label for="s-name">Business name</label><input type="text" id="s-name" name="businessName" value="${esc(s.businessName)}" ${ro?'disabled':''}></div>
@@ -1305,9 +1359,13 @@ function viewSettings(){
       <div class="field"><label for="s-cap">Work hours per day (all crews)</label><input type="number" min="0" step="0.5" id="s-cap" name="dayCapacity" value="${esc(s.dayCapacity)}" ${ro?'disabled':''}><span class="hint">Calendar days fill up against this. Two crews working 8 hours = 16.</span></div>
       <div class="field full"><label for="s-note">Invoice footer note</label><textarea id="s-note" name="invoiceNote" ${ro?'disabled':''}>${esc(s.invoiceNote)}</textarea></div>
     </div>
+    </section>
+    <section class="panel set-panel" id="sp-services" role="tabpanel" aria-labelledby="st-services" data-tabpanel="services" ${hid('services')}>
     <h2>Services & starting prices</h2>
     <div class="field"><label for="s-svc">One per line: Service | price | unit</label><textarea id="s-svc" name="services" style="min-height:190px;font-family:var(--f-mono);font-size:.85rem" ${ro?'disabled':''}>${esc(s.services.map(x=>`${x.name} | ${x.price} | ${x.unit||''}`).join('\n'))}</textarea>
       <span class="hint">These fill in job and invoice lines. The starting list is a placeholder; set your own prices.</span></div>
+    </section>
+    <section class="panel set-panel" id="sp-templates" role="tabpanel" aria-labelledby="st-templates" data-tabpanel="templates" ${hid('templates')}>
     <h2>Text templates</h2>
     <div class="field"><label for="s-tpl">One per line: Name | message</label><textarea id="s-tpl" name="templates" style="min-height:190px;font-size:.88rem" ${ro?'disabled':''}>${esc(s.templates.map(x=>`${x.name} | ${x.text}`).join('\n'))}</textarea>
       <span class="hint">Fill-ins: {first} {name} {business} {date} {time} {amount} {invoice} {phone}</span></div>
@@ -1315,13 +1373,94 @@ function viewSettings(){
     <p class="hint">Fill-ins: {first} {name} {business} {phone} {email} {address} {date} {time} {services} {total} {invoice} {amount} {due} {paid}. {services} lists each service with its price.</p>
     <div id="etpls" style="display:flex;flex-direction:column;gap:12px">${s.emailTemplates.map((t,i)=>etplRow(t,i,ro)).join('')}</div>
     ${ro?'':`<div><button type="button" class="btn sm" data-act="addEtpl">${I.plus} Add email template</button></div>`}
-    ${ro?'':'<div><button class="btn primary" type="submit">Save settings</button></div>'}
+    </section>
+    ${ro?'':`<div class="set-savebar" id="set-savebar" ${FORM_TABS.includes(T)?'':'hidden'}><span class="hint">Business, services and templates are saved together.</span><button class="btn primary" type="submit">Save settings</button></div>`}
   </form>
-  <section class="panel" style="display:flex;flex-direction:column;gap:8px">
-    <h2>Google Street View</h2>
-    <p class="muted" style="font-size:.9rem">${S.mapsKey?'Street View is shown right on each customer and job. ':'Add your Google Maps key in the server settings to show Street View right inside the app. '}Every customer also has a Street View button that opens Google Maps. To jump straight into the street-level view of the house, open the property in Google Maps, enter Street View, copy the link from the address bar and paste it into the customer's <strong>Street View pin</strong> field. An embedded Street View inside the app (which needs a Google Maps API key) comes with the server version.</p>
+  ${S.role==='owner'?`
+  <div class="set-panel" id="sp-team" role="tabpanel" aria-labelledby="st-team" data-tabpanel="team" ${hid('team')}>${teamSection()}</div>
+  <div class="set-panel" id="sp-activity" role="tabpanel" aria-labelledby="st-activity" data-tabpanel="activity" ${hid('activity')}>
+    <section class="panel"><div class="panel-head"><h2>Recent activity</h2><button class="btn ghost sm" data-act="reloadActivity">Refresh</button></div><p class="muted" style="font-size:.88rem;margin-bottom:8px">The last 60 changes to customers, jobs, invoices, photos and settings, and who made them.</p><div id="activity-box">${activityHtml()}</div></section>
+  </div>
+  <div class="set-panel" id="sp-apis" role="tabpanel" aria-labelledby="st-apis" data-tabpanel="apis" ${hid('apis')}><div id="apis-box">${apisHtml()}</div></div>`:''}`;
+}
+
+/* ---------- APIs tab ---------- */
+const API_DEFS=[
+  {id:'sms', name:'phone.com texting', icon:'messages', what:'Sends texts from your business number and brings customer replies into Messages every minute.',
+    keys:[['PHONECOM_TOKEN','API token',true,'Paste the permanent token'],['PHONECOM_VOIP_ID','Account (VoIP) ID',false,'Digits only'],['PHONECOM_FROM','Texting number',false,'908-555-1234']],
+    links:[['Get a phone.com API token','https://apidocs.phone.com/docs/access-token'],['phone.com API docs','https://apidocs.phone.com/docs/apiphonecom']]},
+  {id:'email', name:'Email (Resend)', icon:'mail', what:'Sends invoices, quotes, reminders and receipts from your own address. Customer replies go to the business email on the Business tab.',
+    keys:[['RESEND_API_KEY','API key',true,'re_…'],['EMAIL_FROM','Send from',false,'PureWash <office@purewash.net>']],
+    links:[['Resend API keys','https://resend.com/api-keys'],['Resend domains (DNS setup)','https://resend.com/domains']]},
+  {id:'maps', name:'Google Street View', icon:'person', what:'Shows Street View or satellite view of the property right on each customer and job.',
+    keys:[['GOOGLE_MAPS_KEY','Maps API key',true,'AIza…']],
+    links:[['Google Cloud credentials','https://console.cloud.google.com/apis/credentials'],['Turn on the Maps Embed API','https://console.cloud.google.com/apis/library/maps-embed-backend.googleapis.com']]},
+];
+function apiStatus(def){
+  const D=S.api.data; if(!D) return {cls:'', label:'Checking…'};
+  const missing=def.keys.filter(([k])=>!(D.keys[k]&&D.keys[k].set)).length;
+  const t=D.tests&&D.tests[def.id];
+  if(missing===def.keys.length) return {cls:'', label:'Not set up'};
+  if(missing) return {cls:'overdue', label:'Missing details'};
+  if(def.id==='sms' && D.smsSync && D.smsSync.lastError) return {cls:'overdue', label:'Needs attention'};
+  if(!t) return {cls:'quoted', label:'Not tested'};
+  return t.ok ? {cls:'paid', label:'Connected'} : {cls:'overdue', label:'Needs attention'};
+}
+function apiTabBadge(){ const D=S.api.data; if(!D) return ''; const n=API_DEFS.filter(d=>['Needs attention','Missing details'].includes(apiStatus(d).label)).length; return n?` <span class="nav-badge" aria-label="${n} need attention">${n}</span>`:''; }
+const ago = ms => { const m=Math.round((Date.now()-ms)/60000); return m<1?'just now':m<60?`${m} min ago`:m<1440?`${Math.round(m/60)} hr ago`:fmtStamp(ms); };
+function checksHtml(r){
+  if(!r) return '';
+  return `<ul class="checks">${r.checks.map(c=>`<li class="chk ${c.ok===true?'ok':c.ok===false?'bad':'info'}"><span class="chk-i" aria-hidden="true">${c.ok===true?'✓':c.ok===false?'✕':'i'}</span><div><div class="chk-l">${esc(c.label)}</div>${c.detail?`<div class="chk-d">${esc(c.detail)}</div>`:''}${c.fix&&c.ok!==true?`<div class="chk-f"><strong>${c.ok===false?'How to fix:':'Tip:'}</strong> ${esc(c.fix)}</div>`:''}</div></li>`).join('')}</ul>
+    <p class="hint">Tested ${esc(ago(r.at))}.</p>`;
+}
+function apiCard(def){
+  const D=S.api.data; const st=apiStatus(def); const busy=S.api.busy[def.id]; const t=D&&D.tests&&D.tests[def.id];
+  const keyRow=([k,label,secret,ph])=>{ const info=(D&&D.keys[k])||{};
+    return `<form class="api-key" data-form="apiKey" data-key="${k}">
+      <div class="api-key-l"><label for="ak-${k}">${esc(label)}</label>
+        <span class="api-key-v">${info.set?`<span class="mono">${esc(info.display)}</span> <span class="muted">· ${info.source==='app'?`saved here${info.updatedAt?' '+esc(ago(new Date(info.updatedAt).getTime())):''}`:'saved in Supabase'}</span>`:'<span class="muted">Not entered</span>'}</span></div>
+      <div class="api-key-in"><input type="${secret?'password':'text'}" id="ak-${k}" name="value" autocomplete="off" spellcheck="false" placeholder="${esc(info.set?'Enter a new value to replace it':ph)}">
+        <button class="btn sm" type="submit">${info.set?'Replace':'Save'}</button>${info.source==='app'?`<button class="btn sm ghost" type="button" data-act="apiClear" data-key="${k}" title="${info.source==='app'&&D.keys[k]?'Remove the value saved here':''}">Remove</button>`:''}</div>
+    </form>`; };
+  const extra = def.id==='sms' ? `
+      <div class="api-actions">
+        <div class="field" style="flex:1 1 180px"><label for="api-sms-to">Send a test text to</label><input type="tel" id="api-sms-to" placeholder="Your cell number" autocomplete="tel"></div>
+        <button class="btn" data-act="apiTest" data-i="sms" data-send="1" ${busy?'disabled':''}>Send test text</button>
+        <button class="btn" data-act="apiResync" ${busy?'disabled':''}>Sync texts now</button>
+      </div>
+      ${D&&D.smsSync&&D.smsSync.lastRun?`<p class="hint">Text sync last ran ${esc(ago(D.smsSync.lastRun))}${D.smsSync.lastError?` and failed: <span style="color:var(--bad)">${esc(D.smsSync.lastError)}</span>`:', with no errors'}.</p>`:''}`
+    : def.id==='email' ? `
+      <div class="api-actions"><button class="btn" data-act="apiTest" data-i="email" data-send="1" ${busy?'disabled':''}>Send test email to ${esc((D&&D.ownerEmail)||'me')}</button></div>`
+    : `
+      ${S.mapsKey?`<div class="api-preview"><div class="lbl" style="margin-bottom:6px">Live preview</div><iframe class="mapframe" title="Street View preview" src="https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(S.mapsKey)}&q=${encodeURIComponent(settings().address||'Union, NJ')}&zoom=16" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe><p class="hint">You should see a map of ${esc(settings().address||'Union, NJ')}. A grey box with an error means the key needs fixing; run the test for steps.</p></div>`:''}`;
+  return `<section class="panel api-card" id="api-${def.id}">
+    <div class="api-head"><div style="display:flex;gap:10px;align-items:center;min-width:0"><span class="api-ic" aria-hidden="true">${I[def.icon]||''}</span><div style="min-width:0"><h2>${esc(def.name)}</h2><p class="muted" style="font-size:.86rem">${esc(def.what)}</p></div></div>${pill(st.label).replace('class="pill ', `class="pill ${st.cls} `)}</div>
+    <div class="api-keys">${def.keys.map(keyRow).join('')}</div>
+    <div class="api-actions"><button class="btn primary" data-act="apiTest" data-i="${def.id}" ${busy?'disabled':''}>${busy?'Testing…':'Test connection'}</button><span class="api-links">${def.links.map(([l,u])=>`<a href="${u}" target="_blank" rel="noopener">${esc(l)}</a>`).join('')}</span></div>
+    ${extra}
+    <div class="api-result" aria-live="polite">${checksHtml(t)}</div>
   </section>`;
 }
+function apisHtml(){
+  if(S.role!=='owner') return '';
+  if(S.api.err && !S.api.data) return `<div class="notice bad">Couldn't load the connections: ${esc(S.api.err)} <button class="btn sm" data-act="apiReload" style="margin-left:auto">Try again</button></div>`;
+  if(!S.api.data) return '<div class="notice info">Checking your connections…</div>';
+  return `<div style="display:flex;flex-direction:column;gap:16px">
+    <p class="muted" style="font-size:.9rem;max-width:70ch">Connect the outside services the app uses. Keys you save here are stored on the server and never shown again in full. A key saved here replaces one entered in the Supabase dashboard. Use <strong>Test connection</strong> any time something stops working; it checks each step and tells you how to fix what fails.</p>
+    ${API_DEFS.map(apiCard).join('')}
+    <section class="panel api-card"><div class="api-head"><div style="display:flex;gap:10px;align-items:center"><span class="api-ic" aria-hidden="true">${I.invoices}</span><div><h2>QuickBooks Online</h2><p class="muted" style="font-size:.86rem">Automatic sync of customers, invoices and payments. Until it's connected, use the CSV exports on the Invoices page.</p></div></div><span class="pill">Not built yet</span></div></section>
+  </div>`;
+}
+function refreshApis(){ const box=document.getElementById('apis-box'); if(box) box.innerHTML=apisHtml(); document.querySelectorAll('#st-apis').forEach(el=>{ el.innerHTML='APIs'+apiTabBadge(); }); }
+async function loadApis(force){
+  if(S.role!=='owner' || (S.api.loading && !force)) return;
+  S.api.loading=true; S.api.err=null;
+  const r=await callFn('integrations',{action:'list'});
+  S.api.loading=false;
+  if(r.ok){ S.api.data=r; S.api.loaded=true; } else S.api.err=r.error;
+  refreshApis();
+}
+async function refreshInteg(){ const r=await callFn('messaging',{action:'status'}); if(r.ok){ S.integ={email:!!r.email, sms:!!r.sms}; S.mapsKey=r.mapsKey||null; } }
 
 /* ---------- drawer ---------- */
 function openDrawer(kind, args={}, refresh){
@@ -1791,7 +1930,7 @@ function fillTemplate(text, cid, ctx={}){
 
 /* ---------- actions ---------- */
 const A = {
-  nav(d){ S.settingsDirty=false; S.view=d.view; if(d.view==='settings') loadActivity(); closeDrawer(); render(); window.scrollTo(0,0); },
+  nav(d){ S.settingsDirty=false; S.view=d.view; if(d.view==='settings'){ if(S.setTab==='activity') loadActivity(); if(S.role==='owner' && !S.api.loaded) loadApis(); } closeDrawer(); render(); window.scrollTo(0,0); },
   close: closeDrawer, back,
   backdrop(d,el,e){ if(e.target===el) closeDrawer(); },
   newCustomer(){ go('customerForm',{}); },
@@ -1844,6 +1983,35 @@ const A = {
     const c=cust(cid); if(c && !c.email) await write(()=>saveDoc('customers',c.id,{...c,email:to,updatedAt:Date.now()}));
     if(v && v.status==='Draft') await write(()=>saveDoc('invoices',v.id,{...v,status:'Sent',updatedAt:Date.now()}));
     back();
+  },
+  setTab(d){ S.setTab=d.t; applySetTab(); const ro=document.querySelector('[data-ro-note]'); if(ro) ro.hidden=!FORM_TABS.includes(d.t); if(d.t==='activity') loadActivity(); if(d.t==='apis' && !S.api.loaded) loadApis(); },
+  reloadActivity(){ S.activity=null; const b=document.getElementById('activity-box'); if(b) b.innerHTML=activityHtml(); loadActivity(); },
+  apiReload(){ loadApis(true); },
+  async apiTest(d){
+    const i=d.i; const body={action:'test', integration:i};
+    if(d.send && i==='sms'){ const to=(document.getElementById('api-sms-to')||{}).value||''; if(String(to).replace(/\D/g,'').length<10) return toast('Enter the 10-digit number to send the test text to.','bad'); body.sendTo=to; }
+    if(d.send && i==='email') body.sendTest=true;
+    S.api.busy[i]=true; refreshApis();
+    const r=await callFn('integrations',body);
+    S.api.busy[i]=false;
+    if(!r.ok){ toast(r.error,'bad'); refreshApis(); return; }
+    if(S.api.data){ S.api.data.tests=S.api.data.tests||{}; S.api.data.tests[i]=r.result; }
+    if(i==='sms'){ const l=await callFn('integrations',{action:'list'}); if(l.ok) S.api.data=l; }
+    refreshApis();
+    const el=document.getElementById('api-'+i); if(el) el.querySelector('.api-result')?.scrollIntoView({block:'nearest'});
+    toast(r.result.ok?'All checks passed':'Some checks failed. See how to fix them below.', r.result.ok?'':'bad');
+  },
+  async apiResync(){
+    S.api.busy.sms=true; refreshApis();
+    const r=await callFn('integrations',{action:'resync'});
+    S.api.busy.sms=false;
+    if(!r.ok) toast(r.error,'bad'); else toast(r.skipped?'Texting isn\'t set up yet.':`Sync finished: ${r.added} new text${r.added===1?'':'s'}`);
+    await loadApis(true);
+  },
+  async apiClear(d){
+    const r=await callFn('integrations',{action:'set', key:d.key, value:''});
+    if(!r.ok) return toast(r.error,'bad');
+    S.api.data=r; await refreshInteg(); refreshApis(); toast('Removed');
   },
   repPick(d){ S.rep.id=d.id; render(); if(!window.matchMedia('(min-width:900px)').matches) window.scrollTo(0,0); },
   async repCsv(){ const c=S._repCsv; if(c&&c.rows.length) await saveFile(c.name, toCSV(c.rows)); },
@@ -2021,6 +2189,13 @@ const F = {
     if(d10(number).length!==10) return toast('This conversation has no valid phone number.','bad');
     if(S.integ.sms){ const ok=await sendSms(number, body, {customerId:cid}); if(ok){ $('#tr-body').value=''; const tc=$('#tr-count'); if(tc) tc.textContent=''; } }
     else { if(await write(()=>saveDoc('messages',newId('messages'),{customerId:cid, to:fmtNum(number), number:d10(number), body, channel:'phone.com', direction:'out', read:true, createdAt:Date.now(), by:S.uid||''}),'Logged')) $('#tr-body').value=''; }
+  },
+  async apiKey(f){
+    const key=f.dataset.key; const inp=f.querySelector('input'); const value=inp.value.trim();
+    if(!value) return toast('Paste the value first.','bad');
+    const r=await callFn('integrations',{action:'set', key, value});
+    if(!r.ok) return toast(r.error,'bad');
+    S.api.data=r; inp.value=''; await refreshInteg(); refreshApis(); toast('Saved. Click Test connection to check it.');
   },
   async mypw(f){
     const fd=Object.fromEntries(new FormData(f)); if(fd.pw.length<8) return toast('Use at least 8 characters.','bad'); if(fd.pw!==fd.pw2) return toast('The two passwords don\'t match.','bad');
@@ -2664,6 +2839,13 @@ document.addEventListener('keydown', e=>{
   }
   if(e.key==='Escape' && drawerState) back();
 });
+document.addEventListener('keydown', e=>{
+  const t=e.target; if(!(t.classList && t.classList.contains('set-tab'))) return;
+  if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key)) return;
+  const tabs=[...document.querySelectorAll('.set-tab')]; let i=tabs.indexOf(t);
+  i = e.key==='Home'?0 : e.key==='End'?tabs.length-1 : (i+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;
+  e.preventDefault(); tabs[i].focus(); tabs[i].click();
+});
 document.addEventListener('focusin', e=>{ const t=e.target; if(t.classList && t.classList.contains('cpick-q')){ if(!document.getElementById(t.dataset.for).value) cpickRender(t); else try{ t.select(); }catch(_){} } });
 document.addEventListener('focusout', e=>{ const t=e.target; if(t.classList && t.classList.contains('cpick-q')){ const id=t.dataset.for; setTimeout(()=>{ if(document.activeElement!==t){ cpickClose(id); cpickSettle(id); } }, 160); } });
 /* chart tooltip */
@@ -2787,6 +2969,7 @@ async function enterApp(session){
   document.getElementById('auth-root').hidden=true; document.getElementById('auth-root').innerHTML=''; document.getElementById('app').hidden=false;
   await loadAll(); subscribe();
   callFn('messaging',{action:'status'}).then(r=>{ if(r.ok){ S.integ={email:!!r.email, sms:!!r.sms}; S.mapsKey=r.mapsKey||null; scheduleRender(); } });
+  if(prof.role==='owner') loadApis();
   importOldPhotos();
 }
 (async function start(){
