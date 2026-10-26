@@ -394,6 +394,12 @@ body.role-crew [data-act="editJob"], body.role-crew [data-act="newInvoice"], bod
 body.role-crew [data-act="openInvoice"], body.role-crew [data-act="calNew"], body.role-crew [data-act="calBookCust"],
 body.role-crew [data-act="calBookQuote"], body.role-crew [data-act="openImport"], body.role-crew [data-act="openJobImport"], body.role-crew [data-act="openJobExport"], body.role-crew [data-act="openCustExport"], body.role-crew [data-act="emailCompose"],
 body.role-crew [data-act="askDelete"]:not([data-col="photos"]):not([data-col="vehicle_logs"]), body.role-crew [data-act="newVehicle"], body.role-crew [data-act="editVehicle"], body.role-crew .fleet-manage, body.role-crew .tobook{display:none!important}
+/* data tab */
+.danger-zone{border-color:color-mix(in srgb, var(--bad) 45%, var(--line))}
+.danger-zone h2{color:var(--bad)}
+.btn.danger-solid{background:var(--bad);border-color:var(--bad);color:#fff}
+.btn.danger-solid:disabled{opacity:.45}
+.wipe-confirm{display:flex;flex-direction:column;gap:12px;background:var(--bad-soft);border-radius:var(--r);padding:14px}
 /* fleet */
 .veh-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
 @media(max-width:520px){.veh-grid{grid-template-columns:minmax(0,1fr)}}
@@ -595,7 +601,7 @@ const PAY_METHODS = ['Card','Check','Cash','Zelle','Venmo','ACH','Other'];
 /* ---------- state ---------- */
 const S = {customers:[], jobs:[], invoices:[], photos:[], messages:[], vehicles:[], vehicle_logs:[], settingsDoc:null, view:'today',
   jobFilter:'upcoming', custQuery:'', custStatus:'All', photoQuery:'', invFilter:'Open', invQuery:'', msgQuery:'', msgChan:'all', msgTab:'conv', rep:{id:'summary', period:'ytd', from:'', to:''}, cal:{mode:'month', anchor:'', sel:null, showQuotes:true}, settingsDirty:false, dbState:'connecting',
-  canWrite:null, canAdmin:false, uid:null, assetsOn:true, downloadsOn:true, role:null, profile:null, team:[], activity:null, integ:{email:false, sms:false}, setTab:'general', api:{loaded:false, loading:false, data:null, busy:{}, err:null}, mapsKey:null};
+  canWrite:null, canAdmin:false, uid:null, assetsOn:true, downloadsOn:true, role:null, profile:null, team:[], activity:null, integ:{email:false, sms:false}, setTab:'general', wipe:{open:false, typed:'', photos:false, messages:false, busy:false, result:null}, api:{loaded:false, loading:false, data:null, busy:{}, err:null}, mapsKey:null};
 // data, photo storage and downloads are defined in the Supabase data layer below
 let drawerState=null; // {kind, args, detail:boolean}
 
@@ -1373,7 +1379,7 @@ function activityHtml(){
   return S.activity.map(a=>`<div class="act-row"><span class="muted mono" style="font-size:.76rem;white-space:nowrap">${esc(new Date(a.at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}))}</span><span>${esc(nm(a.user_id))} ${a.action==='insert'?'added':a.action==='delete'?'deleted':'updated'} ${esc(what[a.tbl]||a.tbl)}${a.summary?` <span class="muted">${esc(a.summary)}</span>`:''}</span></div>`).join('');
 }
 async function loadActivity(){ if(S.role!=='owner') return; const {data}=await sb.from('activity').select('*').order('at',{ascending:false}).limit(60); S.activity=data||[]; const box=document.getElementById('activity-box'); if(box) box.innerHTML=activityHtml(); }
-const SET_TABS=[['general','General'],['business','Business'],['services','Services & prices'],['templates','Templates'],['team','Team',1],['activity','Activity',1],['apis','APIs',1]];
+const SET_TABS=[['general','General'],['business','Business'],['services','Services & prices'],['templates','Templates'],['team','Team',1],['activity','Activity',1],['apis','APIs',1],['data','Data',1]];
 const FORM_TABS=['business','services','templates'];
 function setTabsVisible(){ return SET_TABS.filter(t=>!t[2] || S.role==='owner'); }
 function applySetTab(){
@@ -1433,8 +1439,40 @@ function viewSettings(){
   <div class="set-panel" id="sp-activity" role="tabpanel" aria-labelledby="st-activity" data-tabpanel="activity" ${hid('activity')}>
     <section class="panel"><div class="panel-head"><h2>Recent activity</h2><button class="btn ghost sm" data-act="reloadActivity">Refresh</button></div><p class="muted" style="font-size:.88rem;margin-bottom:8px">The last 60 changes to customers, jobs, invoices, photos and settings, and who made them.</p><div id="activity-box">${activityHtml()}</div></section>
   </div>
-  <div class="set-panel" id="sp-apis" role="tabpanel" aria-labelledby="st-apis" data-tabpanel="apis" ${hid('apis')}><div id="apis-box">${apisHtml()}</div></div>`:''}`;
+  <div class="set-panel" id="sp-apis" role="tabpanel" aria-labelledby="st-apis" data-tabpanel="apis" ${hid('apis')}><div id="apis-box">${apisHtml()}</div></div>
+  <div class="set-panel" id="sp-data" role="tabpanel" aria-labelledby="st-data" data-tabpanel="data" ${hid('data')}>${dataSection()}</div>`:''}`;
 }
+
+/* ---------- Data tab: backup + delete everything ---------- */
+function dataSection(){
+  const n={c:S.customers.length, j:S.jobs.length, i:S.invoices.length, p:S.photos.length, m:S.messages.length};
+  return `
+  <section class="panel" style="display:flex;flex-direction:column;gap:10px">
+    <h2>Backup</h2>
+    <p class="muted" style="font-size:.9rem;max-width:70ch">Downloads everything in one file: customers, jobs, invoices, photo records, texts and emails, vehicles and service records, and settings (photos and documents themselves stay in storage). Keep it somewhere safe. If you ever need it restored, the file has everything needed to put the records back.</p>
+    <div><button class="btn" data-act="downloadBackup" ${S.downloadsOn?'':'disabled'}>${I.download} Download full backup</button></div>
+  </section>
+  <section class="panel danger-zone" style="display:flex;flex-direction:column;gap:12px">
+    <div><h2>Delete all customer, job and invoice data</h2>
+    <p style="font-size:.9rem;margin-top:6px;max-width:70ch">Permanently deletes <strong>all ${n.c.toLocaleString('en-US')} customers, ${n.j.toLocaleString('en-US')} jobs (including quotes and service history) and ${n.i.toLocaleString('en-US')} invoices</strong> for everyone on your team. Settings, prices, templates, your team's logins and the fleet are kept.</p>
+    <p class="muted" style="font-size:.86rem;margin-top:6px;max-width:70ch">This can't be undone. Your database plan has no automatic backups, so download a backup first.</p></div>
+    <div id="wipe-box">${wipeBoxHtml()}</div>
+  </section>`;
+}
+function wipeBoxHtml(){
+  const W=S.wipe;
+  if(W.result){ const r=W.result; return `<div class="notice info" style="flex-direction:column;align-items:flex-start;gap:6px"><strong>Deleted ${r.customers.toLocaleString('en-US')} customers, ${r.jobs} jobs and ${r.invoices} invoices${r.photos?`, ${r.photos} photos`:''}${r.messages?`, ${r.messages} texts and emails`:''}.</strong><span>The app is now empty and ready for new records.</span><button class="btn sm" data-act="wipeReset">Done</button></div>`; }
+  if(!W.open) return `<div><button class="btn danger" data-act="wipeOpen">Delete all customer, job & invoice data…</button></div>`;
+  const ok = W.typed==='DELETE';
+  return `<div class="wipe-confirm">
+    <strong>Are you sure? This permanently deletes ${S.customers.length.toLocaleString('en-US')} customers, ${S.jobs.length.toLocaleString('en-US')} jobs and ${S.invoices.length.toLocaleString('en-US')} invoices.</strong>
+    <label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="wipe-photos" ${W.photos?'checked':''} ${W.busy?'disabled':''}> <span>Also delete all before & after photos (${S.photos.length.toLocaleString('en-US')})</span></label>
+    <label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="wipe-messages" ${W.messages?'checked':''} ${W.busy?'disabled':''}> <span>Also delete all text and email history (${S.messages.length.toLocaleString('en-US')})</span></label>
+    <div class="field" style="max-width:320px"><label for="wipe-typed">Type <span class="mono" style="font-weight:700">DELETE</span> in capital letters to confirm</label><input type="text" id="wipe-typed" value="${esc(W.typed)}" autocomplete="off" autocapitalize="characters" spellcheck="false" ${W.busy?'disabled':''}>${W.typed && !ok?`<span class="hint" style="color:var(--bad)">${W.typed.toUpperCase()==='DELETE'?'Use capital letters: DELETE':'Type exactly: DELETE'}</span>`:''}</div>
+    <div class="btnrow"><button class="btn danger-solid" data-act="wipeRun" ${ok&&!W.busy?'':'disabled'}>${W.busy?'Deleting…':'Permanently delete'}</button><button class="btn" data-act="wipeCancel" ${W.busy?'disabled':''}>Cancel</button></div>
+  </div>`;
+}
+function refreshWipe(){ const b=document.getElementById('wipe-box'); if(b) b.innerHTML=wipeBoxHtml(); }
 
 /* ---------- APIs tab ---------- */
 const API_DEFS=[
@@ -2309,6 +2347,29 @@ const A = {
     if(d.slot==='other'){ const arr=[...(docs.other||[])]; f=arr.splice(+d.i,1)[0]; docs.other=arr; } else { f=docs[d.slot]; delete docs[d.slot]; }
     if(await write(()=>saveDoc('vehicles', v.id, {...v, docs, updatedAt:Date.now()}),'Removed') && f && f.path) sb.storage.from('fleet').remove([f.path]).catch(()=>{});
   },
+  async downloadBackup(){
+    let st=null; try{ st=await sb.from('settings').select('data').eq('id','app').maybeSingle(); }catch(e){}
+    const data={app:'PureWash', exportedAt:new Date().toISOString(), exportedBy:(S.profile&&S.profile.email)||'', settings:(st&&st.data&&st.data.data)||S.settingsDoc||null,
+      customers:S.customers, jobs:S.jobs, invoices:S.invoices, photos:S.photos, messages:S.messages, vehicles:S.vehicles, vehicle_logs:S.vehicle_logs};
+    const ok=await saveFile(`purewash-backup-${todayISO()}.json`, JSON.stringify(data,null,1));
+    if(ok) S.wipe.backedUp=true;
+  },
+  wipeOpen(){ S.wipe={...S.wipe, open:true, typed:'', result:null}; refreshWipe(); const i=document.getElementById('wipe-typed'); if(i) i.focus(); },
+  wipeCancel(){ S.wipe={...S.wipe, open:false, typed:'', photos:false, messages:false}; refreshWipe(); },
+  wipeReset(){ S.wipe={open:false, typed:'', photos:false, messages:false, busy:false, result:null}; render(); },
+  async wipeRun(){
+    const W=S.wipe; const typed=(document.getElementById('wipe-typed')||{}).value||W.typed;
+    if(typed!=='DELETE') return toast('Type DELETE in capital letters to confirm.','bad');
+    if(S.role!=='owner') return toast('Only the owner can do this.','bad');
+    W.busy=true; refreshWipe();
+    const {data, error}=await sb.rpc('wipe_business_data',{confirm:typed, include_photos:!!W.photos, include_messages:!!W.messages});
+    if(error){ W.busy=false; refreshWipe(); return toast(error.message||'Could not delete. Nothing was changed.','bad'); }
+    const paths=(data&&data.photoPaths)||[];
+    for(let k=0;k<paths.length;k+=100){ try{ await sb.storage.from('photos').remove(paths.slice(k,k+100)); }catch(e){} }
+    ['customers','jobs','invoices'].concat(W.photos?['photos']:[]).concat(W.messages?['messages']:[]).forEach(t=>{ STORE[t]=new Map(); S[t]=[]; });
+    S.wipe={open:false, typed:'', photos:false, messages:false, busy:false, result:data};
+    render(); toast('All customer, job and invoice data deleted');
+  },
   repPick(d){ S.rep.id=d.id; render(); if(!window.matchMedia('(min-width:900px)').matches) window.scrollTo(0,0); },
   async repCsv(){ const c=S._repCsv; if(c&&c.rows.length) await saveFile(c.name, toCSV(c.rows)); },
   calNav(d){ const a=parseISO(S.cal.anchor); if(S.cal.mode==='month'){ a.setDate(1); a.setMonth(a.getMonth()+(+d.dir)); } else a.setDate(a.getDate()+7*(+d.dir)); S.cal.anchor=iso(a); S.cal.sel=null; render(); },
@@ -3121,6 +3182,7 @@ document.addEventListener('input', e=>{
   else if(t.id==='msg-q'){ S.msgQuery=t.value; render(); }
   else if(t.closest && t.closest('#items')) recalcItems();
   else if(t.id==='e-to'||t.id==='e-subj'||t.id==='e-body') updateMailto();
+  else if(t.id==='wipe-typed'){ const was=S.wipe.typed==='DELETE'; S.wipe.typed=t.value; const now=t.value==='DELETE'; const b=document.querySelector('[data-act="wipeRun"]'); if(b) b.disabled=!now||S.wipe.busy; if(was!==now || (t.value && !now)){ const pos=t.selectionStart; refreshWipe(); const i=document.getElementById('wipe-typed'); if(i){ i.focus(); try{ i.setSelectionRange(pos,pos); }catch(_){} } } }
   else if(t.id==='tr-body'){ const tc=$('#tr-count'); if(tc) tc.textContent = t.value.length ? `${t.value.length} characters${t.value.length>160?' (sends as more than one text)':''}` : ''; }
   else if(t.closest && t.closest('form[data-form=settings]')) S.settingsDirty=true;
   else if(t.id==='m-body'){ $('#m-count').textContent=t.value.length+' characters'; updateSmsLink(); }
@@ -3132,6 +3194,8 @@ document.addEventListener('change', e=>{
   else if(t.dataset.fleetUpload) uploadFleetFile(t);
   else if(t.id==='vl-receipt'){ const n=$('#vl-receipt-name'); if(n) n.textContent = t.files&&t.files[0] ? `Selected: ${t.files[0].name}` : ''; }
   else if(t.classList && t.classList.contains('team-role')){ const id=t.dataset.id, role=t.value; callFn('team',{action:'update', id, role}).then(r=>{ if(!r.ok){ toast(r.error,'bad'); loadTeam(); } else { toast('Role updated'); loadTeam(); } }); }
+  else if(t.id==='wipe-photos'){ S.wipe.photos=t.checked; }
+  else if(t.id==='wipe-messages'){ S.wipe.messages=t.checked; }
   else if(t.id==='rep-pick'){ S.rep.id=t.value; render(); }
   else if(t.id==='rep-period'){ S.rep.period=t.value; if(t.value==='custom'&&!S.rep.from){ const P=repPeriod(); S.rep.from=P.from; S.rep.to=P.to; } render(); }
   else if(t.id==='rep-from'){ S.rep.from=t.value; render(); }
