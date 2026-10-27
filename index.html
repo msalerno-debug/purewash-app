@@ -393,7 +393,27 @@ body.role-crew [data-act="newJob"], body.role-crew [data-act="newCustomer"], bod
 body.role-crew [data-act="editJob"], body.role-crew [data-act="newInvoice"], body.role-crew [data-act="invoiceFromJob"],
 body.role-crew [data-act="openInvoice"], body.role-crew [data-act="calNew"], body.role-crew [data-act="calBookCust"],
 body.role-crew [data-act="calBookQuote"], body.role-crew [data-act="openImport"], body.role-crew [data-act="openJobImport"], body.role-crew [data-act="openJobExport"], body.role-crew [data-act="openCustExport"], body.role-crew [data-act="emailCompose"],
-body.role-crew [data-act="askDelete"]:not([data-col="photos"]):not([data-col="vehicle_logs"]), body.role-crew [data-act="newVehicle"], body.role-crew [data-act="editVehicle"], body.role-crew .fleet-manage, body.role-crew .tobook{display:none!important}
+body.role-crew [data-act="askDelete"]:not([data-col="photos"]):not([data-col="vehicle_logs"]), body.role-crew .bulkbar, body.role-crew .selbox, body.role-crew .selcol, body.role-crew [data-act="newVehicle"], body.role-crew [data-act="editVehicle"], body.role-crew .fleet-manage, body.role-crew .tobook{display:none!important}
+/* bulk selection */
+.bulkbar{position:sticky;top:calc(env(safe-area-inset-top,0px) + 58px);z-index:4;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;padding:8px 10px;margin:-4px -6px 8px;border-radius:8px;background:var(--surface)}
+@media(min-width:900px){.bulkbar{top:8px}}
+.bulkbar.on{background:var(--accent-soft);box-shadow:0 0 0 1px var(--accent)}
+.selall{display:inline-flex;gap:8px;align-items:center;font-size:.88rem;cursor:pointer;white-space:nowrap}
+.bulk-acts{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.selbox{display:inline-grid;place-items:center;width:28px;height:28px;cursor:pointer;flex:none}
+.selbox input,.selall input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
+.jobrow .time .selbox{margin:-4px 0 2px -5px}
+.jobrow.picked,.qrow.picked,tr.picked td{background:var(--accent-soft)}
+.qrow{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:2px;border-top:1px solid var(--line)}
+.list > .qrow:first-child{border-top:0}
+.qrow .row{border-top:0}
+td.selcol,th.selcol{width:36px;padding-right:0}
+.bulk-preview{display:flex;flex-wrap:wrap;gap:6px}
+.bulk-preview span{font-size:.8rem;background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:3px 9px}
+.chk-row{display:flex;gap:8px;align-items:center;font-weight:600;font-size:.9rem;cursor:pointer}
+.chk-row input{width:18px;height:18px;accent-color:var(--accent)}
+.billbox{border:1px solid var(--line);border-radius:var(--r);padding:12px;background:var(--surface-2);gap:8px}
+.billing-fields{display:flex;flex-direction:column;gap:8px;margin-top:6px}
 /* data tab */
 .danger-zone{border-color:color-mix(in srgb, var(--bad) 45%, var(--line))}
 .danger-zone h2{color:var(--bad)}
@@ -601,7 +621,7 @@ const PAY_METHODS = ['Card','Check','Cash','Zelle','Venmo','ACH','Other'];
 /* ---------- state ---------- */
 const S = {customers:[], jobs:[], invoices:[], photos:[], messages:[], vehicles:[], vehicle_logs:[], settingsDoc:null, view:'today',
   jobFilter:'upcoming', custQuery:'', custStatus:'All', photoQuery:'', invFilter:'Open', invQuery:'', msgQuery:'', msgChan:'all', msgTab:'conv', rep:{id:'summary', period:'ytd', from:'', to:''}, cal:{mode:'month', anchor:'', sel:null, showQuotes:true}, settingsDirty:false, dbState:'connecting',
-  canWrite:null, canAdmin:false, uid:null, assetsOn:true, downloadsOn:true, role:null, profile:null, team:[], activity:null, integ:{email:false, sms:false}, setTab:'general', wipe:{open:false, typed:'', photos:false, messages:false, busy:false, result:null}, api:{loaded:false, loading:false, data:null, busy:{}, err:null}, mapsKey:null};
+  canWrite:null, canAdmin:false, uid:null, assetsOn:true, downloadsOn:true, role:null, profile:null, team:[], activity:null, integ:{email:false, sms:false}, sel:{jobs:new Set(), invoices:new Set()}, _visible:{jobs:[], invoices:[]}, setTab:'general', wipe:{open:false, typed:'', photos:false, messages:false, busy:false, result:null}, api:{loaded:false, loading:false, data:null, busy:{}, err:null}, mapsKey:null};
 // data, photo storage and downloads are defined in the Supabase data layer below
 let drawerState=null; // {kind, args, detail:boolean}
 
@@ -628,6 +648,20 @@ const job = id => S.jobs.find(j=>j.id===id);
 const inv = id => S.invoices.find(i=>i.id===id);
 const custName = id => { const c=cust(id); return c ? custLabel(c) : 'Deleted customer'; };
 const fullAddress = c => c ? [c.street, [c.city, c.state].filter(Boolean).join(', ') + (c.zip?' '+c.zip:'')].filter(s=>s&&s.trim()).join(', ') : '';
+function billTo(c){
+  const blank={different:false,name:'',company:'',email:'',phone:'',street:'',city:'',state:'',zip:''};
+  if(!c) return blank;
+  const same = c.billingSame!==false || !c.billing;
+  const b = same ? {} : (c.billing||{});
+  const v = k => String(b[k]||'').trim();
+  const hasAddr = !same && (v('street')||v('city')||v('zip'));
+  return { different:!same,
+    name: v('name') || (same ? (fullName(c)||c.company||'') : (v('company') ? '' : (fullName(c)||c.company||''))),
+    company: same ? (c.company||'') : v('company'),
+    email: v('email') || c.email || '', phone: v('phone') || c.phone || '',
+    street: hasAddr ? v('street') : (c.street||''), city: hasAddr ? v('city') : (c.city||''), state: hasAddr ? v('state') : (c.state||''), zip: hasAddr ? v('zip') : (c.zip||'') };
+}
+const billAddress = b => [b.street, [b.city,b.state].filter(Boolean).join(', ')+(b.zip?' '+b.zip:'')].filter(x=>x&&x.trim()).join(', ');
 const firstName = c => (c && nameParts(c).first.split(/\s+/)[0]) || 'there';
 const itemsTotal = items => (items||[]).reduce((s,i)=>s+(+i.qty||0)*(+i.rate||0),0);
 const itemsSummary = items => (items||[]).map(i=>i.desc).filter(Boolean).join(' · ');
@@ -795,6 +829,7 @@ function render(){
   const keepVals = S.view==='settings' ? [...document.querySelectorAll('#view input[id]:not([type=checkbox]):not([type=radio]):not([type=file])')].filter(i=>!i.closest('form[data-form=settings]') && i.value).map(i=>[i.id,i.value]) : [];
   $('#view').innerHTML = banner() + v();
   keepVals.forEach(([id,val])=>{ const el=document.getElementById(id); if(el && !el.value) el.value=val; });
+  document.querySelectorAll('#view input[data-mixed]').forEach(x=>{ x.indeterminate=true; });
   if(keepFocus){ const el=document.getElementById(keepFocus); if(el){ el.focus(); try{ el.setSelectionRange(sel[0],sel[1]); }catch(e){} } }
   if(drawerState && drawerState.detail) openDrawer(drawerState.kind, drawerState.args, true);
 }
@@ -804,14 +839,29 @@ function jobRow(j, opts={}){
   const c = cust(j.customerId);
   const total = itemsTotal(j.items);
   const status = (j.status==='Scheduled' && j.date<todayISO()) ? 'Past due' : j.status;
-  return `<div class="jobrow">
-    <div class="time">${j.time?esc(fmtTime(j.time)):'<span class="muted">Any</span>'}${opts.showDate?`<div class="muted" style="font-size:.74rem">${esc(fmtDate(j.date))}</div>`:''}</div>
+  return `<div class="jobrow${opts.select?' selectable':''}${opts.select&&S.sel.jobs.has(j.id)?' picked':''}">
+    <div class="time">${opts.select?selBox('jobs',j.id):''}${j.time?esc(fmtTime(j.time)):'<span class="muted">Any</span>'}${opts.showDate?`<div class="muted" style="font-size:.74rem">${esc(fmtDate(j.date))}</div>`:''}</div>
     <div class="body">
       <div class="line1"><button class="name" data-act="openJob" data-id="${j.id}">${esc(custName(j.customerId))}</button><span style="display:flex;gap:8px;align-items:center">${pill(status)}<span class="num">${money(total)}</span></span></div>
       ${c?`<div class="addr">${esc(fullAddress(c)||'No address on file')}${c.gate?` · <strong>Access:</strong> ${esc(c.gate)}`:''}</div>`:''}
       ${itemsSummary(j.items)?`<div class="addr">${esc(itemsSummary(j.items))}${j.crew?` · Crew: ${esc(j.crew)}`:''}</div>`:''}
       <div class="btnrow">${c?svButtons(c,true):''}<button class="btn sm" data-act="openJob" data-id="${j.id}">${I.camera} Photos & details</button></div>
     </div></div>`;
+}
+function selPrune(kind, ids){ S._visible[kind]=ids; const vis=new Set(ids); for(const id of [...S.sel[kind]]) if(!vis.has(id)) S.sel[kind].delete(id); }
+function selBox(kind, id){ return `<label class="selbox" title="Select"><input type="checkbox" class="sel-cb" data-kind="${kind}" data-id="${id}" ${S.sel[kind].has(id)?'checked':''} aria-label="Select"></label>`; }
+const BULK_ACTIONS={
+  jobs:[['status','Change status'],['date','Reschedule'],['crew','Assign crew'],['invoice','Create invoices'],['export','Export'],['delete','Delete']],
+  quotes:[['book','Book'],['lost','Mark lost'],['date','Change date'],['status','Change status'],['export','Export'],['delete','Delete']],
+  invoices:[['sent','Mark sent'],['pay','Record payment'],['due','Change due date'],['qb','Export for QuickBooks'],['void','Void'],['delete','Delete']],
+};
+function bulkBar(kind, mode, count){
+  const sel=S.sel[kind]; const ids=S._visible[kind]||[]; const n=ids.filter(i=>sel.has(i)).length;
+  if(!ids.length) return '';
+  return `<div class="bulkbar${n?' on':''}">
+    <label class="selall"><input type="checkbox" class="sel-all" data-kind="${kind}" ${n&&n===ids.length?'checked':''} ${n&&n<ids.length?'data-mixed="1"':''} aria-label="Select all ${ids.length}"> ${n?`<strong>${n} selected</strong>`:`Select all ${ids.length}`}</label>
+    ${n?`<div class="bulk-acts">${BULK_ACTIONS[mode].map(([a,l])=>`<button class="btn sm ${a==='delete'?'danger':''}" data-act="bulk" data-kind="${kind}" data-mode="${mode}" data-a="${a}">${l}</button>`).join('')}<button class="btn sm ghost" data-act="selClear" data-kind="${kind}">Clear</button></div>`:'<span class="hint">Tick items to change several at once.</span>'}
+  </div>`;
 }
 function emptyBox(title, text, act, label, data=''){
   return `<div class="empty"><strong>${esc(title)}</strong><span>${esc(text)}</span>${act?`<button class="btn primary" data-act="${act}" ${data}>${I.plus} ${esc(label)}</button>`:''}</div>`;
@@ -1209,12 +1259,13 @@ function viewJobs(){
   else if(S.jobFilter==='quoted') list = S.jobs.filter(j=>j.status==='Quoted').sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
   else if(S.jobFilter==='completed') list = S.jobs.filter(j=>j.status==='Completed').sort((a,b)=>(b.date+(b.time||'')).localeCompare(a.date+(a.time||'')));
   else list = [...S.jobs].sort((a,b)=>(b.date+(b.time||'')).localeCompare(a.date+(a.time||'')));
+  selPrune('jobs', list.map(j=>j.id));
   if(S.jobFilter==='quoted'){
     const qv=list.reduce((s,j)=>s+itemsTotal(j.items),0);
     return `
   <div class="page-head"><div><p class="eyebrow">Schedule & service history</p><h1>Jobs</h1></div><div class="actions"><button class="btn" data-act="openJobExport">${I.download} Export</button><button class="btn" data-act="openJobImport">${I.upload} Import</button><button class="btn" data-act="newJob" data-quote="1">${I.plus} Quote</button><button class="btn primary" data-act="newJob">${I.plus} Job</button></div></div>
   <div class="chips">${[['upcoming','Upcoming'],['quoted','Quotes'],['completed','Completed'],['all','All']].map(([k,l])=>`<button class="chip" data-act="jobFilter" data-f="${k}" aria-pressed="${S.jobFilter===k}">${l}</button>`).join('')}</div>
-  <section class="panel">${list.length?`<div class="panel-head"><h2>${list.length} open quote${list.length===1?'':'s'}</h2><span class="num">${money(qv)}</span></div><div class="list">${list.map(j=>`<button class="row" data-act="openJob" data-id="${j.id}"><span class="t">${esc(custName(j.customerId))}</span><span class="s">${esc(itemsSummary(j.items)||'No services listed')}${j.createdAt?` · quoted ${esc(fmtDate(iso(new Date(j.createdAt))))}`:''}${j.date?` · proposed ${esc(fmtDate(j.date))}`:''}</span><span class="r"><span class="num">${money(itemsTotal(j.items))}</span>${pill('Quoted')}</span></button>`).join('')}</div>`
+  <section class="panel">${list.length?`<div class="panel-head"><h2>${list.length} open quote${list.length===1?'':'s'}</h2><span class="num">${money(qv)}</span></div>${bulkBar('jobs','quotes')}<div class="list">${list.map(j=>`<div class="qrow${S.sel.jobs.has(j.id)?' picked':''}">${selBox('jobs',j.id)}<button class="row" data-act="openJob" data-id="${j.id}"><span class="t">${esc(custName(j.customerId))}</span><span class="s">${esc(itemsSummary(j.items)||'No services listed')}${j.createdAt?` · quoted ${esc(fmtDate(iso(new Date(j.createdAt))))}`:''}${j.date?` · proposed ${esc(fmtDate(j.date))}`:''}</span><span class="r"><span class="num">${money(itemsTotal(j.items))}</span>${pill('Quoted')}</span></button></div>`).join('')}</div>`
     : emptyBox('No open quotes','When you price a job for a customer, save it as a quote. Book it with one tap when they say yes.','newJob','New quote','data-quote="1"')}</section>`;
   }
   const groups=[]; list.forEach(j=>{ const g=groups[groups.length-1]; if(g&&g.date===j.date) g.items.push(j); else groups.push({date:j.date, items:[j]}); });
@@ -1223,7 +1274,7 @@ function viewJobs(){
   <div class="page-head"><div><p class="eyebrow">Schedule & service history</p><h1>Jobs</h1></div><div class="actions"><button class="btn" data-act="openJobExport">${I.download} Export</button><button class="btn" data-act="openJobImport">${I.upload} Import</button><button class="btn" data-act="newJob" data-quote="1">${I.plus} Quote</button><button class="btn primary" data-act="newJob">${I.plus} Job</button></div></div>
   <div class="chips">${[['upcoming','Upcoming'],['quoted','Quotes'],['completed','Completed'],['all','All']].map(([k,l])=>`<button class="chip" data-act="jobFilter" data-f="${k}" aria-pressed="${S.jobFilter===k}">${l}</button>`).join('')}</div>
   <section class="panel">${S.jobs.length===0 ? emptyBox('No jobs yet','Schedule a job for a customer: pick the services, date and crew. Completed jobs become the customer\'s service history.','newJob','Schedule a job')
-   : groups.length ? groups.map(g=>`<div class="datehead"><span class="dname">${esc(label(g.date))}</span><span class="muted" style="font-size:.82rem">${g.date===t||g.date===addDays(t,1)||g.date===addDays(t,-1)?esc(fmtDate(g.date)):''}</span><span class="muted num" style="margin-left:auto;font-size:.82rem">${money(g.items.reduce((s,j)=>s+itemsTotal(j.items),0))}</span></div><div class="list">${g.items.map(j=>jobRow(j)).join('')}</div>`).join('')
+   : groups.length ? bulkBar('jobs','jobs') + groups.map(g=>`<div class="datehead"><span class="dname">${esc(label(g.date))}</span><span class="muted" style="font-size:.82rem">${g.date===t||g.date===addDays(t,1)||g.date===addDays(t,-1)?esc(fmtDate(g.date)):''}</span><span class="muted num" style="margin-left:auto;font-size:.82rem">${money(g.items.reduce((s,j)=>s+itemsTotal(j.items),0))}</span></div><div class="list">${g.items.map(j=>jobRow(j,{select:true})).join('')}</div>`).join('')
    : `<p class="muted">No jobs here.</p>`}</section>`;
 }
 function viewPhotos(){
@@ -1245,6 +1296,7 @@ function viewInvoices(){
   let list = S.invoices.filter(v=>{ const st=invStatus(v); if(fl==='Open') return ['Draft','Sent','Partial','Overdue'].includes(st); if(fl==='Paid') return st==='Paid'; return true; });
   if(iq) list = list.filter(v=>{ const c=cust(v.customerId); return String(v.number).includes(iq.replace(/^#/,'')) || (c && custMatch(c, iq)); });
   list.sort((a,b)=>(+b.number||0)-(+a.number||0));
+  selPrune('invoices', list.map(v=>v.id));
   const unexported = S.invoices.filter(v=>invStatus(v)!=='Void' && invStatus(v)!=='Draft' && !v.qbExportedAt).length;
   return `
   <div class="page-head"><div><p class="eyebrow">Billing</p><h1>Invoices</h1></div><div class="actions"><button class="btn primary" data-act="newInvoice">${I.plus} Invoice</button></div></div>
@@ -1261,8 +1313,8 @@ function viewInvoices(){
   <div class="search"><label class="sr" for="inv-q">Search invoices</label><input type="search" id="inv-q" autocomplete="off" placeholder="Type a customer's first or last name, or an invoice #…" value="${esc(S.invQuery)}">
   <div class="chips">${['Open','Paid','All'].map(s=>`<button class="chip" data-act="invFilter" data-s="${s}" aria-pressed="${fl===s}">${s}</button>`).join('')}</div></div>
   <section class="panel">${S.invoices.length===0 ? emptyBox('No invoices yet','Complete a job and tap Create invoice, or start one here. Record cash, check and card payments as they come in.','newInvoice','New invoice')
-   : list.length ? `<div class="tablewrap"><table><thead><tr><th>No.</th><th>Customer</th><th>Date</th><th>Due</th><th class="n">Total</th><th class="n">Balance</th><th>Status</th></tr></thead><tbody>
-     ${list.map(v=>{const t=totals(v);return `<tr class="click" data-act="openInvoice" data-id="${v.id}"><td class="mono">${esc(v.number)}</td><td>${hl(custName(v.customerId), iq)}</td><td style="white-space:nowrap">${esc(fmtDate(v.date))}</td><td style="white-space:nowrap">${esc(fmtDate(v.dueDate))}</td><td class="n">${money(t.total)}</td><td class="n">${money(t.balance)}</td><td>${pill(invStatus(v))}</td></tr>`}).join('')}
+   : list.length ? `${bulkBar('invoices','invoices')}<div class="tablewrap"><table><thead><tr><th class="selcol"><span class="sr">Select</span></th><th>No.</th><th>Customer</th><th>Date</th><th>Due</th><th class="n">Total</th><th class="n">Balance</th><th>Status</th></tr></thead><tbody>
+     ${list.map(v=>{const t=totals(v);return `<tr class="click${S.sel.invoices.has(v.id)?' picked':''}" data-act="openInvoice" data-id="${v.id}"><td class="selcol">${selBox('invoices',v.id)}</td><td class="mono">${esc(v.number)}</td><td>${hl(custName(v.customerId), iq)}</td><td style="white-space:nowrap">${esc(fmtDate(v.date))}</td><td style="white-space:nowrap">${esc(fmtDate(v.dueDate))}</td><td class="n">${money(t.total)}</td><td class="n">${money(t.balance)}</td><td>${pill(invStatus(v))}</td></tr>`}).join('')}
      </tbody></table></div>` : `<p class="muted">${iq?`No invoices match “${esc(iq)}”${fl!=='All'?` in ${esc(fl)}. <button class="btn ghost sm" data-act="invFilter" data-s="All">Search all invoices</button>`:'.'}`:'No invoices here.'}</p>`}</section>`;
 }
 /* ---------- two-way texting ---------- */
@@ -1782,6 +1834,55 @@ function parseSchedule(txt){
   return String(txt||'').split('\n').map(l=>l.split('|').map(x=>x.trim())).filter(p=>p[0]).map(([name,mi,mo])=>({name, miles:+String(mi||'').replace(/[^\d]/g,'')||0, months:+String(mo||'').replace(/[^\d.]/g,'')||0})).filter(x=>x.miles||x.months);
 }
 
+/* ---------- bulk actions ---------- */
+function bulkItems(kind){ const ids=(S._visible[kind]||[]).filter(i=>S.sel[kind].has(i)); return kind==='jobs' ? ids.map(job).filter(Boolean) : ids.map(inv).filter(Boolean); }
+function bulkPreview(kind, items){
+  const name = x => kind==='jobs' ? `${custName(x.customerId)} · ${fmtDate(x.date)}` : `#${x.number} · ${custName(x.customerId)}`;
+  return `<div class="bulk-preview">${items.slice(0,6).map(x=>`<span>${esc(name(x))}</span>`).join('')}${items.length>6?`<span class="muted">and ${items.length-6} more</span>`:''}</div>`;
+}
+function bulkDrawer({kind, mode, a}){
+  const items=bulkItems(kind); if(!items.length) return null;
+  const n=items.length; const lbl=(BULK_ACTIONS[mode].find(x=>x[0]===a)||[])[1]||'Update';
+  const what = kind==='invoices' ? `invoice${n===1?'':'s'}` : mode==='quotes' ? `quote${n===1?'':'s'}` : `job${n===1?'':'s'}`;
+  let fields='', note='', btn=`${lbl} ${n} ${what}`, danger=false;
+  const t=todayISO();
+  if(a==='status') fields=`<div class="field"><label for="bk-status">New status</label><select id="bk-status" name="status">${JOB_STATUS.map(x=>`<option>${x}</option>`).join('')}</select></div>`, note='Completing or booking work also marks Lead and Quoted customers as Active.';
+  else if(a==='date') fields=`<div class="field"><label for="bk-date">${mode==='quotes'?'New proposed date':'Move to date'}</label><input type="date" id="bk-date" name="date" value="${t}" required></div><label class="chk-row"><input type="checkbox" name="keepTime" checked> Keep each job's arrival time</label>`;
+  else if(a==='crew') fields=`<div class="field"><label for="bk-crew">Crew</label><input type="text" id="bk-crew" name="crew" placeholder="Mike & Dan" required></div>`;
+  else if(a==='invoice'){ const ok=items.filter(j=>j.status==='Completed' && !(j.invoiceId && inv(j.invoiceId))); note=`${ok.length} of ${n} selected ${ok.length===1?'job is':'jobs are'} completed without an invoice. ${n-ok.length?`The other ${n-ok.length} will be skipped.`:''} Each gets a draft invoice with its services, your tax rate and payment terms, numbered from #${nextInvoiceNumber()}.`; btn=`Create ${ok.length} invoice${ok.length===1?'':'s'}`; }
+  else if(a==='book') fields=`<label class="chk-row"><input type="checkbox" name="useDate" id="bk-usedate"> Book them all on one date instead of each quote's proposed date</label><div class="field" id="bk-date-wrap" hidden><label for="bk-date2">Date</label><input type="date" id="bk-date2" name="date" value="${t}"></div>`, note='Booked quotes move onto the schedule and the customers become Active.';
+  else if(a==='lost') note='Lost quotes are marked Cancelled. They count as lost in the Quote conversion report.', btn=`Mark ${n} ${what} lost`;
+  else if(a==='sent'){ const ok=items.filter(v=>v.status==='Draft'); note=`${ok.length} of ${n} ${ok.length===1?'is a draft':'are drafts'} and will be marked sent. This doesn't email them; use Email invoice for that.`; btn=`Mark ${ok.length} sent`; }
+  else if(a==='pay'){ const ok=items.filter(v=>invStatus(v)!=='Void' && totals(v).balance>0); const sum=ok.reduce((x,v)=>x+totals(v).balance,0);
+    fields=`<div class="fgrid"><div class="field"><label for="bk-pdate">Payment date</label><input type="date" id="bk-pdate" name="date" value="${t}"></div><div class="field"><label for="bk-method">Method</label><select id="bk-method" name="method">${PAY_METHODS.map(m=>`<option>${m}</option>`).join('')}</select></div><div class="field full"><label for="bk-ref">Check # / reference (optional)</label><input type="text" id="bk-ref" name="ref"></div></div>`;
+    note=`Records a payment for the full remaining balance on ${ok.length} invoice${ok.length===1?'':'s'}, ${money(sum)} in total. Invoices already paid or voided are skipped.`; btn=`Record ${money(sum)} in payments`; }
+  else if(a==='due') fields=`<div class="field"><label for="bk-due">New due date</label><input type="date" id="bk-due" name="due" value="${addDays(t,+settings().termsDays||14)}" required></div>`;
+  else if(a==='void') note='Voided invoices stay on file but no longer count as owed or in reports.', btn=`Void ${n} ${what}`, danger=true;
+  else if(a==='delete'){ note = kind==='invoices' ? 'Deleted invoices are removed for good. Their jobs stay.' : 'Deleted jobs are removed for good, along with their place in service history.'; btn=`Delete ${n} ${what}`; danger=true; }
+  else if(a==='export') note=`Downloads the ${n} selected ${what} as a spreadsheet, one row per service line.`, btn='Download';
+  else if(a==='qb') note=`Downloads the ${n} selected ${what} in QuickBooks' import layout and marks them exported.`, btn='Download for QuickBooks';
+  return {back:false, title:`${lbl}: ${n} ${what}`, body:`
+    <form data-form="bulk" data-kind="${kind}" data-mode="${mode}" data-a="${a}" style="display:flex;flex-direction:column;gap:14px">
+      ${bulkPreview(kind, items)}
+      ${fields}
+      ${note?`<p class="${danger?'notice bad':'hint'}" style="font-size:.88rem">${esc(note)}${danger?' This can\'t be undone.':''}</p>`:''}
+      ${a==='export'?`<div class="field"><label for="bk-fmt">Format</label><select id="bk-fmt" name="fmt"><option value="xlsx">Excel (.xlsx)</option><option value="csv">CSV</option></select></div>`:''}
+      <div class="btnrow"><button class="btn ${danger?'danger-solid':'primary'}" type="submit">${esc(btn)}</button><button class="btn" type="button" data-act="close">Cancel</button></div>
+      <div class="hint" id="bulk-prog" aria-live="polite"></div>
+    </form>`};
+}
+async function bulkRun(col, items, mapFn){
+  let i=0, done=0, failed=0, skipped=0; const work=items.map(x=>({x, out:mapFn(x)})).filter(w=>{ if(w.out===null){ skipped++; return false; } return true; });
+  const prog=()=>{ const el=$('#bulk-prog'); if(el) el.textContent=`${done+failed} of ${work.length} done…`; };
+  async function worker(){ while(i<work.length){ const w=work[i++]; try{ if(w.out==='delete') await delDocSB(col, w.x.id); else await saveDoc(col, w.x.id, w.out); done++; }catch(e){ failed++; } prog(); } }
+  await Promise.all([worker(),worker(),worker(),worker()]);
+  return {done, failed, skipped};
+}
+async function activateCustomers(jobs){
+  const ids=[...new Set(jobs.map(j=>j.customerId))];
+  for(const id of ids){ const c=cust(id); if(c && (c.status==='Lead'||c.status==='Quoted')){ try{ await saveDoc('customers', c.id, {...c, status:'Active', updatedAt:Date.now()}); }catch(e){} } }
+}
+
 /* ---------- drawer ---------- */
 function openDrawer(kind, args={}, refresh){
   const fn = DRAWERS[kind]; if(!fn) return;
@@ -1827,6 +1928,7 @@ const DRAWERS = {
           <dt>Phone</dt><dd>${c.phone?`<span class="copyline"><span class="mono">${esc(c.phone)}</span><button class="btn sm" data-act="copy" data-text="${esc(c.phone)}">Copy</button></span>`:'<span class="muted">None</span>'}</dd>
           <dt>Email</dt><dd>${c.email?esc(c.email):'<span class="muted">None</span>'}</dd>
           <dt>Address</dt><dd>${esc(fullAddress(c)||'None')}</dd>
+          ${(()=>{ const b=billTo(c); if(!b.different) return `<dt>Billing</dt><dd class="muted">Same as customer</dd>`; return `<dt>Billing</dt><dd><strong>${esc([b.name,b.company].filter(Boolean).join(' · '))}</strong>${b.email?`<br>${esc(b.email)}`:''}${b.phone?`<br>${esc(b.phone)}`:''}${billAddress(b)?`<br>${esc(billAddress(b))}`:''}</dd>`; })()}
           ${c.gate?`<dt>Access</dt><dd><strong>${esc(c.gate)}</strong></dd>`:''}
           <dt>Source</dt><dd>${esc(c.source||'—')}</dd>
         </dl>
@@ -1874,6 +1976,22 @@ const DRAWERS = {
         <div class="field full"><label for="c-street">Street address</label><input type="text" id="c-street" name="street" value="${esc(c.street)}"></div>
         <div class="field"><label for="c-city">City</label><input type="text" id="c-city" name="city" value="${esc(c.city)}"></div>
         <div class="fgrid" style="grid-template-columns:1fr 1fr;gap:12px"><div class="field"><label for="c-state">State</label><input type="text" id="c-state" name="state" value="${esc(c.state)}" maxlength="2" style="text-transform:uppercase"></div><div class="field"><label for="c-zip">ZIP</label><input type="text" id="c-zip" name="zip" value="${esc(c.zip)}" inputmode="numeric"></div></div>
+        <div class="field full billbox">
+          <label class="chk-row" for="c-billsame"><input type="checkbox" id="c-billsame" name="billingSame" ${c.billingSame!==false||!c.billing?'checked':''}> Billing contact is the same as the customer</label>
+          <span class="hint">Uncheck to send invoices to someone else, like a property manager, landlord, HOA or company office.</span>
+          <div id="c-billing" class="billing-fields" ${c.billingSame!==false||!c.billing?'hidden':''}>
+            <div class="fgrid">
+              <div class="field"><label for="c-bname">Billing contact name</label><input type="text" id="c-bname" name="bName" value="${esc(c.billing&&c.billing.name)}" autocomplete="off"></div>
+              <div class="field"><label for="c-bcompany">Billing company</label><input type="text" id="c-bcompany" name="bCompany" value="${esc(c.billing&&c.billing.company)}" placeholder="ABC Property Management"></div>
+              <div class="field"><label for="c-bemail">Billing email</label><input type="email" id="c-bemail" name="bEmail" value="${esc(c.billing&&c.billing.email)}" placeholder="Invoices are emailed here"></div>
+              <div class="field"><label for="c-bphone">Billing phone</label><input type="tel" id="c-bphone" name="bPhone" value="${esc(c.billing&&c.billing.phone)}"></div>
+              <div class="field full"><label for="c-bstreet">Billing street address</label><input type="text" id="c-bstreet" name="bStreet" value="${esc(c.billing&&c.billing.street)}"></div>
+              <div class="field"><label for="c-bcity">City</label><input type="text" id="c-bcity" name="bCity" value="${esc(c.billing&&c.billing.city)}"></div>
+              <div class="fgrid" style="grid-template-columns:1fr 1fr;gap:12px"><div class="field"><label for="c-bstate">State</label><input type="text" id="c-bstate" name="bState" value="${esc(c.billing&&c.billing.state)}" maxlength="2" style="text-transform:uppercase"></div><div class="field"><label for="c-bzip">ZIP</label><input type="text" id="c-bzip" name="bZip" value="${esc(c.billing&&c.billing.zip)}" inputmode="numeric"></div></div>
+            </div>
+            <span class="hint">Any field left blank uses the customer's own details.</span>
+          </div>
+        </div>
         <div class="field full"><label for="c-loc">Street View pin</label><input type="text" id="c-loc" name="loc" value="${esc(loc)}" placeholder="Paste a Google Maps / Street View link, or lat, lng"><span class="hint">Optional. Makes the Street View button open right at the house.</span></div>
         <div class="field"><label for="c-status">Status</label><select id="c-status" name="status">${CUST_STATUS.map(s=>`<option ${c.status===s?'selected':''}>${s}</option>`).join('')}</select></div>
         <div class="field"><label for="c-type">Property type</label><select id="c-type" name="type">${['Residential','Commercial','HOA / Multi-unit'].map(s=>`<option ${c.type===s?'selected':''}>${s}</option>`).join('')}</select></div>
@@ -1960,7 +2078,7 @@ const DRAWERS = {
           <div><div style="font-family:var(--f-display);font-weight:780;font-size:1.1rem">${esc(s.businessName)}</div><div class="muted" style="font-size:.84rem">${esc(s.address)}${s.phone?'<br>'+esc(s.phone):''}${s.email?'<br>'+esc(s.email):''}</div></div>
           <dl class="kv" style="font-size:.86rem"><dt>Invoice</dt><dd class="mono">#${esc(v.number)}</dd><dt>Date</dt><dd>${esc(fmtDate(v.date))}</dd><dt>Due</dt><dd>${esc(fmtDate(v.dueDate))}</dd></dl>
         </div>
-        <div><div class="lbl">Bill to</div><div style="font-weight:650">${esc(c?(fullName(c)||c.company):'—')}</div><div class="muted" style="font-size:.86rem">${esc(c?fullAddress(c):'')}</div></div>
+        ${(()=>{ const b=billTo(c); return `<div><div class="lbl">Bill to</div><div style="font-weight:650">${esc(c?(b.name||b.company||'—'):'—')}</div>${b.company&&b.name?`<div>${esc(b.company)}</div>`:''}<div class="muted" style="font-size:.86rem">${esc(billAddress(b))}${b.email?`<br>${esc(b.email)}`:''}</div>${b.different?`<div class="hint">Service address: ${esc(fullAddress(c))}</div>`:''}</div>`; })()}
         ${linesTable(v.items)}
         <div class="totals"><span>Subtotal</span><span class="n">${money(t.sub)}</span>${+v.taxRate?`<span>Tax (${esc(v.taxRate)}%)</span><span class="n">${money(t.tax)}</span>`:''}<span class="big">Total</span><span class="n big">${money(t.total)}</span>${t.paid?`<span>Paid</span><span class="n">−${money(t.paid)}</span><span class="big">Balance due</span><span class="n big">${money(t.balance)}</span>`:''}</div>
         ${v.notes?`<p class="muted" style="font-size:.86rem;white-space:pre-wrap">${esc(v.notes)}</p>`:''}
@@ -2010,7 +2128,7 @@ const DRAWERS = {
     return {back:stack.length>0, title:'Text a customer', body:`
     <form data-form="message" style="display:flex;flex-direction:column;gap:14px" data-job="${esc(jobId||'')}" data-inv="${esc(invId||'')}">
       ${customerSelect('m-cust', cid||'')}
-      <div id="m-to">${toLine(c)}</div>
+      <div id="m-to">${toLine(c, !!invId)}</div>
       <div class="field"><label for="m-tpl">Template</label><select id="m-tpl" name="tpl"><option value="">Write your own</option>${s.templates.map(x=>`<option ${t&&t.name===x.name?'selected':''}>${esc(x.name)}</option>`).join('')}</select></div>
       <div class="field"><label for="m-body">Message</label><textarea id="m-body" name="body" style="min-height:130px">${esc(body)}</textarea><span class="hint" id="m-count">${body.length} characters</span></div>
       ${S.integ.sms?`<div class="btnrow"><button class="btn primary" type="button" data-act="sendText">Send text</button><button class="btn" type="button" data-act="copyMsg">Copy</button></div><p class="hint">Sends from your phone.com number and saves it to the customer's history.</p>`
@@ -2025,7 +2143,7 @@ const DRAWERS = {
     return {back:stack.length>0, title:'Email a customer', body:`
     <form data-form="email" style="display:flex;flex-direction:column;gap:14px" data-job="${esc(jobId||'')}" data-inv="${esc(invId||'')}">
       ${customerSelect('e-cust', cid||'')}
-      <div class="field"><label for="e-to">To</label><input type="email" id="e-to" name="to" value="${esc(c?.email||'')}" placeholder="customer@example.com">${c&&!c.email?'<span class="hint">No email on file. Type one here, and add it to the customer\'s file so it\'s there next time.</span>':''}</div>
+      <div class="field"><label for="e-to">To</label><input type="email" id="e-to" name="to" value="${esc((invId?billTo(c).email:c?.email)||'')}" placeholder="customer@example.com">${c&&!c.email?'<span class="hint">No email on file. Type one here, and add it to the customer\'s file so it\'s there next time.</span>':''}</div>
       <div class="field"><label for="e-tpl">Template</label><select id="e-tpl" name="tpl"><option value="">Write your own</option>${s.emailTemplates.map(x=>`<option ${t&&t.name===x.name?'selected':''}>${esc(x.name)}</option>`).join('')}</select></div>
       <div class="field"><label for="e-subj">Subject</label><input type="text" id="e-subj" name="subject" value="${esc(subj)}"></div>
       <div class="field"><label for="e-body">Message</label><textarea id="e-body" name="body" style="min-height:260px">${esc(body)}</textarea>${/\[[a-z ]+\]/.test(subj+body)?'<span class="hint" id="e-gaps" style="color:var(--warn)">Fill in the parts in [brackets] before sending.</span>':'<span class="hint" id="e-gaps"></span>'}</div>
@@ -2046,6 +2164,7 @@ const DRAWERS = {
       </form><div id="confirm-slot"></div>`};
   },
   importCust(){ return importDrawer(); },
+  bulk(a){ return bulkDrawer(a); },
   vehicle(a){ return vehicleDrawer(a); },
   vehicleForm(a){ return vehicleFormDrawer(a); },
   vehLog(a){ return vehLogDrawer(a); },
@@ -2107,10 +2226,11 @@ const DRAWERS = {
       : emptyBox('No jobs yet','Photos belong to a job. Schedule one first.','newJob','Schedule a job')};
   },
 };
-function toLine(c){
+function toLine(c, billing){
   if(!c) return '<p class="hint">Pick a customer.</p>';
-  if(!c.phone) return `<div class="notice">No phone number on file for ${esc(custLabel(c))}.</div>`;
-  return `<div class="copyline"><span class="lbl">To</span><span class="mono" style="font-size:1.05rem">${esc(c.phone)}</span><button class="btn sm" type="button" data-act="copy" data-text="${esc(c.phone)}">Copy number</button></div>`;
+  const b=billTo(c); const ph = billing ? b.phone : c.phone;
+  if(!ph) return `<div class="notice">No phone number on file for ${esc(custLabel(c))}.</div>`;
+  return `<div class="copyline"><span class="lbl">To</span><span class="mono" style="font-size:1.05rem">${esc(ph)}</span>${billing&&b.different&&ph!==c.phone?`<span class="pill">Billing contact${b.name?': '+esc(b.name):''}</span>`:''}<button class="btn sm" type="button" data-act="copy" data-text="${esc(ph)}">Copy number</button></div>`;
 }
 function updateMailto(){
   const slot=$('#e-mailto'); if(!slot) return; const to=$('#e-to').value.trim();
@@ -2240,7 +2360,8 @@ function fillTemplate(text, cid, ctx={}){
   const j = ctx.jobId ? job(ctx.jobId) : (c?nextJob(c.id):null);
   let v = ctx.invId ? inv(ctx.invId) : null;
   if(!v && c) v = S.invoices.filter(x=>x.customerId===c.id && totals(x).balance>0 && invStatus(x)!=='Void').sort((a,b)=>(+b.number)-(+a.number))[0];
-  const map = {first:firstName(c), name:c?(fullName(c)||c.company):'', business:s.businessName, phone:s.phone,
+  const bt = (ctx.invId && c) ? billTo(c) : null; const useB = bt && bt.different;
+  const map = {first: useB ? ((bt.name||'').trim().split(/\s+/)[0] || 'there') : firstName(c), name: useB ? (bt.name||bt.company) : (c?(fullName(c)||c.company):''), business:s.businessName, phone:s.phone,
     date:j?parseISO(j.date).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}):'[date]', time:j&&j.time?fmtTime(j.time):'[time]',
     amount:v?money(totals(v).balance||totals(v).total):'[amount]', invoice:v?v.number:'[invoice]',
     address:c?(fullAddress(c)||'[address]'):'[address]', email:s.email||'[email]',
@@ -2283,9 +2404,10 @@ const A = {
   async sendText(d,el){
     const f=el.closest('form'); const cid=$('#m-cust').value, body=$('#m-body').value.trim(); const c=cust(cid);
     if(!cid||!body) return toast('Choose a customer and write a message.','bad');
-    if(!c||!c.phone) return toast('This customer has no phone number on file.','bad');
+    const toPh = f.dataset.inv ? billTo(c).phone : (c&&c.phone);
+    if(!c||!toPh) return toast('This customer has no phone number on file.','bad');
     el.disabled=true; el.textContent='Sending…';
-    const ok=await sendSms(c.phone, body, {customerId:cid, jobId:f.dataset.job||'', invoiceId:f.dataset.inv||''});
+    const ok=await sendSms(toPh, body, {customerId:cid, jobId:f.dataset.job||'', invoiceId:f.dataset.inv||''});
     if(!ok){ el.disabled=false; el.textContent='Send text'; return; }
     back();
   },
@@ -2303,7 +2425,7 @@ const A = {
     const r=await callFn('messaging',{action:'email', to, subject, text:body, replyTo:s.email||'', attachments});
     if(!r.ok){ el.disabled=false; el.textContent='Send email'; return toast(r.error,'bad'); }
     await write(()=>saveDoc('messages',newId('messages'),{customerId:cid, to, subject, body, channel:'email', sent:true, jobId:f.dataset.job||'', invoiceId:f.dataset.inv||'', createdAt:Date.now(), by:S.uid||''}),'Email sent');
-    const c=cust(cid); if(c && !c.email) await write(()=>saveDoc('customers',c.id,{...c,email:to,updatedAt:Date.now()}));
+    const c=cust(cid); if(c && !c.email && !v) await write(()=>saveDoc('customers',c.id,{...c,email:to,updatedAt:Date.now()}));
     if(v && v.status==='Draft') await write(()=>saveDoc('invoices',v.id,{...v,status:'Sent',updatedAt:Date.now()}));
     back();
   },
@@ -2370,6 +2492,8 @@ const A = {
     S.wipe={open:false, typed:'', photos:false, messages:false, busy:false, result:data};
     render(); toast('All customer, job and invoice data deleted');
   },
+  bulk(d){ stack.length=0; openDrawer('bulk',{kind:d.kind, mode:d.mode, a:d.a}); },
+  selClear(d){ S.sel[d.kind].clear(); render(); },
   repPick(d){ S.rep.id=d.id; render(); if(!window.matchMedia('(min-width:900px)').matches) window.scrollTo(0,0); },
   async repCsv(){ const c=S._repCsv; if(c&&c.rows.length) await saveFile(c.name, toCSV(c.rows)); },
   calNav(d){ const a=parseISO(S.cal.anchor); if(S.cal.mode==='month'){ a.setDate(1); a.setMonth(a.getMonth()+(+d.dir)); } else a.setDate(a.getDate()+7*(+d.dir)); S.cal.anchor=iso(a); S.cal.sel=null; render(); },
@@ -2413,19 +2537,19 @@ const A = {
     if(ok) back();
   },
   async exportQB(d){
-    const list = S.invoices.filter(v=>{ const st=invStatus(v); if(st==='Void') return false; if(d.mode==='new') return st!=='Draft' && !v.qbExportedAt; return true; }).sort((a,b)=>(+a.number)-(+b.number));
-    if(!list.length){ toast(d.mode==='new'?'No new sent invoices to export.':'No invoices to export.'); return; }
+    const list = (d.ids ? d.ids.map(inv).filter(v=>v && invStatus(v)!=='Void') : S.invoices.filter(v=>{ const st=invStatus(v); if(st==='Void') return false; if(d.mode==='new') return st!=='Draft' && !v.qbExportedAt; return true; })).sort((a,b)=>(+a.number)-(+b.number));
+    if(!list.length){ toast(d.ids?'None of the selected invoices can be exported (voided).':d.mode==='new'?'No new sent invoices to export.':'No invoices to export.'); if(d.ids) return false; return; }
     const mdy = s => { if(!s) return ''; const [y,m,dd]=s.split('-'); return `${m}/${dd}/${y}`; };
     const rows=[['InvoiceNo','Customer','InvoiceDate','DueDate','Terms','Memo','Item(Product/Service)','ItemDescription','ItemQuantity','ItemRate','ItemAmount','Taxable','TaxRate','Service Date']];
     list.forEach(v=>{ const c=cust(v.customerId); const name=c?(c.company&&c.type==='Commercial'?c.company:(fullName(c)||c.company)):'Unknown'; const j=v.jobId?job(v.jobId):null;
       (v.items||[]).forEach(it=>rows.push([v.number,name,mdy(v.date),mdy(v.dueDate),`Net ${settings().termsDays}`,(v.notes||'').replace(/\s+/g,' ').slice(0,200),it.desc,it.desc,it.qty,(+it.rate).toFixed(2),((+it.qty||0)*(+it.rate||0)).toFixed(2),(+v.taxRate)>0?'Y':'N',(+v.taxRate)>0?`${v.taxRate}%`:'',j?mdy(j.date):''])); });
     const ok = await saveFile(`quickbooks-invoices-${todayISO()}.csv`, toCSV(rows));
-    if(ok && d.mode==='new'){ for(const v of list){ await write(()=>saveDoc('invoices',v.id,{...v,qbExportedAt:Date.now()})); } toast(`${list.length} invoice${list.length===1?'':'s'} exported`); }
+    if(ok && (d.mode==='new' || d.ids)){ for(const v of list){ await write(()=>saveDoc('invoices',v.id,{...v,qbExportedAt:Date.now()})); } toast(`${list.length} invoice${list.length===1?'':'s'} exported`); }
   },
   async exportCustomers(){
     if(!S.customers.length){ toast('No customers to export.'); return; }
     const rows=[['Name','First Name','Last Name','Company','Email','Phone','Street','City','State','ZIP','Notes']];
-    S.customers.forEach(c=>rows.push([fullName(c)||c.company,nameParts(c).first,nameParts(c).last,c.company,c.email,c.phone,c.street,c.city,c.state,c.zip,[c.gate,c.notes].filter(Boolean).join(' | ')]));
+    S.customers.forEach(c=>{ const b=billTo(c); rows.push([fullName(c)||c.company,nameParts(c).first,nameParts(c).last,c.company||b.company,b.email,b.phone,b.street,b.city,b.state,b.zip,[b.different?`Bill to: ${[b.name,b.company].filter(Boolean).join(', ')}`:'', c.gate,c.notes].filter(Boolean).join(' | ')]); });
     await saveFile(`quickbooks-customers-${todayISO()}.csv`, toCSV(rows));
   },
   async downloadInvoice(d){ const v=inv(d.id); if(!v) return; await saveFile(`invoice-${v.number}.html`, invoiceHTML(v)); },
@@ -2474,7 +2598,7 @@ function invoiceHTML(v){
   .note{margin-top:28px;font-size:14px;color:#566974;white-space:pre-wrap}</style></head><body>
   <div class="top"><div><h1>${e(s.businessName)}</h1><div class="muted">${e(s.address)}<br>${e(s.phone)} ${s.email?'· '+e(s.email):''}</div></div>
   <div style="text-align:right"><div style="font-size:22px;font-weight:700;color:#0A6884">INVOICE</div><div class="muted">#${e(v.number)}<br>Date: ${e(fmtDate(v.date))}<br>Due: ${e(fmtDate(v.dueDate))}</div></div></div>
-  <p style="margin-top:20px"><span class="muted">Bill to</span><br><strong>${e(fullName(c)||c.company||'')}</strong>${c.company&&fullName(c)?'<br>'+e(c.company):''}<br>${e(fullAddress(c))}</p>
+  ${(()=>{ const b=billTo(c); return `<p style="margin-top:20px"><span class="muted">Bill to</span><br><strong>${e(b.name||b.company||'')}</strong>${b.company&&b.name?'<br>'+e(b.company):''}<br>${e(billAddress(b))}</p>${b.different&&fullAddress(c)?`<p class="muted" style="margin-top:-6px">Service address: ${e(fullAddress(c))}</p>`:''}`; })()}
   <table><thead><tr><th>Service</th><th class="n">Qty</th><th class="n">Rate</th><th class="n">Amount</th></tr></thead><tbody>
   ${(v.items||[]).map(i=>`<tr><td>${e(i.desc)}</td><td class="n">${e(i.qty)}</td><td class="n">${money(i.rate)}</td><td class="n">${money((+i.qty||0)*(+i.rate||0))}</td></tr>`).join('')}</tbody></table>
   <div class="tot"><div><span>Subtotal</span><span>${money(t.sub)}</span></div>${+v.taxRate?`<div><span>Tax (${e(v.taxRate)}%)</span><span>${money(t.tax)}</span></div>`:''}<div class="big"><span>Total</span><span>${money(t.total)}</span></div>
@@ -2494,6 +2618,13 @@ const F = {
     const data = {...prev, firstName:first, lastName:last, name:[first,last].filter(Boolean).join(' '), company:fd.company.trim(), phone:fd.phone.trim(), email:fd.email.trim(), street:fd.street.trim(), city:fd.city.trim(), state:fd.state.trim().toUpperCase(), zip:fd.zip.trim(),
       lat: ll?ll.lat:null, lng: ll?ll.lng:null, status:fd.status, type:fd.type, panes:fd.panes?+fd.panes:'', stories:fd.stories?+fd.stories:'', frequency:fd.frequency, source:fd.source, gate:fd.gate.trim(),
       tags: fd.tags.split(',').map(s=>s.trim()).filter(Boolean), notes:fd.notes, updatedAt:Date.now()};
+    data.billingSame = !!fd.billingSame;
+    const bill = {name:(fd.bName||'').trim(), company:(fd.bCompany||'').trim(), email:(fd.bEmail||'').trim(), phone:fmtPhone(fd.bPhone||''), street:(fd.bStreet||'').trim(), city:(fd.bCity||'').trim(), state:(fd.bState||'').trim().toUpperCase(), zip:fixZip(fd.bZip||'')};
+    if(!data.billingSame){
+      if(!Object.values(bill).some(Boolean)){ toast('Enter the billing contact, or check "Billing contact is the same".','bad'); return; }
+      if(bill.email && !/^\S+@\S+\.\S+$/.test(bill.email)){ toast('The billing email doesn\'t look right.','bad'); return; }
+    }
+    if(Object.values(bill).some(Boolean) || prev.billing) data.billing = bill;
     const docId = id || newId('customers');
     if(await write(()=>saveDoc('customers',docId,data), id?'Customer saved':'Customer added')){ stack.length=0; openDrawer('customer',{id:docId}); }
   },
@@ -2545,7 +2676,7 @@ const F = {
     if(!body){ toast('Write a message first.','bad'); return; }
     const data={customerId:cid, to, subject, body, channel:'email', jobId:f.dataset.job||'', invoiceId:f.dataset.inv||'', createdAt:Date.now(), by:S.uid||''};
     if(!await write(()=>saveDoc('messages',newId('messages'),data),'Email logged to customer history')) return;
-    const c=cust(cid); if(c && to && !c.email && /\S+@\S+\.\S+/.test(to)) await write(()=>saveDoc('customers',c.id,{...c,email:to,updatedAt:Date.now()}));
+    const c=cust(cid); if(c && to && !c.email && !f.dataset.inv && /\S+@\S+\.\S+/.test(to)) await write(()=>saveDoc('customers',c.id,{...c,email:to,updatedAt:Date.now()}));
     if(f.dataset.inv){ const v=inv(f.dataset.inv); if(v && v.status==='Draft') await write(()=>saveDoc('invoices',v.id,{...v,status:'Sent',updatedAt:Date.now()})); }
     back();
   },
@@ -2588,6 +2719,42 @@ const F = {
     const ok=await write(()=>saveDoc('vehicle_logs', id||newId('vehicle_logs'), data), fd.type==='Mileage update'?'Mileage updated':'Service logged');
     if(!ok) return;
     back();
+  },
+  async bulk(f){
+    const kind=f.dataset.kind, mode=f.dataset.mode, a=f.dataset.a; const fd=Object.fromEntries(new FormData(f));
+    const items=bulkItems(kind); if(!items.length) return closeDrawer();
+    const now=Date.now(); let r;
+    if(kind==='jobs'){
+      if(a==='status'||a==='book'||a==='lost'){
+        const to = a==='book' ? 'Scheduled' : a==='lost' ? 'Cancelled' : fd.status;
+        r=await bulkRun('jobs', items, j=>{ if(j.status===to && !(a==='book'&&fd.useDate)) return null; const o={...j, status:to, updatedAt:now};
+          if(a==='book' && fd.useDate && fd.date) o.date=fd.date;
+          if(to==='Completed' && !j.completedAt) o.completedAt=now; if(to==='Quoted' && !j.quotedAt) o.quotedAt=now; return o; });
+        if(['Scheduled','In progress','Completed'].includes(to)) await activateCustomers(items);
+      } else if(a==='date'){ if(!fd.date) return toast('Pick a date.','bad'); r=await bulkRun('jobs', items, j=>({...j, date:fd.date, time: fd.keepTime?j.time:'', updatedAt:now})); }
+      else if(a==='crew'){ const crew=(fd.crew||'').trim(); if(!crew) return toast('Enter the crew.','bad'); r=await bulkRun('jobs', items, j=>({...j, crew, updatedAt:now})); }
+      else if(a==='delete'){ r=await bulkRun('jobs', items, ()=> 'delete'); }
+      else if(a==='export'){ const ok=await exportTable(`jobs-selected-${todayISO()}`, 'Jobs', jobExportRows(items), fd.fmt||'xlsx'); if(ok){ closeDrawer(); toast('Downloaded'); } return; }
+      else if(a==='invoice'){
+        const s=settings(); const ok=items.filter(j=>j.status==='Completed' && !(j.invoiceId && inv(j.invoiceId)));
+        let done=0, failed=0;
+        for(const j of ok){ const t=todayISO(); const id=newId('invoices'); const num=nextInvoiceNumber();
+          try{ await saveDoc('invoices', id, {customerId:j.customerId, jobId:j.id, number:num, date:t, dueDate:addDays(t,+s.termsDays||0), items:(j.items||[]).map(x=>({...x})), taxRate:+s.taxRate||0, notes:s.invoiceNote, status:'Draft', payments:[], createdAt:now, updatedAt:now});
+            await saveDoc('jobs', j.id, {...j, invoiceId:id, updatedAt:now}); done++; }catch(e){ failed++; }
+          const el=$('#bulk-prog'); if(el) el.textContent=`${done+failed} of ${ok.length} created…`; }
+        r={done, failed, skipped:items.length-ok.length};
+      }
+    } else {
+      if(a==='sent') r=await bulkRun('invoices', items, v=> v.status==='Draft' ? {...v, status:'Sent', updatedAt:now} : null);
+      else if(a==='void') r=await bulkRun('invoices', items, v=> invStatus(v)==='Void' ? null : {...v, status:'Void', updatedAt:now});
+      else if(a==='due'){ if(!fd.due) return toast('Pick a due date.','bad'); r=await bulkRun('invoices', items, v=>({...v, dueDate:fd.due, updatedAt:now})); }
+      else if(a==='pay') r=await bulkRun('invoices', items, v=>{ const bal=totals(v).balance; if(invStatus(v)==='Void' || bal<=0) return null; return {...v, status:v.status==='Draft'?'Sent':v.status, payments:[...(v.payments||[]), {amount:Math.round(bal*100)/100, date:fd.date||todayISO(), method:fd.method, ref:(fd.ref||'').trim()}], updatedAt:now}; });
+      else if(a==='delete') r=await bulkRun('invoices', items, ()=> 'delete');
+      else if(a==='qb'){ const ok=await A.exportQB({ids:items.map(v=>v.id)}); if(ok!==false) closeDrawer(); return; }
+    }
+    if(!r) return;
+    S.sel[kind].clear(); closeDrawer(); render();
+    toast(r.failed ? `${r.done} updated, ${r.failed} couldn't be changed (check your access)` : `${r.done} updated${r.skipped?`, ${r.skipped} skipped (no change needed)`:''}`, r.failed?'bad':'');
   },
   async mypw(f){
     const fd=Object.fromEntries(new FormData(f)); if(fd.pw.length<8) return toast('Use at least 8 characters.','bad'); if(fd.pw!==fd.pw2) return toast('The two passwords don\'t match.','bad');
@@ -2674,9 +2841,18 @@ const IMP_FIELDS = [
   ['gate','Access notes',['gate','gate code','access','access notes','entry notes','access instructions']],
   ['tags','Tags',['tags','labels','tag']],
   ['notes','Notes',['notes','note','comments','memo','description','customer notes']],
+  ['billSame','Billing same as customer (yes/no)',['billing same as customer','billing same','bill to same','same billing']],
+  ['billName','Billing contact name',['billing name','billing contact','billing contact name','bill to','bill to name']],
+  ['billCompany','Billing company',['billing company','bill to company']],
+  ['billEmail','Billing email',['billing email','bill to email','invoice email','accounts payable email']],
+  ['billPhone','Billing phone',['billing phone','bill to phone']],
+  ['billStreet','Billing street',['billing street','bill to street','bill to address','billing street address']],
+  ['billCity','Billing city',['bill to city']],
+  ['billState','Billing state',['bill to state']],
+  ['billZip','Billing ZIP',['billing zip code','bill to zip','billing postal code']],
   ['loc','Street View pin (link or lat, lng)',['coordinates','lat lng','latlng','street view','street view pin','map link','google maps']],
 ];
-const IMP_TEMPLATE = ['First Name','Last Name','Company','Phone','Email','Street','City','State','ZIP','Status','Property type','Window panes','Stories','Service frequency','Lead source','Access notes','Tags','Notes'];
+const IMP_TEMPLATE = ['First Name','Last Name','Company','Phone','Email','Street','City','State','ZIP','Billing same as customer','Billing name','Billing company','Billing email','Billing phone','Billing street','Bill to city','Bill to state','Bill to ZIP','Status','Property type','Window panes','Stories','Service frequency','Lead source','Access notes','Tags','Notes'];
 const US_STATES = {ALABAMA:'AL',ALASKA:'AK',ARIZONA:'AZ',ARKANSAS:'AR',CALIFORNIA:'CA',COLORADO:'CO',CONNECTICUT:'CT',DELAWARE:'DE','DISTRICT OF COLUMBIA':'DC',FLORIDA:'FL',GEORGIA:'GA',HAWAII:'HI',IDAHO:'ID',ILLINOIS:'IL',INDIANA:'IN',IOWA:'IA',KANSAS:'KS',KENTUCKY:'KY',LOUISIANA:'LA',MAINE:'ME',MARYLAND:'MD',MASSACHUSETTS:'MA',MICHIGAN:'MI',MINNESOTA:'MN',MISSISSIPPI:'MS',MISSOURI:'MO',MONTANA:'MT',NEBRASKA:'NE',NEVADA:'NV','NEW HAMPSHIRE':'NH','NEW JERSEY':'NJ','NEW MEXICO':'NM','NEW YORK':'NY','NORTH CAROLINA':'NC','NORTH DAKOTA':'ND',OHIO:'OH',OKLAHOMA:'OK',OREGON:'OR',PENNSYLVANIA:'PA','RHODE ISLAND':'RI','SOUTH CAROLINA':'SC','SOUTH DAKOTA':'SD',TENNESSEE:'TN',TEXAS:'TX',UTAH:'UT',VERMONT:'VT',VIRGINIA:'VA',WASHINGTON:'WA','WEST VIRGINIA':'WV',WISCONSIN:'WI',WYOMING:'WY'};
 const STATE_CODES = new Set(Object.values(US_STATES));
 let IMP = null;
@@ -2787,7 +2963,13 @@ function impRecord(r){
   return {name, firstName:first, lastName:last, company, phone:fmtPhone(g('phone')), email:g('email').toLowerCase(), street, city, state:fixState(state), zip:fixZip(zip),
     lat:ll?ll.lat:null, lng:ll?ll.lng:null, status:normStatus(g('status')), type:normType(g('type'),company), panes:num(g('panes')), stories:num(g('stories')),
     frequency:normFreq(g('frequency')), source:normSource(g('source')), gate:g('gate'), tags:g('tags').split(/[,;|]/).map(s=>s.trim()).filter(Boolean),
-    notes:g('notes'), importedFrom:IMP.fileName, createdAt:Date.now(), updatedAt:Date.now()};
+    notes:g('notes'), importedFrom:IMP.fileName, createdAt:Date.now(), updatedAt:Date.now(), ...impBilling(g)};
+}
+function impBilling(g){
+  const b={name:g('billName'), company:g('billCompany'), email:g('billEmail').toLowerCase(), phone:fmtPhone(g('billPhone')), street:g('billStreet'), city:g('billCity'), state:fixState(g('billState')), zip:fixZip(g('billZip'))};
+  const any=Object.values(b).some(Boolean); const flag=g('billSame');
+  const same = flag ? /^(y|yes|true|1|same|x)$/i.test(flag.trim()) : !any;
+  return any ? {billingSame:same, billing:b} : {billingSame:true};
 }
 function dupKeys(c){
   const k=[]; const d=String(c.phone||'').replace(/\D/g,'').slice(-10); if(d.length===10) k.push('p:'+d);
@@ -2903,7 +3085,8 @@ function customerExportRows(list){
     const np=nameParts(c); const nx=nextJob(c.id);
     const done=S.jobs.filter(j=>j.customerId===c.id && j.status==='Completed').length;
     const billed=S.invoices.filter(v=>v.customerId===c.id && invStatus(v)!=='Void').reduce((a,v)=>a+totals(v).total,0);
-    rows.push([np.first, np.last, c.company||'', c.phone||'', c.email||'', c.street||'', c.city||'', c.state||'', c.zip||'', c.status||'', c.type||'', n2(c.panes), n2(c.stories),
+    const bb=(c.billing||{}); const bsame=c.billingSame!==false||!c.billing;
+    rows.push([np.first, np.last, c.company||'', c.phone||'', c.email||'', c.street||'', c.city||'', c.state||'', c.zip||'', bsame?'Yes':'No', bb.name||'', bb.company||'', bb.email||'', bb.phone||'', bb.street||'', bb.city||'', bb.state||'', bb.zip||'', c.status||'', c.type||'', n2(c.panes), n2(c.stories),
       FREQ[c.frequency||'none'][0], c.source||'', c.gate||'', (c.tags||[]).join(', '), c.notes||'',
       (c.lat!=null&&c.lat!=='')?`${c.lat}, ${c.lng}`:'', c.createdAt?iso(new Date(c.createdAt)):'', lastService(c.id)||'', nx?nx.date:'', nextDue(c)||'', done,
       Math.round(billed*100)/100, Math.round(custBalance(c.id)*100)/100]);
@@ -3166,6 +3349,7 @@ function jobImportDrawer(){
 
 /* ---------- events ---------- */
 document.addEventListener('click', e=>{
+  if(e.target.closest && e.target.closest('.selbox, .selall')) return;
   const el=e.target.closest('[data-act]'); if(!el) return;
   const fn=A[el.dataset.act]; if(!fn) return;
   if(el.tagName==='A') return;
@@ -3190,12 +3374,16 @@ document.addEventListener('input', e=>{
 });
 document.addEventListener('change', e=>{
   const t=e.target;
+  if(t.classList && t.classList.contains('sel-cb')){ const set=S.sel[t.dataset.kind]; t.checked?set.add(t.dataset.id):set.delete(t.dataset.id); render(); return; }
+  if(t.classList && t.classList.contains('sel-all')){ const set=S.sel[t.dataset.kind]; const ids=S._visible[t.dataset.kind]||[]; if(t.checked) ids.forEach(i=>set.add(i)); else ids.forEach(i=>set.delete(i)); render(); return; }
   if(t.dataset.upload) uploadPhotos(t);
   else if(t.dataset.fleetUpload) uploadFleetFile(t);
   else if(t.id==='vl-receipt'){ const n=$('#vl-receipt-name'); if(n) n.textContent = t.files&&t.files[0] ? `Selected: ${t.files[0].name}` : ''; }
   else if(t.classList && t.classList.contains('team-role')){ const id=t.dataset.id, role=t.value; callFn('team',{action:'update', id, role}).then(r=>{ if(!r.ok){ toast(r.error,'bad'); loadTeam(); } else { toast('Role updated'); loadTeam(); } }); }
   else if(t.id==='wipe-photos'){ S.wipe.photos=t.checked; }
   else if(t.id==='wipe-messages'){ S.wipe.messages=t.checked; }
+  else if(t.id==='bk-usedate'){ const w=$('#bk-date-wrap'); if(w) w.hidden=!t.checked; }
+  else if(t.id==='c-billsame'){ const b=$('#c-billing'); if(b){ b.hidden=t.checked; if(!t.checked){ const f=$('#c-bname'); if(f) f.focus(); } } }
   else if(t.id==='rep-pick'){ S.rep.id=t.value; render(); }
   else if(t.id==='rep-period'){ S.rep.period=t.value; if(t.value==='custom'&&!S.rep.from){ const P=repPeriod(); S.rep.from=P.from; S.rep.to=P.to; } render(); }
   else if(t.id==='rep-from'){ S.rep.from=t.value; render(); }
@@ -3213,13 +3401,13 @@ document.addEventListener('change', e=>{
   else if(t.classList.contains('it-svc') && t.value!==''){ const s=settings().services[+t.value]; const r=t.closest('.item-row'); r.querySelector('.it-desc').value=s.name; r.querySelector('.it-rate').value=s.price; recalcItems(); }
   else if(t.id==='e-tpl' || t.id==='e-cust'){
     const f=t.form; const cid=$('#e-cust').value; const c=cust(cid); const tpl=settings().emailTemplates.find(x=>x.name===$('#e-tpl').value);
-    if(t.id==='e-cust') $('#e-to').value = c?.email||'';
+    if(t.id==='e-cust') $('#e-to').value = (f.dataset.inv ? billTo(c).email : c?.email)||'';
     if(tpl){ $('#e-subj').value=fillTemplate(tpl.subject, cid, {jobId:f.dataset.job, invId:f.dataset.inv}); $('#e-body').value=fillTemplate(tpl.body, cid, {jobId:f.dataset.job, invId:f.dataset.inv}); }
     updateMailto();
   }
   else if(t.id==='m-tpl' || t.id==='m-cust'){
     const f=t.form; const cid=$('#m-cust').value; const tpl=settings().templates.find(x=>x.name===$('#m-tpl').value);
-    if(t.id==='m-cust') $('#m-to').innerHTML=toLine(cust(cid));
+    if(t.id==='m-cust') $('#m-to').innerHTML=toLine(cust(cid), !!f.dataset.inv);
     if(tpl) $('#m-body').value=fillTemplate(tpl.text, cid, {jobId:f.dataset.job, invId:f.dataset.inv});
     $('#m-count').textContent=$('#m-body').value.length+' characters'; updateSmsLink();
   }
