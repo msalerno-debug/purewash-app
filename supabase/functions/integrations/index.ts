@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
       }
       const tests: Record<string, unknown> = {};
       for (const g of ["sms", "email", "maps"]) tests[g] = await state("test:" + g);
-      return { ok: true, keys, tests, smsSync: await state("phonecom"), ownerEmail: me.email || user.email };
+      return { ok: true, keys, tests, smsSync: await state("phonecom"), vmSync: await state("voicemail"), ownerEmail: me.email || user.email };
     }
 
     if (action === "list") return json(await list());
@@ -91,10 +91,11 @@ Deno.serve(async (req) => {
     }
 
     if (action === "resync") {
-      const r = await fetch(`${env("SUPABASE_URL")}/functions/v1/sms-sync`, { method: "POST", headers: { "x-sync-token": SYNC_TOKEN, "Content-Type": "application/json" }, body: "{}" });
-      const out = await r.json().catch(() => ({}));
-      if (!r.ok || out.error) return json({ error: out.error || `Sync failed (${r.status}).` }, 502);
-      return json({ ok: true, added: out.added || 0, skipped: out.skipped || null });
+      const call = (fn: string) => fetch(`${env("SUPABASE_URL")}/functions/v1/${fn}`, { method: "POST", headers: { "x-sync-token": SYNC_TOKEN, "Content-Type": "application/json" }, body: "{}" }).then(async (r) => ({ r, out: await r.json().catch(() => ({})) }));
+      const [t, v] = await Promise.all([call("sms-sync"), call("voicemail")]);
+      if (!t.r.ok || t.out.error) return json({ error: t.out.error || `Text sync failed (${t.r.status}).` }, 502);
+      if (!v.r.ok || v.out.error) return json({ error: v.out.error || `Voicemail sync failed (${v.r.status}).` }, 502);
+      return json({ ok: true, added: t.out.added || 0, vmAdded: v.out.added || 0, skipped: t.out.skipped || null });
     }
 
     if (action === "test") {
@@ -133,6 +134,16 @@ Deno.serve(async (req) => {
           const fresh = mins <= 5 && !sync.lastError;
           add({ label: fresh ? `Text sync is running (last check ${mins <= 1 ? "just now" : mins + " min ago"})` : sync.lastError ? "The last text sync failed" : `Text sync hasn't run for ${mins} minutes`, ok: fresh, detail: sync.lastError || undefined, fix: fresh ? undefined : "Fix any problems above, then click Sync texts now." });
         } else add({ label: "Text sync hasn't run yet", ok: null, fix: "Once the checks above pass, click Sync texts now." });
+        if (token && /^\d+$/.test(voip)) {
+          const vr = await fetch(`https://api.phone.com/v4/accounts/${encodeURIComponent(voip)}/voicemail?limit=1`, { headers: { "Authorization": `Bearer ${token}`, "Accept": "application/json" } });
+          add({ label: vr.ok ? "Voicemail can be read" : "Voicemail can't be read", ok: vr.ok, detail: vr.ok ? undefined : `Error ${vr.status}`, fix: vr.ok ? undefined : "Ask phone.com API support to allow voicemail access for your token." });
+        }
+        const vs = await state("voicemail") as { lastRun?: number; lastError?: string; audioQueue?: number } | null;
+        if (vs?.lastRun) {
+          const m = Math.round((Date.now() - vs.lastRun) / 60000);
+          const okv = m <= 6 && !vs.lastError;
+          add({ label: okv ? `Voicemail sync is running (last check ${m <= 1 ? "just now" : m + " min ago"})` : vs.lastError ? "The last voicemail sync failed" : `Voicemail sync hasn't run for ${m} minutes`, ok: okv, detail: vs.lastError || (vs.audioQueue ? `${vs.audioQueue} recording${vs.audioQueue === 1 ? "" : "s"} still being copied` : undefined), fix: okv ? undefined : "Fix any problems above, then click Sync texts now." });
+        }
         const sendTo = d10(body.sendTo);
         if (body.sendTo !== undefined) {
           if (sendTo.length !== 10) add({ label: "Test text not sent", ok: false, fix: "Enter a 10-digit number to send the test text to." });

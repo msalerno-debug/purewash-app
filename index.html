@@ -494,6 +494,12 @@ td.selcol,th.selcol{width:36px;padding-right:0}
 .chk-f{font-size:.84rem;margin-top:3px}
 .api-preview .mapframe{border-radius:8px;max-height:260px}
 /* text conversations */
+.vm{display:flex;flex-direction:column;gap:8px;padding:12px 4px;border-top:1px solid var(--line)}
+.vm-top{display:flex;gap:6px 12px;align-items:baseline;flex-wrap:wrap}
+.vm-n{font-weight:650}
+.vm.unheard .vm-n::before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-right:8px;vertical-align:middle}
+.vm audio{width:100%;max-width:520px;height:40px}
+.vm .btnrow{display:flex;flex-wrap:wrap;gap:6px}
 .conv-row{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;gap:2px 10px;width:100%;text-align:left;border:0;border-top:1px solid var(--line);background:none;padding:12px 4px;cursor:pointer;color:var(--ink);position:relative}
 .list > .conv-row:first-child{border-top:0}
 .conv-row:hover{background:var(--surface-2)}
@@ -619,7 +625,7 @@ const SOURCES = ['Referral','Google','Facebook','Nextdoor','Yard sign','Door han
 const PAY_METHODS = ['Card','Check','Cash','Zelle','Venmo','ACH','Other'];
 
 /* ---------- state ---------- */
-const S = {customers:[], jobs:[], invoices:[], photos:[], messages:[], vehicles:[], vehicle_logs:[], settingsDoc:null, view:'today',
+const S = {customers:[], jobs:[], invoices:[], photos:[], messages:[], voicemails:[], vmFilter:'all', vmLimit:50, vmConfirm:null, vmBusy:new Set(), vehicles:[], vehicle_logs:[], settingsDoc:null, view:'today',
   jobFilter:'upcoming', custQuery:'', custStatus:'All', photoQuery:'', invFilter:'Open', invQuery:'', msgQuery:'', msgChan:'all', msgTab:'conv', rep:{id:'summary', period:'ytd', from:'', to:''}, cal:{mode:'month', anchor:'', sel:null, showQuotes:true}, settingsDirty:false, dbState:'connecting',
   canWrite:null, canAdmin:false, uid:null, assetsOn:true, downloadsOn:true, role:null, profile:null, team:[], activity:null, integ:{email:false, sms:false}, sel:{jobs:new Set(), invoices:new Set()}, _visible:{jobs:[], invoices:[]}, setTab:'general', wipe:{open:false, typed:'', photos:false, messages:false, busy:false, result:null}, api:{loaded:false, loading:false, data:null, busy:{}, err:null}, mapsKey:null};
 // data, photo storage and downloads are defined in the Supabase data layer below
@@ -712,7 +718,7 @@ function svButtons(c, small){
 const SB_URL='https://quthcaplccvgpvlietyo.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1dGhjYXBsY2N2Z3B2bGlldHlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3MTM4ODMsImV4cCI6MjEwODI4OTg4M30.C4vsmsN7LhahIbwiCGdAy3Cwbl7FVbXV3mMZaS5fN5A';
 let sb=null;
-const STORE={customers:new Map(), jobs:new Map(), invoices:new Map(), photos:new Map(), messages:new Map(), vehicles:new Map(), vehicle_logs:new Map()};
+const STORE={customers:new Map(), jobs:new Map(), invoices:new Map(), photos:new Map(), messages:new Map(), voicemails:new Map(), vehicles:new Map(), vehicle_logs:new Map()};
 const genId = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random()).replace(/[^a-z0-9]/gi,'').slice(0,20);
 function pgErr(error){ const m=String(error&&error.message||''); if(error&&(error.code==='42501'||/row-level security|permission/i.test(m))) return {code:'invalid_argument', message:m}; if(/fetch|network/i.test(m)) return {code:'unavailable', message:m}; return {code:'unavailable', message:m}; }
 function applyLocal(col, id, body){ const m=STORE[col]; if(!m) return; if(body===null) m.delete(id); else m.set(id,{id,...body}); S[col]=[...m.values()]; scheduleRender(); }
@@ -735,7 +741,8 @@ const MIME={xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sh
 let downloads = { async save({filename, data}){ const ext=(filename.split('.').pop()||'').toLowerCase(); const blob=data instanceof Blob?data:new Blob([data],{type:MIME[ext]||'application/octet-stream'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),5000); return {status:'saved'}; } };
 let user = null;
 let renderQueued=false;
-function scheduleRender(){ if(renderQueued) return; renderQueued=true; requestAnimationFrame(()=>{ renderQueued=false; render(); }); }
+const audioPlaying = () => [...document.querySelectorAll('audio')].some(a=>!a.paused && !a.ended);
+function scheduleRender(){ if(audioPlaying()){ S._renderPending=true; return; } if(renderQueued) return; renderQueued=true; requestAnimationFrame(()=>{ renderQueued=false; render(); }); }
 async function callFn(name, body){
   try{ const {data, error} = await sb.functions.invoke(name, {body});
     if(error){ let msg=error.message||'The server returned an error.'; try{ const j=await error.context.json(); msg=j.error||msg; }catch(_){} return {ok:false, error:msg}; }
@@ -802,7 +809,7 @@ try{ new MutationObserver(()=>{ if(getTheme()!=='system') applyTheme(); }).obser
 const NAV = [['today','Dashboard'],['calendar','Calendar'],['jobs','Jobs'],['customers','Customers'],['photos','Photos'],['fleet','Fleet'],['invoices','Invoices'],['messages','Messages'],['reports','Reports']];
 function renderShell(){
   $('#logo1').innerHTML=LOGO; $('#logo2').innerHTML=LOGO;
-  const navBtn = ([v,l]) => { const badge = v==='invoices' ? S.invoices.filter(x=>invStatus(x)==='Overdue').length : v==='messages' ? unreadTexts() : v==='fleet' ? fleetAttention().length : 0;
+  const navBtn = ([v,l]) => { const badge = v==='invoices' ? S.invoices.filter(x=>invStatus(x)==='Overdue').length : v==='messages' ? inboxCount() : v==='fleet' ? fleetAttention().length : 0;
     return `<button class="nav" data-act="nav" data-view="${v}" ${S.view===v?'aria-current="page"':''}>${I[v]}<span style="flex:1">${l}</span>${badge?`<span class="nav-badge" aria-label="${badge} ${v==='messages'?'unread':v==='fleet'?'need attention':'overdue'}">${badge}</span>`:''}</button>`; };
   const nav = NAV.filter(([v])=> S.role!=='crew' || !['invoices','messages','reports'].includes(v));
   const office = nav.filter(([v])=>['invoices','messages','reports'].includes(v));
@@ -811,7 +818,7 @@ function renderShell(){
   const tabs = NAV.filter(n=>n[0]!=='messages' && n[0]!=='reports' && n[0]!=='fleet' && !(S.role==='crew' && n[0]==='invoices'));
   $('#tabbar').style.gridTemplateColumns = `repeat(${tabs.length},1fr)`;
   $('#tabbar').innerHTML = tabs.map(([v,l])=>`<button class="tab" data-act="nav" data-view="${v}" ${S.view===v?'aria-current="page"':''}>${I[v]}${l}</button>`).join('');
-  { const u=S.role!=='crew'?unreadTexts():0; $('#tb-msg').innerHTML=I.messages+(u?`<span class="tb-dot" aria-label="${u} unread">${u>9?'9+':u}</span>`:''); } { const n=fleetAttention().length; $('#tb-fleet').innerHTML=I.fleet+(n?`<span class="tb-dot" aria-label="${n} vehicle alerts">${n>9?'9+':n}</span>`:''); } $('#tb-rep').innerHTML=I.reports; $('#tb-set').innerHTML=I.settings;
+  { const u=S.role!=='crew'?inboxCount():0; $('#tb-msg').innerHTML=I.messages+(u?`<span class="tb-dot" aria-label="${u} unread">${u>9?'9+':u}</span>`:''); } { const n=fleetAttention().length; $('#tb-fleet').innerHTML=I.fleet+(n?`<span class="tb-dot" aria-label="${n} vehicle alerts">${n>9?'9+':n}</span>`:''); } $('#tb-rep').innerHTML=I.reports; $('#tb-set').innerHTML=I.settings;
   document.querySelectorAll('[data-bizname]').forEach(el=>el.textContent=settings().businessName||'Your Window Co.');
 }
 function banner(){
@@ -905,6 +912,7 @@ function viewToday(){
     <div class="stat" style="--dot:var(--violet)"><span class="k">Collected in ${parseISO(t).toLocaleDateString('en-US',{month:'short'})}</span><span class="v">${money(paidMonth)}</span><span class="d">Payments recorded</span></div>
     <button class="stat quote wide" data-act="jobFilter" data-f="quoted" style="text-align:left;cursor:pointer;font:inherit"><span class="k">Open quotes</span><span class="v">${money(quoteVal)}</span><span class="d">${quotes.length} quote${quotes.length===1?'':'s'} out${quoteOld?` · ${quoteOld} older than a week`:''}</span></button>
   </div>
+  ${vmNotice()}
   ${fleetNotice()}
   <section class="panel"><div class="panel-head"><h2>Today's route</h2><button class="btn ghost sm" data-act="nav" data-view="jobs">All jobs</button></div>
     ${todays.length ? `<div class="list">${todays.map(j=>jobRow(j)).join('')}</div>` : emptyBox('No jobs on the schedule today','Booked jobs show here in time order with the address, gate notes and a Street View link for the crew.', 'newJob','Schedule a job')}
@@ -1338,6 +1346,55 @@ function conversations(){
   return [...map.values()].map(g=>{ g.msgs.sort((a,b)=>(a.createdAt||0)-(b.createdAt||0)); g.last=g.msgs[g.msgs.length-1]; return g; }).sort((a,b)=>(b.last.createdAt||0)-(a.last.createdAt||0));
 }
 const unreadTexts = () => S.messages.reduce((n,m)=>n+(m.channel!=='email' && m.direction==='in' && !m.read ? 1 : 0),0);
+const unheardVm = () => S.voicemails.reduce((n,v)=>n+(!v.heard && !v.deleted ? 1 : 0),0);
+const inboxCount = () => unreadTexts() + unheardVm();
+const VM={url:new Map(), want:new Set(), timer:null};
+function vmUrl(path){ if(!path) return ''; const u=VM.url.get(path); if(u) return u; VM.want.add(path); if(!VM.timer) VM.timer=setTimeout(fetchVmUrls,40); return ''; }
+async function fetchVmUrls(){
+  VM.timer=null; const paths=[...VM.want].filter(x=>!VM.url.has(x)); VM.want.clear(); if(!paths.length||!sb) return;
+  const {data}=await sb.storage.from('voicemail').createSignedUrls(paths, 60*60*12);
+  (data||[]).forEach(x=>{ if(x.signedUrl && x.path) VM.url.set(x.path, x.signedUrl); });
+  scheduleRender();
+}
+function vmCid(v){ return v.customerId && cust(v.customerId) ? v.customerId : (custByPhone(v.number)?.id || ''); }
+function vmWho(v){ const cid=vmCid(v); if(cid) return custLabel(cust(cid)); const nm=String(v.callerName||'').trim(); return nm && !/^[+\d\s()-]+$/.test(nm) && d10(nm)!==v.number ? `${nm} · ${fmtNum(v.number)}` : fmtNum(v.number||v.fromRaw); }
+const vmLen = s => s ? `${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,'0')}` : '';
+const vmStamp = ms => { if(!ms) return ''; const d=new Date(ms); return d.getFullYear()===new Date().getFullYear() ? fmtStamp(ms) : d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); };
+function vmList(){ return S.voicemails.filter(v=>!v.deleted).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)); }
+function vmRow(v, o={}){
+  const cid=vmCid(v); const k=cid?'c:'+cid:'n:'+v.number;
+  const url = v.audio ? vmUrl(v.audio.path) : '';
+  const player = v.audio ? (url ? `<audio controls preload="none" data-vm="${v.id}" src="${esc(url)}" aria-label="Voicemail from ${esc(vmWho(v))}"></audio>` : '<p class="hint">Getting the recording…</p>')
+    : v.audioMissing ? '<p class="hint">phone.com no longer has this recording.</p>'
+    : `<div><button class="btn sm" data-act="vmFetch" data-id="${v.id}" ${S.vmBusy.has(v.id)?'disabled':''}>${S.vmBusy.has(v.id)?'Getting recording…':'Load recording'}</button></div>`;
+  const confirm = S.vmConfirm===v.id ? `<div class="notice bad" style="margin:0">Delete this voicemail from the app? It stays in phone.com. <span class="btnrow" style="margin-top:6px"><button class="btn sm danger" data-act="vmDelete" data-id="${v.id}">Delete</button><button class="btn sm" data-act="vmDeleteCancel">Keep it</button></span></div>` : '';
+  return `<div class="vm${v.heard?'':' unheard'}">
+    <div class="vm-top">${o.noName?'':`<span class="vm-n">${cid?`<button class="btn ghost sm" style="padding:0;font-weight:650" data-act="openCustomer" data-id="${cid}" ${o.stack?'data-stack="1"':''}>${hl(vmWho(v), o.q||'')}</button>`:hl(vmWho(v), o.q||'')}</span>`}${o.noName&&!v.heard?'<span class="pill quoted">New</span>':''}${!cid&&!o.noName?'<span class="pill lead">New contact</span>':''}
+      <span class="muted" style="font-size:.84rem">${esc(vmStamp(v.createdAt))}${v.duration?' · '+vmLen(v.duration):''}${v.callerCity&&!cid?' · '+esc([v.callerCity,v.callerState].filter(Boolean).join(', ')):''}</span></div>
+    ${player}
+    <div class="btnrow">${v.number?`<a class="btn sm" href="tel:+1${esc(v.number)}">Call back</a><button class="btn sm" data-act="openThread" data-k="${k}" ${o.stack?'data-stack="1"':''}>Text back</button>`:''}
+      ${!cid&&v.number?`<button class="btn sm" data-act="newCustomerFromNumber" data-num="${esc(v.number)}">${I.plus} Add as customer</button>`:''}
+      <button class="btn sm ghost" data-act="vmHeard" data-id="${v.id}" data-on="${v.heard?0:1}">${v.heard?'Mark unheard':'Mark heard'}</button>
+      <button class="btn sm ghost" data-act="vmDeleteAsk" data-id="${v.id}">Delete</button></div>
+    ${confirm}</div>`;
+}
+function vmPanel(mq){
+  const all=vmList(); const nNew=all.filter(v=>!v.heard).length;
+  let list = S.vmFilter==='unheard' ? all.filter(v=>!v.heard) : all;
+  if(mq){ const q=mq.toLowerCase(), qd=mq.replace(/\D/g,''); list=list.filter(v=>{ const cid=vmCid(v); return (cid && custMatch(cust(cid),mq)) || String(v.callerName||'').toLowerCase().includes(q) || (qd.length>=3 && String(v.number||'').includes(qd)); }); }
+  const shown=list.slice(0,S.vmLimit);
+  return `<section class="panel">
+    <div class="panel-head"><div class="chips">${[['all','All'],['unheard',`New${nNew?' ('+nNew+')':''}`]].map(([k,l])=>`<button class="chip" data-act="vmFilter" data-f="${k}" aria-pressed="${S.vmFilter===k}">${l}</button>`).join('')}</div>${nNew?`<button class="btn ghost sm" data-act="vmAllHeard">Mark all heard</button>`:''}</div>
+    ${!all.length ? emptyBox('No voicemail yet','Voicemails left on your phone.com number show up here within a couple of minutes, with the recording ready to play.')
+      : !shown.length ? `<p class="muted">${mq?'No voicemails match.':'No new voicemail. You\'re all caught up.'}</p>`
+      : shown.map(v=>vmRow(v,{q:mq})).join('') + (list.length>shown.length?`<div style="padding-top:10px"><button class="btn sm" data-act="vmMore">Show more (${list.length-shown.length} older)</button></div>`:'')}
+    <p class="hint" style="margin-top:10px">Recordings from the last 90 days are copied in automatically. Older ones load when you tap <strong>Load recording</strong>. Deleting here doesn't delete from phone.com.</p></section>`;
+}
+function vmNotice(){
+  if(S.role==='crew') return ''; const n=unheardVm(); if(!n) return '';
+  return `<div class="notice info" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><span>You have <strong>${n} new voicemail${n===1?'':'s'}</strong>.</span><button class="btn sm" data-act="openVm">Listen</button></div>`;
+}
+function rerender(){ render(); }
 function convName(g){ return g.cid ? custLabel(cust(g.cid)) : fmtNum(g.number); }
 function threadHtml(g){
   if(!g || !g.msgs.length) return '<p class="muted">No texts yet. Send the first one below.</p>';
@@ -1376,12 +1433,12 @@ function viewMessages(){
       ${g.unread?`<span class="cv-u" aria-label="${g.unread} unread">${g.unread}</span>`:''}</button>`; }).join('')}</div>`
     : (mq ? '<p class="muted">No conversations match.</p>' : emptyBox('No text conversations yet','When customers text your phone.com number, their messages show up here within a minute.','compose','Write a text'));
   return `
-  <div class="page-head"><div><p class="eyebrow">Texts & email</p><h1>Messages</h1></div><div class="actions"><button class="btn" data-act="emailCompose">${I.mail} New email</button><button class="btn primary" data-act="compose">${I.plus} New text</button></div></div>
+  <div class="page-head"><div><p class="eyebrow">Texts, voicemail & email</p><h1>Messages</h1></div><div class="actions"><button class="btn" data-act="emailCompose">${I.mail} New email</button><button class="btn primary" data-act="compose">${I.plus} New text</button></div></div>
   <div class="notice info">${S.integ.sms&&S.integ.email?'Texts send from your phone.com number and emails from your business address. Every message is saved to the customer\'s history.':`${S.integ.sms?'Texts send straight from your phone.com number.':'Texting through phone.com isn\'t connected yet, so copy texts into phone.com and tap <strong>Log as sent</strong>.'} ${S.integ.email?'Emails send from your business address.':'Email sending isn\'t connected yet, so copy emails into your mail app and tap <strong>Log as sent</strong>.'}`}</div>
-  <div class="seg" role="tablist" aria-label="Message views">${[['conv','Text conversations'],['all','All messages']].map(([k,l])=>`<button class="seg-btn" role="tab" aria-selected="${S.msgTab===k}" aria-checked="${S.msgTab===k}" data-act="msgTab" data-t="${k}">${l}${k==='conv'&&unreadTexts()?` <span class="cv-u" style="position:static">${unreadTexts()}</span>`:''}</button>`).join('')}</div>
-  ${S.messages.length?`<div class="search"><label class="sr" for="msg-q">Search messages</label><input type="search" id="msg-q" autocomplete="off" placeholder="Type a name, phone number or words from a message…" value="${esc(S.msgQuery)}">
+  <div class="seg" role="tablist" aria-label="Message views">${[['conv','Text conversations'],['vm','Voicemail'],['all','All messages']].map(([k,l])=>`<button class="seg-btn" role="tab" aria-selected="${S.msgTab===k}" aria-checked="${S.msgTab===k}" data-act="msgTab" data-t="${k}">${l}${k==='conv'&&unreadTexts()?` <span class="cv-u" style="position:static">${unreadTexts()}</span>`:''}${k==='vm'&&unheardVm()?` <span class="cv-u" style="position:static">${unheardVm()}</span>`:''}</button>`).join('')}</div>
+  ${S.messages.length||S.voicemails.length?`<div class="search"><label class="sr" for="msg-q">Search messages</label><input type="search" id="msg-q" autocomplete="off" placeholder="Type a name, phone number or words from a message…" value="${esc(S.msgQuery)}">
     ${S.msgTab==='all'?`<div class="chips">${[['all','All'],['text','Texts'],['email','Emails']].map(([k,l])=>`<button class="chip" data-act="msgChan" data-c="${k}" aria-pressed="${S.msgChan===k}">${l}</button>`).join('')}</div>`:''}</div>`:''}
-  ${S.msgTab==='conv'?`<section class="panel">${convHtml}</section>`:`<section class="panel">${(mq||S.msgChan!=='all')&&!list.length?`<p class="muted">No messages match.</p>`:list.length?list.map(m=>msgItem(m,{showCust:true,q:mq})).join('')
+  ${S.msgTab==='vm'?vmPanel(mq):S.msgTab==='conv'?`<section class="panel">${convHtml}</section>`:`<section class="panel">${(mq||S.msgChan!=='all')&&!list.length?`<p class="muted">No messages match.</p>`:list.length?list.map(m=>msgItem(m,{showCust:true,q:mq})).join('')
     : emptyBox('No messages logged yet','Use templates like "Appointment reminder" or "Invoice" to reach customers quickly by text or email.','compose','Write a text')}</section>`}`;
 }
 function etplRow(t,i,ro){
@@ -1528,7 +1585,7 @@ function refreshWipe(){ const b=document.getElementById('wipe-box'); if(b) b.inn
 
 /* ---------- APIs tab ---------- */
 const API_DEFS=[
-  {id:'sms', name:'phone.com texting', icon:'messages', what:'Sends texts from your business number and brings customer replies into Messages every minute.',
+  {id:'sms', name:'phone.com texting', icon:'messages', what:'Sends texts from your business number, brings customer replies into Messages every minute, and pulls in voicemail with playable recordings.',
     keys:[['PHONECOM_TOKEN','API token',true,'Paste the permanent token'],['PHONECOM_VOIP_ID','Account (VoIP) ID',false,'Digits only'],['PHONECOM_FROM','Texting number',false,'908-555-1234']],
     links:[['Get a phone.com API token','https://apidocs.phone.com/docs/access-token'],['phone.com API docs','https://apidocs.phone.com/docs/apiphonecom']]},
   {id:'email', name:'Email (Resend)', icon:'mail', what:'Sends invoices, quotes, reminders and receipts from your own address. Customer replies go to the business email on the Business tab.',
@@ -1544,7 +1601,7 @@ function apiStatus(def){
   const t=D.tests&&D.tests[def.id];
   if(missing===def.keys.length) return {cls:'', label:'Not set up'};
   if(missing) return {cls:'overdue', label:'Missing details'};
-  if(def.id==='sms' && D.smsSync && D.smsSync.lastError) return {cls:'overdue', label:'Needs attention'};
+  if(def.id==='sms' && ((D.smsSync && D.smsSync.lastError) || (D.vmSync && D.vmSync.lastError))) return {cls:'overdue', label:'Needs attention'};
   if(!t) return {cls:'quoted', label:'Not tested'};
   return t.ok ? {cls:'paid', label:'Connected'} : {cls:'overdue', label:'Needs attention'};
 }
@@ -1568,9 +1625,10 @@ function apiCard(def){
       <div class="api-actions">
         <div class="field" style="flex:1 1 180px"><label for="api-sms-to">Send a test text to</label><input type="tel" id="api-sms-to" placeholder="Your cell number" autocomplete="tel"></div>
         <button class="btn" data-act="apiTest" data-i="sms" data-send="1" ${busy?'disabled':''}>Send test text</button>
-        <button class="btn" data-act="apiResync" ${busy?'disabled':''}>Sync texts now</button>
+        <button class="btn" data-act="apiResync" ${busy?'disabled':''}>Sync texts & voicemail now</button>
       </div>
-      ${D&&D.smsSync&&D.smsSync.lastRun?`<p class="hint">Text sync last ran ${esc(ago(D.smsSync.lastRun))}${D.smsSync.lastError?` and failed: <span style="color:var(--bad)">${esc(D.smsSync.lastError)}</span>`:', with no errors'}.</p>`:''}`
+      ${D&&D.smsSync&&D.smsSync.lastRun?`<p class="hint">Text sync last ran ${esc(ago(D.smsSync.lastRun))}${D.smsSync.lastError?` and failed: <span style="color:var(--bad)">${esc(D.smsSync.lastError)}</span>`:', with no errors'}.</p>`:''}
+      ${D&&D.vmSync&&D.vmSync.lastRun?`<p class="hint">Voicemail sync last ran ${esc(ago(D.vmSync.lastRun))}${D.vmSync.lastError?` and failed: <span style="color:var(--bad)">${esc(D.vmSync.lastError)}</span>`:', with no errors'}${D.vmSync.audioQueue?` · ${D.vmSync.audioQueue} recording${D.vmSync.audioQueue===1?'':'s'} still being copied`:''}.</p>`:''}`
     : def.id==='email' ? `
       <div class="api-actions"><button class="btn" data-act="apiTest" data-i="email" data-send="1" ${busy?'disabled':''}>Send test email to ${esc((D&&D.ownerEmail)||'me')}</button></div>`
     : `
@@ -1957,6 +2015,8 @@ const DRAWERS = {
       <section class="panel office-only"><div class="panel-head"><h3>Texts & email${unreadHere?` <span class="cv-u" style="position:static">${unreadHere} new</span>`:''}</h3><span class="btnrow">${c.phone?`<button class="btn ghost sm" data-act="openThread" data-k="c:${id}" data-stack="1">Open conversation</button>`:''}<button class="btn ghost sm" data-act="compose" data-cid="${id}">New text</button><button class="btn ghost sm" data-act="emailCompose" data-cid="${id}">New email</button></span></div>
         ${msgs.length?msgs.slice(0,10).map(m=>msgItem(m)).join(''):'<p class="muted">No texts or emails logged.</p>'}
       </section>
+      ${(()=>{ if(S.role==='crew') return ''; const p=d10(c.phone); const vms=vmList().filter(v=>v.customerId===id || (p.length===10 && v.number===p)); if(!vms.length) return ''; const n=vms.filter(v=>!v.heard).length;
+        return `<section class="panel office-only"><div class="panel-head"><h3>Voicemail${n?` <span class="cv-u" style="position:static">${n} new</span>`:''}</h3><span class="muted" style="font-size:.8rem">${vms.length} message${vms.length===1?'':'s'}</span></div>${vms.slice(0,5).map(v=>vmRow(v,{noName:true,stack:true})).join('')}</section>`; })()}
       <div><button class="btn danger sm" data-act="askDelete" data-col="customers" data-id="${id}">Delete customer</button></div>
       <div id="confirm-slot"></div>`};
   },
@@ -2412,7 +2472,27 @@ const A = {
     back();
   },
   openThread(d){ const k=d.k; d.stack ? go('thread',{k}) : (stack.length=0, openDrawer('thread',{k})); markThreadRead(k); },
-  msgTab(d){ S.msgTab=d.t; render(); },
+  msgTab(d){ S.msgTab=d.t; S.vmConfirm=null; render(); },
+  openVm(){ S.msgTab='vm'; S.vmFilter='unheard'; A.nav({view:'messages'}); },
+  vmFilter(d){ S.vmFilter=d.f; S.vmLimit=50; render(); },
+  vmMore(){ S.vmLimit+=50; render(); },
+  async vmFetch(d){
+    S.vmBusy.add(d.id); rerender();
+    const r=await callFn('voicemail',{action:'fetch', id:d.id});
+    S.vmBusy.delete(d.id);
+    if(!r.ok) toast(r.error,'bad');
+    const {data:row}=await sb.from('voicemails').select('id,data').eq('id',d.id).maybeSingle();
+    if(row) applyLocal('voicemails', row.id, row.data||{}); else rerender();
+  },
+  async vmHeard(d){ const v=STORE.voicemails.get(d.id); if(!v) return; await write(()=>saveDoc('voicemails', v.id, {...v, heard:d.on==='1', heardVia:d.on==='1'?'app':null})); },
+  async vmAllHeard(){ const list=vmList().filter(v=>!v.heard); let n=0; for(const v of list){ try{ await saveDoc('voicemails', v.id, {...v, heard:true, heardVia:'app'}); n++; }catch(e){} } toast(`${n} voicemail${n===1?'':'s'} marked heard`); },
+  vmDeleteAsk(d){ S.vmConfirm=d.id; rerender(); },
+  vmDeleteCancel(){ S.vmConfirm=null; rerender(); },
+  async vmDelete(d){
+    const v=STORE.voicemails.get(d.id); if(!v) return; S.vmConfirm=null;
+    const path=v.audio&&v.audio.path;
+    if(await write(()=>saveDoc('voicemails', v.id, {...v, deleted:true, heard:true, audio:null, audioWanted:false}),'Voicemail deleted') && path){ try{ await sb.storage.from('voicemail').remove([path]); }catch(e){} VM.url.delete(path); }
+  },
   newCustomerFromNumber(d){ go('customerForm',{phone:d.num}); },
   copyThreadReply(){ copyText($('#tr-body').value, 'Copied. Paste it into phone.com.'); },
   async sendEmail(d,el){
@@ -2450,7 +2530,7 @@ const A = {
     S.api.busy.sms=true; refreshApis();
     const r=await callFn('integrations',{action:'resync'});
     S.api.busy.sms=false;
-    if(!r.ok) toast(r.error,'bad'); else toast(r.skipped?'Texting isn\'t set up yet.':`Sync finished: ${r.added} new text${r.added===1?'':'s'}`);
+    if(!r.ok) toast(r.error,'bad'); else toast(r.skipped?'Texting isn\'t set up yet.':`Sync finished: ${r.added} new text${r.added===1?'':'s'}, ${r.vmAdded||0} new voicemail${r.vmAdded===1?'':'s'}`);
     await loadApis(true);
   },
   async apiClear(d){
@@ -3348,6 +3428,13 @@ function jobImportDrawer(){
 }
 
 /* ---------- events ---------- */
+document.addEventListener('play', e=>{
+  const a=e.target; if(!a || a.tagName!=='AUDIO') return;
+  document.querySelectorAll('audio').forEach(x=>{ if(x!==a && !x.paused) x.pause(); });
+  const v=a.dataset.vm && STORE.voicemails.get(a.dataset.vm);
+  if(v && !v.heard) saveDoc('voicemails', v.id, {...v, heard:true, heardVia:'app'}).catch(()=>{});
+}, true);
+['pause','ended'].forEach(ev=>document.addEventListener(ev, e=>{ if(e.target && e.target.tagName==='AUDIO' && S._renderPending && !audioPlaying()){ S._renderPending=false; setTimeout(scheduleRender, 50); } }, true));
 document.addEventListener('click', e=>{
   if(e.target.closest && e.target.closest('.selbox, .selall')) return;
   const el=e.target.closest('[data-act]'); if(!el) return;
@@ -3510,7 +3597,7 @@ async function loadTeam(){ const {data}=await sb.from('profiles').select('*'); S
 async function loadAll(){
   S.dbState='connecting'; render();
   try{
-    const tabs=['customers','jobs','invoices','photos','messages','vehicles','vehicle_logs'];
+    const tabs=['customers','jobs','invoices','photos','messages','vehicles','vehicle_logs'].concat(S.role==='crew'?[]:['voicemails']);
     const res=await Promise.all(tabs.map(t=>loadTable(t).catch(()=>[])));
     tabs.forEach((t,i)=>{ STORE[t]=new Map(res[i].map(r=>[r.id,{id:r.id, ...(r.data||{})}])); S[t]=[...STORE[t].values()]; });
     const st=await sb.from('settings').select('data').eq('id','app').maybeSingle(); S.settingsDoc = st.data ? st.data.data : null;
@@ -3524,12 +3611,13 @@ function applyChange(t, p){
   if(t==='profiles'){ if(p.new && p.new.id===S.uid && (p.new.role!==S.role || !p.new.active)){ location.reload(); return; } loadTeam(); return; }
   const m=STORE[t]; if(!m) return;
   if(t==='messages' && p.eventType==='INSERT' && p.new && p.new.data && p.new.data.direction==='in' && !p.new.data.read){ const d=p.new.data; const c=msgCustomerId(d); toast(`New text from ${c?custLabel(cust(c)):fmtNum(d.number)}`); }
+  if(t==='voicemails' && p.eventType==='INSERT' && p.new && p.new.data && !p.new.data.heard && !p.new.data.deleted) toast(`New voicemail from ${vmWho(p.new.data)}`);
   if(p.eventType==='DELETE'){ if(p.old && p.old.id) m.delete(p.old.id); } else if(p.new){ m.set(p.new.id, {id:p.new.id, ...(p.new.data||{})}); }
   S[t]=[...m.values()]; scheduleRender();
 }
 function subscribe(){
   const ch=sb.channel('purewash-live');
-  ['customers','jobs','invoices','photos','messages','vehicles','vehicle_logs','settings','profiles'].forEach(t=>ch.on('postgres_changes',{event:'*', schema:'public', table:t}, p=>applyChange(t,p)));
+  ['customers','jobs','invoices','photos','messages','voicemails','vehicles','vehicle_logs','settings','profiles'].forEach(t=>ch.on('postgres_changes',{event:'*', schema:'public', table:t}, p=>applyChange(t,p)));
   ch.subscribe(status=>{ if(status==='CHANNEL_ERROR' || status==='TIMED_OUT'){ setTimeout(()=>{ sb.removeChannel(ch); subscribe(); loadAll(); }, 5000); } });
 }
 async function importOldPhotos(){
