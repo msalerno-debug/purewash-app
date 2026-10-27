@@ -626,7 +626,7 @@ const PAY_METHODS = ['Card','Check','Cash','Zelle','Venmo','ACH','Other'];
 
 /* ---------- state ---------- */
 const S = {customers:[], jobs:[], invoices:[], photos:[], messages:[], voicemails:[], vmFilter:'all', vmLimit:50, vmConfirm:null, vmBusy:new Set(), vehicles:[], vehicle_logs:[], settingsDoc:null, view:'today',
-  jobFilter:'upcoming', custQuery:'', custStatus:'All', photoQuery:'', invFilter:'Open', invQuery:'', msgQuery:'', msgChan:'all', msgTab:'conv', rep:{id:'summary', period:'ytd', from:'', to:''}, cal:{mode:'month', anchor:'', sel:null, showQuotes:true}, settingsDirty:false, dbState:'connecting',
+  jobFilter:'upcoming', jobQuery:'', custQuery:'', custStatus:'All', photoQuery:'', invFilter:'Open', invQuery:'', msgQuery:'', msgChan:'all', msgTab:'conv', rep:{id:'summary', period:'ytd', from:'', to:''}, cal:{mode:'month', anchor:'', sel:null, showQuotes:true}, settingsDirty:false, dbState:'connecting',
   canWrite:null, canAdmin:false, uid:null, assetsOn:true, downloadsOn:true, role:null, profile:null, team:[], activity:null, integ:{email:false, sms:false}, sel:{jobs:new Set(), invoices:new Set()}, _visible:{jobs:[], invoices:[]}, setTab:'general', wipe:{open:false, typed:'', photos:false, messages:false, busy:false, result:null}, api:{loaded:false, loading:false, data:null, busy:{}, err:null}, mapsKey:null};
 // data, photo storage and downloads are defined in the Supabase data layer below
 let drawerState=null; // {kind, args, detail:boolean}
@@ -651,6 +651,49 @@ const pill = s => `<span class="pill ${slug(s)}">${esc(s)}</span>`;
 const settings = () => { const d=S.settingsDoc||{}; return {...DEFAULT_SETTINGS, ...d, services:(d.services&&d.services.length)?d.services:DEFAULT_SETTINGS.services, templates:(d.templates&&d.templates.length)?d.templates:DEFAULT_SETTINGS.templates, emailTemplates:(d.emailTemplates&&d.emailTemplates.length)?d.emailTemplates:DEFAULT_SETTINGS.emailTemplates}; };
 const cust = id => S.customers.find(c=>c.id===id);
 const job = id => S.jobs.find(j=>j.id===id);
+/* ---------- recurring series ---------- */
+const REPEATS = {w1:['Every week',7,'d',12], w2:['Every 2 weeks',14,'d',13], w4:['Every 4 weeks',28,'d',13], m1:['Every month',1,'m',12], m2:['Every 2 months',2,'m',6], m3:['Every 3 months (quarterly)',3,'m',4], m4:['Every 4 months (3x a year)',4,'m',3], m6:['Every 6 months (twice a year)',6,'m',2], m12:['Every year',12,'m',3]};
+const FREQ_REPEAT = {monthly:'m1', bimonthly:'m2', quarterly:'m3', triannual:'m4', semiannual:'m6', annual:'m12'};
+const SERIES_MAX = 104;
+function repeatLabel(r){ return (REPEATS[r]||['Repeats'])[0].replace(/ \(.*\)$/,''); }
+function seriesDates(start, r, end, count, until){
+  const R=REPEATS[r]; if(!R || !start) return [start].filter(Boolean);
+  const out=[]; const lim = end==='until' ? SERIES_MAX : Math.max(1, Math.min(SERIES_MAX, Math.floor(+count)||1));
+  for(let k=0; out.length<lim; k++){ const d = R[2]==='d' ? addDays(start, R[1]*k) : addMonths(start, R[1]*k); if(end==='until' && (!until || d>until)) break; out.push(d); if(k>SERIES_MAX*2) break; }
+  return out;
+}
+const seriesJobs = sid => S.jobs.filter(x=>x.seriesId===sid).sort((a,b)=>(a.date+(a.time||'')).localeCompare(b.date+(b.time||'')));
+const dayDiff = (a,b) => Math.round((parseISO(b)-parseISO(a))/864e5);
+function repeatFields(j, cid){
+  const c=cust(cid||j.customerId); const def = (c && FREQ_REPEAT[c.frequency]) || 'none';
+  const r = def; const cnt = r==='none' ? 4 : REPEATS[r][3];
+  return `<fieldset class="field rep-box" style="border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px">
+    <legend style="padding:0 6px;font-weight:650">${j.id?'Make this a recurring series':'Repeat'}</legend>
+    <div class="field"><label for="j-repeat">How often</label><select id="j-repeat" name="repeat"><option value="none">Don't repeat</option>${Object.entries(REPEATS).map(([k,v])=>`<option value="${k}" ${r===k?'selected':''}>${v[0]}</option>`).join('')}</select>
+      ${c&&FREQ_REPEAT[c.frequency]?`<span class="hint">Set from this customer's ${esc(FREQ[c.frequency][0].toLowerCase())} schedule.</span>`:''}</div>
+    <div id="rep-opts" ${r==='none'?'hidden':''} style="display:flex;flex-direction:column;gap:8px">
+      <div class="lbl">Ends</div>
+      <label class="chk-row" style="flex-wrap:wrap;font-weight:500"><input type="radio" name="repEnd" value="count" checked> After <input type="number" id="rep-count" name="repCount" min="2" max="${SERIES_MAX}" value="${cnt}" style="width:80px;height:auto" aria-label="Number of visits"> visits</label>
+      <label class="chk-row" style="flex-wrap:wrap;font-weight:500"><input type="radio" name="repEnd" value="until"> On or before <input type="date" id="rep-until" name="repUntil" value="${esc(addMonths(j.date||todayISO(),12))}" aria-label="Last date" style="width:auto;height:auto"></label>
+      <p class="hint" id="rep-preview" aria-live="polite"></p>
+    </div></fieldset>`;
+}
+function updateRepPreview(){
+  const f=document.querySelector('form[data-form=job]'); if(!f) return;
+  const sel=f.querySelector('#j-repeat'); if(!sel) return; const r=sel.value;
+  const box=f.querySelector('#rep-opts'); if(box) box.hidden = r==='none';
+  const pv=f.querySelector('#rep-preview'); if(!pv || r==='none') return;
+  const end=(f.querySelector('input[name=repEnd]:checked')||{}).value||'count';
+  const ds=seriesDates(f.querySelector('#j-date').value, r, end, f.querySelector('#rep-count').value, f.querySelector('#rep-until').value);
+  const st=(f.querySelector('#j-status')||{}).value;
+  pv.innerHTML = st==='Quoted' ? 'Quotes don\'t repeat. Book the job first, or change the status to Scheduled.'
+    : ds.length<2 ? '<span style="color:var(--bad)">That end leaves only one visit. Pick a later date or more visits.</span>'
+    : `Books <strong>${ds.length} visits</strong>: ${ds.slice(0,6).map(d=>esc(fmtDate(d))).join(', ')}${ds.length>6?`, … through ${esc(fmtDate(ds[ds.length-1]))}`:''}.`;
+}
+function jobHay(j){ const c=cust(j.customerId); const v=j.invoiceId&&inv(j.invoiceId);
+  return [c?custHay(c):'', (j.items||[]).map(x=>x.desc).join(' '), j.notes, j.crew, j.status, j.date, j.date?fmtDate(j.date):'', j.date?fmtDay(j.date):'', v?'#'+v.number+' '+v.number:'', j.seriesId?'recurring series '+repeatLabel(j.seriesRule):''].join(' ').toLowerCase(); }
+function jobMatch(j, q){ const toks=String(q||'').toLowerCase().split(/\s+/).filter(Boolean); if(!toks.length) return true; const hay=jobHay(j); const c=cust(j.customerId); const dg=String(c&&c.phone||'').replace(/\D/g,'');
+  return toks.every(t=>hay.includes(t) || (/^[\d()\-.+]+$/.test(t) && t.replace(/\D/g,'').length>=3 && dg.includes(t.replace(/\D/g,'')))); }
 const inv = id => S.invoices.find(i=>i.id===id);
 const custName = id => { const c=cust(id); return c ? custLabel(c) : 'Deleted customer'; };
 const fullAddress = c => c ? [c.street, [c.city, c.state].filter(Boolean).join(', ') + (c.zip?' '+c.zip:'')].filter(s=>s&&s.trim()).join(', ') : '';
@@ -849,7 +892,7 @@ function jobRow(j, opts={}){
   return `<div class="jobrow${opts.select?' selectable':''}${opts.select&&S.sel.jobs.has(j.id)?' picked':''}">
     <div class="time">${opts.select?selBox('jobs',j.id):''}${j.time?esc(fmtTime(j.time)):'<span class="muted">Any</span>'}${opts.showDate?`<div class="muted" style="font-size:.74rem">${esc(fmtDate(j.date))}</div>`:''}</div>
     <div class="body">
-      <div class="line1"><button class="name" data-act="openJob" data-id="${j.id}">${esc(custName(j.customerId))}</button><span style="display:flex;gap:8px;align-items:center">${pill(status)}<span class="num">${money(total)}</span></span></div>
+      <div class="line1"><button class="name" data-act="openJob" data-id="${j.id}">${esc(custName(j.customerId))}</button><span style="display:flex;gap:8px;align-items:center">${j.seriesId?`<span class="pill" title="${esc(repeatLabel(j.seriesRule))}">↻ ${esc(repeatLabel(j.seriesRule))}</span>`:''}${pill(status)}<span class="num">${money(total)}</span></span></div>
       ${c?`<div class="addr">${esc(fullAddress(c)||'No address on file')}${c.gate?` · <strong>Access:</strong> ${esc(c.gate)}`:''}</div>`:''}
       ${itemsSummary(j.items)?`<div class="addr">${esc(itemsSummary(j.items))}${j.crew?` · Crew: ${esc(j.crew)}`:''}</div>`:''}
       <div class="btnrow">${c?svButtons(c,true):''}<button class="btn sm" data-act="openJob" data-id="${j.id}">${I.camera} Photos & details</button></div>
@@ -1262,28 +1305,33 @@ function viewCustomers(){
     : list.length ? `<div class="list">${list.map(c=>custRow(c,q)).join('')}</div>` : `<p class="muted">No customers match “${esc(S.custQuery.trim())}”${S.custStatus!=='All'?` in ${esc(S.custStatus)}. <button class="btn ghost sm" data-act="custStatus" data-s="All">Search all customers</button>`:'.'}</p>`}</section>`;
 }
 function viewJobs(){
-  const t=todayISO(); let list;
+  const t=todayISO(); let list; const jq=S.jobQuery.trim();
   if(S.jobFilter==='upcoming') list = S.jobs.filter(j=>j.status==='Scheduled'||j.status==='In progress').sort((a,b)=>(a.date+(a.time||'99')).localeCompare(b.date+(b.time||'99')));
   else if(S.jobFilter==='quoted') list = S.jobs.filter(j=>j.status==='Quoted').sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
   else if(S.jobFilter==='completed') list = S.jobs.filter(j=>j.status==='Completed').sort((a,b)=>(b.date+(b.time||'')).localeCompare(a.date+(a.time||'')));
   else list = [...S.jobs].sort((a,b)=>(b.date+(b.time||'')).localeCompare(a.date+(a.time||'')));
+  let elsewhere=0;
+  if(jq){ const n0=list.length; list=list.filter(j=>jobMatch(j,jq)); if(S.jobFilter!=='all') elsewhere = S.jobs.filter(j=>jobMatch(j,jq)).length - list.length; }
+  const searchBox = S.jobs.length ? `<div class="search"><label class="sr" for="job-q">Search jobs</label><input type="search" id="job-q" autocomplete="off" placeholder="Search by customer, address, service, crew, notes, date or invoice #…" value="${esc(S.jobQuery)}">${jq?`<span class="hint">${list.length} match${list.length===1?'':'es'} in ${({upcoming:'Upcoming',quoted:'Quotes',completed:'Completed',all:'All jobs'})[S.jobFilter]}${elsewhere>0?` · <button class="btn ghost sm" style="padding:0 4px" data-act="jobFilter" data-f="all">${elsewhere} more in other tabs, show all</button>`:''}</span>`:''}</div>` : '';
   selPrune('jobs', list.map(j=>j.id));
   if(S.jobFilter==='quoted'){
     const qv=list.reduce((s,j)=>s+itemsTotal(j.items),0);
     return `
   <div class="page-head"><div><p class="eyebrow">Schedule & service history</p><h1>Jobs</h1></div><div class="actions"><button class="btn" data-act="openJobExport">${I.download} Export</button><button class="btn" data-act="openJobImport">${I.upload} Import</button><button class="btn" data-act="newJob" data-quote="1">${I.plus} Quote</button><button class="btn primary" data-act="newJob">${I.plus} Job</button></div></div>
   <div class="chips">${[['upcoming','Upcoming'],['quoted','Quotes'],['completed','Completed'],['all','All']].map(([k,l])=>`<button class="chip" data-act="jobFilter" data-f="${k}" aria-pressed="${S.jobFilter===k}">${l}</button>`).join('')}</div>
+  ${searchBox}
   <section class="panel">${list.length?`<div class="panel-head"><h2>${list.length} open quote${list.length===1?'':'s'}</h2><span class="num">${money(qv)}</span></div>${bulkBar('jobs','quotes')}<div class="list">${list.map(j=>`<div class="qrow${S.sel.jobs.has(j.id)?' picked':''}">${selBox('jobs',j.id)}<button class="row" data-act="openJob" data-id="${j.id}"><span class="t">${esc(custName(j.customerId))}</span><span class="s">${esc(itemsSummary(j.items)||'No services listed')}${j.createdAt?` · quoted ${esc(fmtDate(iso(new Date(j.createdAt))))}`:''}${j.date?` · proposed ${esc(fmtDate(j.date))}`:''}</span><span class="r"><span class="num">${money(itemsTotal(j.items))}</span>${pill('Quoted')}</span></button></div>`).join('')}</div>`
-    : emptyBox('No open quotes','When you price a job for a customer, save it as a quote. Book it with one tap when they say yes.','newJob','New quote','data-quote="1"')}</section>`;
+    : jq ? '<p class="muted">No quotes match.</p>' : emptyBox('No open quotes','When you price a job for a customer, save it as a quote. Book it with one tap when they say yes.','newJob','New quote','data-quote="1"')}</section>`;
   }
   const groups=[]; list.forEach(j=>{ const g=groups[groups.length-1]; if(g&&g.date===j.date) g.items.push(j); else groups.push({date:j.date, items:[j]}); });
   const label = d => d===t?'Today':d===addDays(t,1)?'Tomorrow':d===addDays(t,-1)?'Yesterday':fmtDay(d);
   return `
   <div class="page-head"><div><p class="eyebrow">Schedule & service history</p><h1>Jobs</h1></div><div class="actions"><button class="btn" data-act="openJobExport">${I.download} Export</button><button class="btn" data-act="openJobImport">${I.upload} Import</button><button class="btn" data-act="newJob" data-quote="1">${I.plus} Quote</button><button class="btn primary" data-act="newJob">${I.plus} Job</button></div></div>
   <div class="chips">${[['upcoming','Upcoming'],['quoted','Quotes'],['completed','Completed'],['all','All']].map(([k,l])=>`<button class="chip" data-act="jobFilter" data-f="${k}" aria-pressed="${S.jobFilter===k}">${l}</button>`).join('')}</div>
+  ${searchBox}
   <section class="panel">${S.jobs.length===0 ? emptyBox('No jobs yet','Schedule a job for a customer: pick the services, date and crew. Completed jobs become the customer\'s service history.','newJob','Schedule a job')
    : groups.length ? bulkBar('jobs','jobs') + groups.map(g=>`<div class="datehead"><span class="dname">${esc(label(g.date))}</span><span class="muted" style="font-size:.82rem">${g.date===t||g.date===addDays(t,1)||g.date===addDays(t,-1)?esc(fmtDate(g.date)):''}</span><span class="muted num" style="margin-left:auto;font-size:.82rem">${money(g.items.reduce((s,j)=>s+itemsTotal(j.items),0))}</span></div><div class="list">${g.items.map(j=>jobRow(j,{select:true})).join('')}</div>`).join('')
-   : `<p class="muted">No jobs here.</p>`}</section>`;
+   : `<p class="muted">${jq?'No jobs match.':'No jobs here.'}</p>`}</section>`;
 }
 function viewPhotos(){
   const q=S.photoQuery.trim().toLowerCase();
@@ -2085,6 +2133,10 @@ const DRAWERS = {
         <button class="btn" data-act="editJob" data-id="${id}">Edit</button>
       </div>
       ${c?`<section class="panel" style="display:flex;flex-direction:column;gap:10px"><div><div style="font-weight:650">${esc(fullAddress(c)||'No address')}</div>${c.gate?`<div style="margin-top:4px"><strong>Access:</strong> ${esc(c.gate)}</div>`:''}<div class="muted" style="font-size:.86rem;margin-top:4px">${c.panes?esc(c.panes)+' panes · ':''}${c.stories?esc(c.stories)+' stor'+(c.stories==1?'y':'ies'):''}${c.phone?' · '+esc(c.phone):''}</div></div><div class="sv-links">${svButtons(c)}<button class="btn" data-act="openCustomer" data-id="${c.id}" data-stack="1">Customer file</button></div></section>`:''}
+      ${j.seriesId?(()=>{ const L=seriesJobs(j.seriesId); const i=L.findIndex(x=>x.id===id); const nxt=L.slice(i+1).find(x=>x.status==='Scheduled'); const later=L.slice(i+1).filter(x=>x.status==='Scheduled').length;
+        return `<section class="panel" style="display:flex;flex-direction:column;gap:10px"><div class="panel-head"><h3>↻ Recurring series</h3><span class="muted" style="font-size:.84rem">Visit ${i+1} of ${L.length}</span></div>
+          <p class="muted" style="font-size:.9rem">${esc(repeatLabel(j.seriesRule))}${nxt?` · next visit ${esc(fmtDate(nxt.date))}`:' · this is the last scheduled visit'}</p>
+          <div class="btnrow"><button class="btn sm" data-act="openSeries" data-sid="${j.seriesId}">See all visits</button><span class="office-only btnrow" style="display:contents"><button class="btn sm" data-act="seriesExtendForm" data-sid="${j.seriesId}">${I.plus} Add more visits</button>${later?`<button class="btn sm danger" data-act="seriesEndAsk" data-sid="${j.seriesId}" data-from="${addDays(j.date,1)}">End series after this visit</button>`:''}</span></div></section>`; })():''}
       ${c?mapEmbed(c):''}
       <section class="panel"><div class="panel-head"><h3>Before & after</h3><span class="muted" style="font-size:.8rem">${ps.length} photo${ps.length===1?'':'s'}</span></div>
         ${b&&a?`<div class="cmp" id="cmp-${id}"><img src="${photoUrl(a.assetId)}" alt="After"><div class="before-clip" style="width:50%"><img src="${photoUrl(b.assetId)}" alt="Before" style="width:auto;min-width:100%"></div><div class="divider" style="left:50%"></div><span class="tag before">Before</span><span class="tag after">After</span><input type="range" id="rng-${id}" min="0" max="100" value="50" aria-label="Slide to compare before and after" data-cmp="cmp-${id}"></div><p class="hint" style="margin:6px 0 12px">Drag across the photo to compare.</p>`:''}
@@ -2116,9 +2168,32 @@ const DRAWERS = {
       </div>
       ${itemsEditor(j.items)}
       <div class="field"><label for="j-notes">Job notes</label><textarea id="j-notes" name="notes" placeholder="Bring 28' ladder, skip back sunroom…">${esc(j.notes)}</textarea></div>
-      ${!id?`<div class="field"><label for="j-repeat">Repeat</label><select id="j-repeat" name="repeat"><option value="0">Just this visit</option><option value="1">Monthly, next 6 visits</option><option value="3">Quarterly, next 4 visits</option><option value="6">Twice a year, next 2 visits</option></select><span class="hint">Books the follow-up visits too, so recurring customers stay on the schedule.</span></div>`:''}
+      ${!quote && !book && j.status!=='Quoted' && !j.seriesId ? repeatFields(j, cid) : ''}
+      ${j.seriesId ? (()=>{ const later=seriesJobs(j.seriesId).filter(x=>x.id!==id && x.date>=j.date && x.status==='Scheduled').length; return later ? `<fieldset class="field" style="border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:6px"><legend style="padding:0 6px;font-weight:650">Recurring series · ${esc(repeatLabel(j.seriesRule))}</legend>
+        <label class="chk-row" style="font-weight:500"><input type="radio" name="scope" value="one" checked> Save changes to this visit only</label>
+        <label class="chk-row" style="font-weight:500"><input type="radio" name="scope" value="future"> Also update the ${later} later scheduled visit${later===1?'':'s'}</label>
+        <span class="hint">Later visits get the same time, crew, hours, services and notes. If you move this date, they move by the same number of days.</span></fieldset>` : ''; })() : ''}
       <div class="btnrow"><button class="btn primary" type="submit">Save job</button><button class="btn" type="button" data-act="back">Cancel</button></div>
-    </form>`};
+    </form>`, after(){ updateRepPreview(); }};
+  },
+  series({sid}){
+    const list=seriesJobs(sid); if(!list.length) return null; const first=list[0]; const t=todayISO();
+    const left=list.filter(x=>x.status==='Scheduled' && x.date>=t);
+    return {back:stack.length>0, title:'Recurring series', body:`
+      <p><strong>${esc(custName(first.customerId))}</strong> · ${esc(repeatLabel(first.seriesRule))}</p>
+      <p class="muted" style="font-size:.9rem">${list.length} visit${list.length===1?'':'s'} from ${esc(fmtDate(first.date))} to ${esc(fmtDate(list[list.length-1].date))} · ${list.filter(x=>x.status==='Completed').length} completed · ${left.length} still scheduled</p>
+      <div class="btnrow office-only"><button class="btn primary" data-act="seriesExtendForm" data-sid="${sid}">${I.plus} Add more visits</button>${left.length?`<button class="btn danger" data-act="seriesEndAsk" data-sid="${sid}" data-from="${t}">Cancel remaining visits</button>`:''}</div>
+      <div id="confirm-slot"></div>
+      <section class="panel"><div class="list">${list.map((x,i)=>`<button class="row" data-act="openJob" data-id="${x.id}" data-stack="1"><span class="t">Visit ${i+1} · ${esc(fmtDate(x.date))}${x.time?` · ${esc(fmtTime(x.time))}`:''}</span><span class="s">${esc(itemsSummary(x.items)||'No services listed')}${x.crew?` · ${esc(x.crew)}`:''}</span><span class="r">${pill(x.status==='Scheduled'&&x.date<t?'Past due':x.status)}<span class="num" style="font-size:.84rem">${money(itemsTotal(x.items))}</span></span></button>`).join('')}</div></section>`};
+  },
+  seriesExtend({sid}){
+    const list=seriesJobs(sid); if(!list.length) return null; const R=REPEATS[list[0].seriesRule];
+    return {back:true, title:'Add more visits', body:`
+      <form data-form="seriesExtend" data-sid="${sid}" style="display:flex;flex-direction:column;gap:14px">
+        <p class="muted" style="font-size:.9rem">New visits continue ${esc(repeatLabel(list[0].seriesRule).toLowerCase())} after the last one (${esc(fmtDate(list[list.length-1].date))}) and copy its time, crew, services and notes.</p>
+        <div class="field"><label for="se-n">How many more visits</label><input type="number" id="se-n" name="n" min="1" max="52" value="${R?R[3]:4}" required></div>
+        <div class="btnrow"><button class="btn primary" type="submit">Add visits</button><button class="btn" type="button" data-act="back">Cancel</button></div>
+      </form>`};
   },
   invoice({id}){
     const v=inv(id); if(!v) return null; const c=cust(v.customerId); const t=totals(v); const s=settings(); const st=invStatus(v);
@@ -2407,7 +2482,7 @@ function linesTable(items){
 }
 function updateCmp(r){
   const box=document.getElementById(r.dataset.cmp); if(!box) return; const v=r.value;
-  const clip=box.querySelector('.before-clip'); clip.style.width=v+'%';
+  const clip=box.querySelector('.before-clip'); if(!clip) return; clip.style.width=v+'%';
   const img=clip.querySelector('img'); img.style.width=box.clientWidth+'px';
   box.querySelector('.divider').style.left=v+'%';
 }
@@ -2442,6 +2517,20 @@ const A = {
   openCustomer(d){ d.stack ? go('customer',{id:d.id}) : (stack.length=0, openDrawer('customer',{id:d.id})); },
   newJob(d){ go('jobForm',{cid:d.cid, quote:!!d.quote}); },
   editJob(d){ go('jobForm',{id:d.id}); },
+  openSeries(d){ go('series',{sid:d.sid}); },
+  seriesExtendForm(d){ go('seriesExtend',{sid:d.sid}); },
+  seriesEndAsk(d){
+    const rm=seriesJobs(d.sid).filter(x=>x.status==='Scheduled' && x.date>=d.from && !x.invoiceId);
+    if(!rm.length){ toast('There are no later scheduled visits to remove.'); return; }
+    $('#confirm-slot').innerHTML=`<div class="confirm"><strong>Remove ${rm.length} scheduled visit${rm.length===1?'':'s'} from ${esc(fmtDate(rm[0].date))} on?</strong><span>Completed, started and invoiced visits are kept.</span><div class="btnrow"><button class="btn danger" data-act="seriesEnd" data-sid="${d.sid}" data-from="${d.from}">Yes, remove them</button><button class="btn" data-act="cancelDelete">Keep them</button></div></div>`;
+    $('#confirm-slot').scrollIntoView({block:'nearest'});
+  },
+  async seriesEnd(d){
+    const rm=seriesJobs(d.sid).filter(x=>x.status==='Scheduled' && x.date>=d.from && !x.invoiceId); let n=0;
+    for(const x of rm){ if(await write(()=>db.collection('jobs').doc(x.id).delete())) n++; else break; }
+    toast(`Removed ${n} visit${n===1?'':'s'}`); const cs=$('#confirm-slot'); if(cs) cs.innerHTML='';
+    if(drawerState && drawerState.kind==='series' && !seriesJobs(d.sid).length) closeDrawer(); render();
+  },
   openJob(d){ d.stack ? go('job',{id:d.id}) : (stack.length=0, openDrawer('job',{id:d.id})); },
   openInvoice(d){ d.stack ? go('invoice',{id:d.id}) : (stack.length=0, openDrawer('invoice',{id:d.id})); },
   openPhoto(d){ go('photo',{id:d.id}); },
@@ -2716,16 +2805,35 @@ const F = {
     if(fd.status==='Completed' && !prev.completedAt) data.completedAt=Date.now();
     if(fd.status==='Quoted' && !prev.quotedAt) data.quotedAt=prev.createdAt||Date.now();
     const docId = id || newId('jobs');
-    const ok = await write(()=>saveDoc('jobs',docId,data), id?'Job saved':'Job scheduled');
+    const r = fd.repeat && REPEATS[fd.repeat] && fd.status!=='Quoted' && !prev.seriesId ? fd.repeat : null;
+    let dates=[];
+    if(r){ dates=seriesDates(fd.date, r, fd.repEnd||'count', fd.repCount, fd.repUntil); if(dates.length<2){ toast('That repeat ends after one visit. Pick a later end date or more visits.','bad'); return; } data.seriesId='s'+newId('jobs'); data.seriesRule=r; }
+    const ok = await write(()=>saveDoc('jobs',docId,data), r?'':id?'Job saved':'Job scheduled');
     if(!ok) return;
-    const rep = +fd.repeat||0;
-    if(!id && rep && fd.status!=='Quoted'){ const n = rep===1?6:rep===3?4:2; for(let k=1;k<=n;k++){ const nd={...data, date:addMonths(data.date, rep*k), status:'Scheduled', createdAt:Date.now()}; delete nd.completedAt; if(!await write(()=>saveDoc('jobs',newId('jobs'),nd))) break; } toast(`Booked ${n} more visit${n===1?'':'s'}`); }
+    if(r){
+      let n=0; for(const dt of dates.slice(1)){ const nd={...data, date:dt, status:'Scheduled', createdAt:Date.now()}; delete nd.completedAt; delete nd.invoiceId; delete nd.startedAt; if(!await write(()=>saveDoc('jobs',newId('jobs'),nd))) break; n++; }
+      toast(`Recurring series booked: ${n+1} visits through ${fmtDate(dates[n])}`);
+    }
+    if(id && prev.seriesId && fd.scope==='future'){
+      const shift=dayDiff(prev.date, data.date); let n=0;
+      for(const x of seriesJobs(prev.seriesId).filter(x=>x.id!==id && x.date>=prev.date && x.status==='Scheduled')){
+        if(await write(()=>saveDoc('jobs', x.id, {...x, customerId:data.customerId, time:data.time, crew:data.crew, hours:data.hours, notes:data.notes, items:data.items.map(i=>({...i})), date:shift?addDays(x.date,shift):x.date, updatedAt:Date.now()}))) n++; else break;
+      }
+      toast(`Saved this visit and ${n} later visit${n===1?'':'s'}`);
+    }
     const c=cust(fd.customerId);
     if(c){
       const want = fd.status==='Quoted' ? (c.status==='Lead'?'Quoted':null) : (['Scheduled','In progress','Completed'].includes(fd.status) && (c.status==='Lead'||c.status==='Quoted') ? 'Active' : null);
       if(want) await write(()=>saveDoc('customers',c.id,{...c,status:want,updatedAt:Date.now()}));
     }
     stack.length=0; openDrawer('job',{id:docId});
+  },
+  async seriesExtend(f){
+    const sid=f.dataset.sid; const L=seriesJobs(sid); if(!L.length) return; const n=Math.max(1,Math.min(52,+Object.fromEntries(new FormData(f)).n||0));
+    const first=L[0], last=L[L.length-1];
+    const dates=seriesDates(first.date, first.seriesRule, 'count', Math.min(SERIES_MAX*3, L.length+n+60)).filter(d=>d>last.date).slice(0,n);
+    let k=0; for(const dt of dates){ const nd={...last, date:dt, status:'Scheduled', createdAt:Date.now(), updatedAt:Date.now()}; delete nd.id; delete nd.completedAt; delete nd.invoiceId; delete nd.startedAt; delete nd.quotedAt; if(!await write(()=>saveDoc('jobs',newId('jobs'),nd))) break; k++; }
+    toast(`Added ${k} visit${k===1?'':'s'}${k?` through ${fmtDate(dates[k-1])}`:''}`); back();
   },
   async invoice(f){
     const fd=Object.fromEntries(new FormData(f)); const id=f.dataset.id;
@@ -3449,6 +3557,8 @@ document.addEventListener('input', e=>{
   if(t.classList && t.classList.contains('cpick-q')) cpickRender(t);
   else if(t.id==='cust-q'){ S.custQuery=t.value; render(); }
   else if(t.id==='photo-q'){ S.photoQuery=t.value; render(); }
+  else if(t.id==='job-q'){ S.jobQuery=t.value; render(); }
+  else if(t.closest && t.closest('form[data-form=job]') && ['j-date','rep-count','rep-until'].includes(t.id)) updateRepPreview();
   else if(t.id==='inv-q'){ S.invQuery=t.value; render(); }
   else if(t.id==='msg-q'){ S.msgQuery=t.value; render(); }
   else if(t.closest && t.closest('#items')) recalcItems();
@@ -3471,6 +3581,7 @@ document.addEventListener('change', e=>{
   else if(t.id==='wipe-messages'){ S.wipe.messages=t.checked; }
   else if(t.id==='bk-usedate'){ const w=$('#bk-date-wrap'); if(w) w.hidden=!t.checked; }
   else if(t.id==='c-billsame'){ const b=$('#c-billing'); if(b){ b.hidden=t.checked; if(!t.checked){ const f=$('#c-bname'); if(f) f.focus(); } } }
+  else if(t.closest && t.closest('form[data-form=job]') && (['j-repeat','j-status','j-date','rep-until','rep-count'].includes(t.id) || t.name==='repEnd')) updateRepPreview();
   else if(t.id==='rep-pick'){ S.rep.id=t.value; render(); }
   else if(t.id==='rep-period'){ S.rep.period=t.value; if(t.value==='custom'&&!S.rep.from){ const P=repPeriod(); S.rep.from=P.from; S.rep.to=P.to; } render(); }
   else if(t.id==='rep-from'){ S.rep.from=t.value; render(); }
