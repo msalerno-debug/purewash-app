@@ -402,7 +402,10 @@ body.role-crew [data-act="askDelete"]:not([data-col="photos"]):not([data-col="ve
 .bulk-acts{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .selbox{display:inline-grid;place-items:center;width:28px;height:28px;cursor:pointer;flex:none}
 .selbox input,.selall input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
-.jobrow .time .selbox{margin:-4px 0 2px -5px}
+.jobrow.selectable{grid-template-columns:28px 64px minmax(0,1fr);gap:12px 8px}
+.jobrow > .selbox{margin-top:-2px}
+body.role-crew .jobrow.selectable{grid-template-columns:64px minmax(0,1fr)}
+.jobrow.selectable .time{padding-top:4px}
 .jobrow.picked,.qrow.picked,tr.picked td{background:var(--accent-soft)}
 .qrow{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:2px;border-top:1px solid var(--line)}
 .list > .qrow:first-child{border-top:0}
@@ -897,7 +900,7 @@ function jobRow(j, opts={}){
   const total = itemsTotal(j.items);
   const status = (j.status==='Scheduled' && j.date<todayISO()) ? 'Past due' : j.status;
   return `<div class="jobrow${opts.select?' selectable':''}${opts.select&&S.sel.jobs.has(j.id)?' picked':''}">
-    <div class="time">${opts.select?selBox('jobs',j.id):''}${j.time?esc(fmtTime(j.time)):'<span class="muted">Any</span>'}${opts.showDate?`<div class="muted" style="font-size:.74rem">${j.date?esc(fmtDate(j.date)):'Date TBD'}</div>`:''}</div>
+    ${opts.select?selBox('jobs',j.id):''}<div class="time">${j.time?esc(fmtTime(j.time)):'<span class="muted">Any</span>'}${opts.showDate?`<div class="muted" style="font-size:.74rem">${j.date?esc(fmtDate(j.date)):'Date TBD'}</div>`:''}</div>
     <div class="body">
       <div class="line1"><button class="name" data-act="openJob" data-id="${j.id}">${esc(custName(j.customerId))}</button><span style="display:flex;gap:8px;align-items:center">${j.seriesId?`<span class="pill" title="${esc(repeatLabel(j.seriesRule))}">↻ ${esc(repeatLabel(j.seriesRule))}</span>`:''}${pill(status)}<span class="num">${money(total)}</span></span></div>
       ${c?`<div class="addr">${esc(fullAddress(c)||'No address on file')}${c.gate?` · <strong>Access:</strong> ${esc(c.gate)}`:''}</div>`:''}
