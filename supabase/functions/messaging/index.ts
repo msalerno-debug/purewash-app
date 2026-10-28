@@ -48,6 +48,14 @@ Deno.serve(async (req) => {
       if (!/^\S+@\S+\.\S+$/.test(to)) return json({ error: "Enter a valid email address." }, 400);
       const payload: Record<string, unknown> = { from, to: [to], subject: String(body.subject || "").slice(0, 300), text: String(body.text || "") };
       if (body.replyTo && /^\S+@\S+\.\S+$/.test(body.replyTo)) payload.reply_to = body.replyTo;
+      const link = String(body.quoteLink || "");
+      if (/^https:\/\/[^\s"<>]+\/quote\?t=[a-f0-9]{32,64}$/.test(link) && String(payload.text).includes(link)) {
+        const esc = (s: string) => s.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]!));
+        const btn = (href: string, label: string, bg: string, fg: string, border: string) => `<a href="${esc(href)}" style="display:inline-block;padding:12px 22px;margin:4px 8px 4px 0;border-radius:8px;background:${bg};color:${fg};border:1px solid ${border};text-decoration:none;font-weight:bold;font-size:15px">${label}</a>`;
+        const buttons = `<div style="margin:14px 0">${btn(link + "&d=accept", "Accept quote", "#2B5190", "#ffffff", "#2B5190")}${btn(link + "&d=decline", "Decline", "#ffffff", "#2B5190", "#c5d2e6")}</div>`;
+        const parts = String(payload.text).split(link).map((p) => esc(p).replace(/\n/g, "<br>"));
+        payload.html = `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.55;color:#13233f">${parts.join(buttons)}</div>`;
+      }
       if (Array.isArray(body.attachments) && body.attachments.length) {
         payload.attachments = body.attachments.slice(0, 3).map((a: { filename: string; content: string }) => ({ filename: String(a.filename).slice(0, 120), content: String(a.content) }));
       }

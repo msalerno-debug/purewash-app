@@ -135,9 +135,9 @@ button,input,select,textarea{font:inherit;color:inherit}
 .pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
 .pill.lead{background:var(--mark-soft);color:var(--mark-ink);border-color:transparent}
 .pill.quoted,.pill.scheduled,.pill.sent{background:var(--accent-soft);color:var(--accent);border-color:transparent}
-.pill.active,.pill.completed,.pill.paid{background:var(--good-soft);color:var(--good);border-color:transparent}
+.pill.active,.pill.completed,.pill.paid,.pill.accepted{background:var(--good-soft);color:var(--good);border-color:transparent}
 .pill.in-progress,.pill.partial{background:var(--warn-soft);color:var(--warn);border-color:transparent}
-.pill.overdue,.pill.past-due{background:var(--bad-soft);color:var(--bad);border-color:transparent}
+.pill.overdue,.pill.past-due,.pill.declined{background:var(--bad-soft);color:var(--bad);border-color:transparent}
 
 .chips{display:flex;gap:6px;flex-wrap:wrap}
 .chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 12px;font-size:.82rem;font-weight:600;cursor:pointer;color:var(--muted)}
@@ -168,6 +168,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .notice{border-radius:var(--r);padding:12px 14px;background:var(--mark-soft);color:var(--mark-ink);font-size:.88rem;display:flex;gap:10px;align-items:flex-start}
 .notice.info{background:var(--accent-soft);color:var(--ink)}
 .notice.bad{background:var(--bad-soft);color:var(--bad)}
+.notice.good{background:var(--good-soft);color:var(--good)}
 
 mark{background:var(--mark-soft);color:inherit;border-radius:2px;box-shadow:0 0 0 1px var(--mark-soft)}
 .cpick{position:relative}
@@ -654,6 +655,30 @@ const pill = s => `<span class="pill ${slug(s)}">${esc(s)}</span>`;
 const settings = () => { const d=S.settingsDoc||{}; return {...DEFAULT_SETTINGS, ...d, services:(d.services&&d.services.length)?d.services:DEFAULT_SETTINGS.services, templates:(d.templates&&d.templates.length)?d.templates:DEFAULT_SETTINGS.templates, emailTemplates:(d.emailTemplates&&d.emailTemplates.length)?d.emailTemplates:DEFAULT_SETTINGS.emailTemplates}; };
 const cust = id => S.customers.find(c=>c.id===id);
 const job = id => S.jobs.find(j=>j.id===id);
+/* ---------- online quote accept / decline ---------- */
+const QT={};
+function quoteToken(jid){ const j=job(jid); if(!j) return ''; if(j.quoteToken) return j.quoteToken; if(!QT[jid]){ const a=new Uint8Array(20); crypto.getRandomValues(a); QT[jid]=[...a].map(b=>b.toString(16).padStart(2,'0')).join(''); } return QT[jid]; }
+const quoteOpen = j => !!j && j.status==='Quoted' && !j.quoteResponse;
+const quoteLink = jid => `${location.origin}/quote?t=${quoteToken(jid)}`;
+const QUOTE_LINE = 'Review your quote and accept or decline it online:';
+function withQuoteLink(body, jid){ const j=job(jid); if(!quoteOpen(j)) return body; const L=quoteLink(jid); return body.includes(L) ? body : `${body.replace(/\s+$/,'')}\n\n${QUOTE_LINE}\n${L}`; }
+async function commitQuoteToken(jid, sent){ const j=job(jid); if(!quoteOpen(j)) return true; const t=quoteToken(jid); if(j.quoteToken===t && !sent) return true;
+  try{ await saveDoc('jobs', j.id, {...j, quoteToken:t, ...(sent?{quoteSentAt:Date.now()}:{})}); delete QT[jid]; return true; }catch(e){ return false; } }
+function quoteRespHtml(j){
+  const r=j.quoteResponse; if(!r) return j.status==='Quoted'&&j.quoteSentAt?`<p class="hint">Quote emailed ${esc(fmtStamp(j.quoteSentAt))}. The customer can accept or decline it from the email.</p>`:'';
+  const acc=r.decision==='accepted';
+  return `<div class="notice ${acc?'good':'bad'}" style="flex-direction:column;align-items:flex-start;gap:6px"><strong>${acc?'✓ Accepted online':'✕ Declined online'} ${esc(fmtStamp(r.at))}</strong>
+    <span>${acc?(j.status==='Quoted'?'The date is TBD. Pick one to book the job.':r.booked?`Booked automatically for ${esc(fmtDate(j.date))}.`:''):'The quote was marked lost.'}</span>
+    ${r.note?`<span>Their note: “${esc(r.note)}”</span>`:''}</div>`;
+}
+function quoteRespNotice(){
+  if(S.role==='crew') return '';
+  const list=S.jobs.filter(j=>j.quoteResponse && (!j.quoteResponse.seen || (j.quoteResponse.decision==='accepted' && j.status==='Quoted'))).sort((a,b)=>(b.quoteResponse.at||0)-(a.quoteResponse.at||0));
+  if(!list.length) return '';
+  const line=j=>{ const r=j.quoteResponse; const what = r.decision==='declined' ? 'declined' : j.status==='Quoted' ? 'accepted · needs a date' : `accepted · booked ${fmtDate(j.date)}`;
+    return `<button class="row" data-act="openJob" data-id="${j.id}"><span class="t">${esc(custName(j.customerId))}${r.seen?'':' <span class="pill quoted">New</span>'}</span><span class="s">${esc(what)} · ${esc(money(itemsTotal(j.items)))}${r.note?` · “${esc(r.note.slice(0,60))}${r.note.length>60?'…':''}”`:''}</span><span class="r">${pill(r.decision==='accepted'?'Accepted':'Declined')}</span></button>`; };
+  return `<section class="panel"><div class="panel-head"><h2>Quote responses</h2><span class="muted" style="font-size:.84rem">From your quote emails</span></div><div class="list">${list.slice(0,6).map(line).join('')}</div></section>`;
+}
 /* ---------- recurring series ---------- */
 const REPEATS = {w1:['Every week',7,'d',12], w2:['Every 2 weeks',14,'d',13], w4:['Every 4 weeks',28,'d',13], m1:['Every month',1,'m',12], m2:['Every 2 months',2,'m',6], m3:['Every 3 months (quarterly)',3,'m',4], m4:['Every 4 months (3x a year)',4,'m',3], m6:['Every 6 months (twice a year)',6,'m',2], m12:['Every year',12,'m',3]};
 const FREQ_REPEAT = {monthly:'m1', bimonthly:'m2', quarterly:'m3', triannual:'m4', semiannual:'m6', annual:'m12'};
@@ -966,6 +991,7 @@ function viewToday(){
     <button class="stat quote wide" data-act="jobFilter" data-f="quoted" style="text-align:left;cursor:pointer;font:inherit"><span class="k">Open quotes</span><span class="v">${money(quoteVal)}</span><span class="d">${quotes.length} quote${quotes.length===1?'':'s'} out${quoteOld?` · ${quoteOld} older than a week`:''}</span></button>
   </div>
   ${vmNotice()}
+  ${quoteRespNotice()}
   ${fleetNotice()}
   <section class="panel"><div class="panel-head"><h2>Today's route</h2><button class="btn ghost sm" data-act="nav" data-view="jobs">All jobs</button></div>
     ${todays.length ? `<div class="list">${todays.map(j=>jobRow(j)).join('')}</div>` : emptyBox('No jobs on the schedule today','Booked jobs show here in time order with the address, gate notes and a Street View link for the crew.', 'newJob','Schedule a job')}
@@ -1330,7 +1356,7 @@ function viewJobs(){
   <div class="page-head"><div><p class="eyebrow">Schedule & service history</p><h1>Jobs</h1></div><div class="actions"><button class="btn" data-act="openJobExport">${I.download} Export</button><button class="btn" data-act="openJobImport">${I.upload} Import</button><button class="btn" data-act="newJob" data-quote="1">${I.plus} Quote</button><button class="btn primary" data-act="newJob">${I.plus} Job</button></div></div>
   <div class="chips">${[['upcoming','Upcoming'],['quoted','Quotes'],['completed','Completed'],['all','All']].map(([k,l])=>`<button class="chip" data-act="jobFilter" data-f="${k}" aria-pressed="${S.jobFilter===k}">${l}</button>`).join('')}</div>
   ${searchBox}
-  <section class="panel">${list.length?`<div class="panel-head"><h2>${list.length} open quote${list.length===1?'':'s'}</h2><span class="num">${money(qv)}</span></div>${bulkBar('jobs','quotes')}<div class="list">${list.map(j=>`<div class="qrow${S.sel.jobs.has(j.id)?' picked':''}">${selBox('jobs',j.id)}<button class="row" data-act="openJob" data-id="${j.id}"><span class="t">${esc(custName(j.customerId))}</span><span class="s">${esc(itemsSummary(j.items)||'No services listed')}${j.createdAt?` · quoted ${esc(fmtDate(iso(new Date(j.createdAt))))}`:''}${j.date?` · proposed ${esc(fmtDate(j.date))}`:' · date TBD'}</span><span class="r"><span class="num">${money(itemsTotal(j.items))}</span>${pill('Quoted')}</span></button></div>`).join('')}</div>`
+  <section class="panel">${list.length?`<div class="panel-head"><h2>${list.length} open quote${list.length===1?'':'s'}</h2><span class="num">${money(qv)}</span></div>${bulkBar('jobs','quotes')}<div class="list">${list.map(j=>`<div class="qrow${S.sel.jobs.has(j.id)?' picked':''}">${selBox('jobs',j.id)}<button class="row" data-act="openJob" data-id="${j.id}"><span class="t">${esc(custName(j.customerId))}</span><span class="s">${esc(itemsSummary(j.items)||'No services listed')}${j.createdAt?` · quoted ${esc(fmtDate(iso(new Date(j.createdAt))))}`:''}${j.date?` · proposed ${esc(fmtDate(j.date))}`:' · date TBD'}</span><span class="r"><span class="num">${money(itemsTotal(j.items))}</span>${j.quoteResponse&&j.quoteResponse.decision==='accepted'?pill('Accepted'):pill('Quoted')}</span></button></div>`).join('')}</div>`
     : jq ? '<p class="muted">No quotes match.</p>' : emptyBox('No open quotes','When you price a job for a customer, save it as a quote. Book it with one tap when they say yes.','newJob','New quote','data-quote="1"')}</section>`;
   }
   const groups=[]; list.forEach(j=>{ const g=groups[groups.length-1]; if(g&&g.date===j.date) g.items.push(j); else groups.push({date:j.date, items:[j]}); });
@@ -1595,7 +1621,7 @@ function viewSettings(){
     <div class="field"><label for="s-tpl">One per line: Name | message</label><textarea id="s-tpl" name="templates" style="min-height:190px;font-size:.88rem" ${ro?'disabled':''}>${esc(s.templates.map(x=>`${x.name} | ${x.text}`).join('\n'))}</textarea>
       <span class="hint">Fill-ins: {first} {name} {business} {date} {time} {amount} {invoice} {phone}</span></div>
     <h2>Email templates</h2>
-    <p class="hint">Fill-ins: {first} {name} {business} {phone} {email} {address} {date} {time} {services} {total} {invoice} {amount} {due} {paid}. {services} lists each service with its price.</p>
+    <p class="hint">Fill-ins: {first} {name} {business} {phone} {email} {address} {date} {time} {services} {total} {invoice} {amount} {due} {paid} {quote_link}. {services} lists each service with its price. Quote emails get the accept/decline link added automatically.</p>
     <div id="etpls" style="display:flex;flex-direction:column;gap:12px">${s.emailTemplates.map((t,i)=>etplRow(t,i,ro)).join('')}</div>
     ${ro?'':`<div><button type="button" class="btn sm" data-act="addEtpl">${I.plus} Add email template</button></div>`}
     </section>
@@ -2143,6 +2169,8 @@ const DRAWERS = {
         <button class="btn" data-act="editJob" data-id="${id}">Edit</button>
       </div>
       ${c?`<section class="panel" style="display:flex;flex-direction:column;gap:10px"><div><div style="font-weight:650">${esc(fullAddress(c)||'No address')}</div>${c.gate?`<div style="margin-top:4px"><strong>Access:</strong> ${esc(c.gate)}</div>`:''}<div class="muted" style="font-size:.86rem;margin-top:4px">${c.panes?esc(c.panes)+' panes · ':''}${c.stories?esc(c.stories)+' stor'+(c.stories==1?'y':'ies'):''}${c.phone?' · '+esc(c.phone):''}</div></div><div class="sv-links">${svButtons(c)}<button class="btn" data-act="openCustomer" data-id="${c.id}" data-stack="1">Customer file</button></div></section>`:''}
+      ${S.role!=='crew'?quoteRespHtml(j):''}
+      ${quoteOpen(j)?`<div class="btnrow office-only"><button class="btn sm" data-act="copyQuoteLink" data-id="${id}">Copy accept/decline link</button></div>`:''}
       ${j.seriesId?(()=>{ const L=seriesJobs(j.seriesId); const i=L.findIndex(x=>x.id===id); const nxt=L.slice(i+1).find(x=>x.status==='Scheduled'); const later=L.slice(i+1).filter(x=>x.status==='Scheduled').length;
         return `<section class="panel" style="display:flex;flex-direction:column;gap:10px"><div class="panel-head"><h3>↻ Recurring series</h3><span class="muted" style="font-size:.84rem">Visit ${i+1} of ${L.length}</span></div>
           <p class="muted" style="font-size:.9rem">${esc(repeatLabel(j.seriesRule))}${nxt?` · next visit ${esc(fmtDate(nxt.date))}`:' · this is the last scheduled visit'}</p>
@@ -2286,7 +2314,7 @@ const DRAWERS = {
   email({cid, jobId, invId, tpl}){
     const s=settings(); const t = s.emailTemplates.find(x=>x.name===tpl) || null; const c=cust(cid);
     const subj = t ? fillTemplate(t.subject, cid, {jobId, invId}) : '';
-    const body = t ? fillTemplate(t.body, cid, {jobId, invId}) : '';
+    const body = t ? withQuoteLink(fillTemplate(t.body, cid, {jobId, invId}), jobId) : '';
     const v = invId ? inv(invId) : null;
     return {back:stack.length>0, title:'Email a customer', body:`
     <form data-form="email" style="display:flex;flex-direction:column;gap:14px" data-job="${esc(jobId||'')}" data-inv="${esc(invId||'')}">
@@ -2296,7 +2324,7 @@ const DRAWERS = {
       <div class="field"><label for="e-subj">Subject</label><input type="text" id="e-subj" name="subject" value="${esc(subj)}"></div>
       <div class="field"><label for="e-body">Message</label><textarea id="e-body" name="body" style="min-height:260px">${esc(body)}</textarea>${/\[[a-z ]+\]/.test(subj+body)?'<span class="hint" id="e-gaps" style="color:var(--warn)">Fill in the parts in [brackets] before sending.</span>':'<span class="hint" id="e-gaps"></span>'}</div>
       ${v&&!S.integ.email?`<div class="notice info" style="align-items:center;flex-wrap:wrap">Attach invoice #${esc(v.number)}: download it, then add the file to your email.<button class="btn sm" type="button" data-act="downloadInvoice" data-id="${v.id}" style="margin-left:auto" ${S.downloadsOn?'':'disabled'}>${I.download} Download invoice</button></div>`:''}
-      ${S.integ.email?`<div class="btnrow"><button class="btn primary" type="button" data-act="sendEmail">Send email</button><button class="btn" type="button" data-act="copyEmail">Copy</button></div><p class="hint">Sends from your business address${v?` with invoice #${esc(v.number)} attached`:''}. Customer replies go to the business email in Settings.</p>`
+      ${S.integ.email?`<div class="btnrow"><button class="btn primary" type="button" data-act="sendEmail">Send email</button><button class="btn" type="button" data-act="copyEmail">Copy</button></div><p class="hint">Sends from your business address${v?` with invoice #${esc(v.number)} attached`:''}. Customer replies go to the business email in Settings.${quoteOpen(job(jobId))?' The customer gets <strong>Accept</strong> and <strong>Decline</strong> buttons, and you\'re notified when they answer.':''}</p>`
       :`<div class="btnrow"><button class="btn primary" type="button" data-act="copyEmail">Copy email</button><span id="e-mailto"></span><button class="btn" type="submit">Log as sent</button></div><p class="hint">Paste into your email, send, then log it here so it's saved on the customer's file.</p>`}
     </form>`, after(){ updateMailto(); }};
   },
@@ -2516,7 +2544,8 @@ function fillTemplate(text, cid, ctx={}){
     due:v&&v.dueDate?fmtDate(v.dueDate):'[due date]',
     paid:v&&(v.payments||[]).length?money(v.payments[v.payments.length-1].amount):'[payment]',
     total:ctx.invId&&v?money(totals(v).total):(j?money(itemsTotal(j.items)):(v?money(totals(v).total):'[total]')),
-    services:servicesText(ctx.invId&&v?v.items:(j?j.items:(v?v.items:[])))};
+    services:servicesText(ctx.invId&&v?v.items:(j?j.items:(v?v.items:[]))),
+    quote_link:ctx.jobId&&quoteOpen(job(ctx.jobId))?quoteLink(ctx.jobId):''};
   return text.replace(/\{(\w+)\}/g,(m,k)=>k in map?map[k]:m);
 }
 
@@ -2544,7 +2573,9 @@ const A = {
     toast(`Removed ${n} visit${n===1?'':'s'}`); const cs=$('#confirm-slot'); if(cs) cs.innerHTML='';
     if(drawerState && drawerState.kind==='series' && !seriesJobs(d.sid).length) closeDrawer(); render();
   },
-  openJob(d){ d.stack ? go('job',{id:d.id}) : (stack.length=0, openDrawer('job',{id:d.id})); },
+  openJob(d){ d.stack ? go('job',{id:d.id}) : (stack.length=0, openDrawer('job',{id:d.id}));
+    const j=job(d.id); if(j && j.quoteResponse && !j.quoteResponse.seen && S.role!=='crew') saveDoc('jobs', j.id, {...j, quoteResponse:{...j.quoteResponse, seen:true}}).catch(()=>{}); },
+  async copyQuoteLink(d){ if(!await commitQuoteToken(d.id, false)) return toast('Couldn\'t create the link. Try again.','bad'); copyText(quoteLink(d.id), 'Link copied. Paste it into a text or email.'); },
   openInvoice(d){ d.stack ? go('invoice',{id:d.id}) : (stack.length=0, openDrawer('invoice',{id:d.id})); },
   openPhoto(d){ go('photo',{id:d.id}); },
   pickJobForPhotos(){ openDrawer('pickJob',{}); },
@@ -2569,6 +2600,7 @@ const A = {
     const toPh = f.dataset.inv ? billTo(c).phone : (c&&c.phone);
     if(!c||!toPh) return toast('This customer has no phone number on file.','bad');
     el.disabled=true; el.textContent='Sending…';
+    if(f.dataset.job && quoteOpen(job(f.dataset.job)) && body.includes(quoteLink(f.dataset.job))) await commitQuoteToken(f.dataset.job, true);
     const ok=await sendSms(toPh, body, {customerId:cid, jobId:f.dataset.job||'', invoiceId:f.dataset.inv||''});
     if(!ok){ el.disabled=false; el.textContent='Send text'; return; }
     back();
@@ -2602,9 +2634,11 @@ const A = {
     if(!cid) return toast('Choose a customer.','bad'); if(!/^\S+@\S+\.\S+$/.test(to)) return toast('Enter the customer\'s email address.','bad'); if(!body) return toast('Write a message first.','bad');
     if(/\[[a-z ]+\]/.test(subject+body)) return toast('Fill in the parts in [brackets] first.','bad');
     const v=f.dataset.inv?inv(f.dataset.inv):null; const s=settings();
+    const jid=f.dataset.job||''; let quoteLinkSent='';
+    if(jid && quoteOpen(job(jid)) && body.includes(quoteLink(jid))){ if(!await commitQuoteToken(jid, true)) return toast('Couldn\'t prepare the quote link. Try again.','bad'); quoteLinkSent=quoteLink(jid); }
     const attachments = v ? [{filename:`Invoice-${v.number}.html`, content:btoa(unescape(encodeURIComponent(invoiceHTML(v))))}] : [];
     el.disabled=true; el.textContent='Sending…';
-    const r=await callFn('messaging',{action:'email', to, subject, text:body, replyTo:s.email||'', attachments});
+    const r=await callFn('messaging',{action:'email', to, subject, text:body, replyTo:s.email||'', attachments, quoteLink:quoteLinkSent});
     if(!r.ok){ el.disabled=false; el.textContent='Send email'; return toast(r.error,'bad'); }
     await write(()=>saveDoc('messages',newId('messages'),{customerId:cid, to, subject, body, channel:'email', sent:true, jobId:f.dataset.job||'', invoiceId:f.dataset.inv||'', createdAt:Date.now(), by:S.uid||''}),'Email sent');
     const c=cust(cid); if(c && !c.email && !v) await write(()=>saveDoc('customers',c.id,{...c,email:to,updatedAt:Date.now()}));
@@ -2687,7 +2721,7 @@ const A = {
   calBookCust(d){ go('jobForm',{cid:d.id, date:S.cal.sel||todayISO()}); },
   calBookQuote(d){ go('jobForm',{id:d.id, book:true, date:S.cal.sel||undefined}); },
   emailCompose(d){ go('email',{cid:d.cid||'', jobId:d.job, invId:d.inv, tpl:d.tpl}); },
-  copyEmail(){ const to=$('#e-to').value.trim(), sub=$('#e-subj').value, body=$('#e-body').value; copyText(`To: ${to}\nSubject: ${sub}\n\n${body}`, 'Email copied. Paste it into your email.'); },
+  copyEmail(d,el){ const to=$('#e-to').value.trim(), sub=$('#e-subj').value, body=$('#e-body').value; const fj=el&&el.closest&&el.closest('form'); const jid=fj&&fj.dataset.job; if(jid && body.includes(quoteLink(jid))) commitQuoteToken(jid, true); copyText(`To: ${to}\nSubject: ${sub}\n\n${body}`, 'Email copied. Paste it into your email.'); },
   msgChan(d){ S.msgChan=d.c; render(); },
   addEtpl(){ const box=$('#etpls'); const i=box.querySelectorAll('.etpl').length; box.insertAdjacentHTML('beforeend', etplRow({name:'',subject:'',body:''}, Date.now()%100000, false)); S.settingsDirty=true; box.lastElementChild.querySelector('input').focus(); },
   rmEtpl(d,el){ el.closest('.etpl').remove(); S.settingsDirty=true; },
@@ -2878,6 +2912,7 @@ const F = {
     const cid=$('#e-cust').value, to=$('#e-to').value.trim(), subject=$('#e-subj').value.trim(), body=$('#e-body').value.trim();
     if(!cid){ toast('Choose a customer.','bad'); return; }
     if(!body){ toast('Write a message first.','bad'); return; }
+    if(f.dataset.job && quoteOpen(job(f.dataset.job)) && body.includes(quoteLink(f.dataset.job))) await commitQuoteToken(f.dataset.job, true);
     const data={customerId:cid, to, subject, body, channel:'email', jobId:f.dataset.job||'', invoiceId:f.dataset.inv||'', createdAt:Date.now(), by:S.uid||''};
     if(!await write(()=>saveDoc('messages',newId('messages'),data),'Email logged to customer history')) return;
     const c=cust(cid); if(c && to && !c.email && !f.dataset.inv && /\S+@\S+\.\S+/.test(to)) await write(()=>saveDoc('customers',c.id,{...c,email:to,updatedAt:Date.now()}));
@@ -3617,7 +3652,7 @@ document.addEventListener('change', e=>{
   else if(t.id==='e-tpl' || t.id==='e-cust'){
     const f=t.form; const cid=$('#e-cust').value; const c=cust(cid); const tpl=settings().emailTemplates.find(x=>x.name===$('#e-tpl').value);
     if(t.id==='e-cust') $('#e-to').value = (f.dataset.inv ? billTo(c).email : c?.email)||'';
-    if(tpl){ $('#e-subj').value=fillTemplate(tpl.subject, cid, {jobId:f.dataset.job, invId:f.dataset.inv}); $('#e-body').value=fillTemplate(tpl.body, cid, {jobId:f.dataset.job, invId:f.dataset.inv}); }
+    if(tpl){ $('#e-subj').value=fillTemplate(tpl.subject, cid, {jobId:f.dataset.job, invId:f.dataset.inv}); $('#e-body').value=withQuoteLink(fillTemplate(tpl.body, cid, {jobId:f.dataset.job, invId:f.dataset.inv}), f.dataset.job); }
     updateMailto();
   }
   else if(t.id==='m-tpl' || t.id==='m-cust'){
@@ -3739,6 +3774,7 @@ function applyChange(t, p){
   if(t==='profiles'){ if(p.new && p.new.id===S.uid && (p.new.role!==S.role || !p.new.active)){ location.reload(); return; } loadTeam(); return; }
   const m=STORE[t]; if(!m) return;
   if(t==='messages' && p.eventType==='INSERT' && p.new && p.new.data && p.new.data.direction==='in' && !p.new.data.read){ const d=p.new.data; const c=msgCustomerId(d); toast(`New text from ${c?custLabel(cust(c)):fmtNum(d.number)}`); }
+  if(t==='jobs' && p.new && p.new.data && p.new.data.quoteResponse && S.role!=='crew'){ const was=m.get(p.new.id); if(!was || !was.quoteResponse){ const d=p.new.data; toast(`${custName(d.customerId)} ${d.quoteResponse.decision} your quote${d.quoteResponse.decision==='accepted'?(d.status==='Scheduled'?` · booked ${fmtDate(d.date)}`:' · pick a date'):''}`); } }
   if(t==='voicemails' && p.eventType==='INSERT' && p.new && p.new.data && !p.new.data.heard && !p.new.data.deleted) toast(`New voicemail from ${vmWho(p.new.data)}`);
   if(p.eventType==='DELETE'){ if(p.old && p.old.id) m.delete(p.old.id); } else if(p.new){ m.set(p.new.id, {id:p.new.id, ...(p.new.data||{})}); }
   S[t]=[...m.values()]; scheduleRender();

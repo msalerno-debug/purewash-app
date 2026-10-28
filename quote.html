@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Your Quote</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F2F5FA;--surface:#FFFFFF;--surface-2:#F6F8FC;--ink:#13233F;--muted:#5B6B84;--line:#DDE4EF;--accent:#2B5190;--accent-ink:#FFFFFF;--accent-soft:#E6EDF8;--good:#1F7A4D;--good-soft:#E3F3EA;--bad:#B3261E;--bad-soft:#FBE9E7}
+@media (prefers-color-scheme:dark){:root{--bg:#0B1626;--surface:#122036;--surface-2:#16273F;--ink:#E7EEF8;--muted:#9AAAC2;--line:#24385A;--accent:#7AA3E6;--accent-ink:#0B1626;--accent-soft:#1B2D48;--good:#6FD3A0;--good-soft:#123326;--bad:#F2918A;--bad-soft:#3A1A18}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:640px;margin:0 auto;padding:28px 16px 48px}
+.brand{font-weight:800;font-size:1.25rem;letter-spacing:-.01em}
+.sub{color:var(--muted);font-size:.9rem}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px;margin-top:18px;box-shadow:0 1px 2px rgba(19,35,63,.05)}
+h1{font-size:1.5rem;line-height:1.25;margin:0 0 6px;letter-spacing:-.015em}
+table{width:100%;border-collapse:collapse;margin-top:14px;font-size:.95rem}
+th{font-size:.74rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;text-align:left;padding:0 0 8px;border-bottom:1px solid var(--line)}
+td{padding:10px 0;border-bottom:1px solid var(--line);vertical-align:top}
+.r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;padding-left:12px}
+.tot td{border-bottom:0;font-weight:800;font-size:1.1rem;padding-top:14px}
+.meta{display:grid;gap:4px;margin-top:14px;font-size:.95rem}
+.meta b{font-weight:600}
+label{display:block;font-weight:600;font-size:.9rem;margin:18px 0 6px}
+textarea{width:100%;min-height:84px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;background:var(--surface-2);color:var(--ink);resize:vertical}
+textarea:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+button{font:inherit;font-weight:700;border-radius:10px;padding:13px 22px;cursor:pointer;border:1px solid var(--accent);min-height:48px}
+.yes{background:var(--accent);color:var(--accent-ink);flex:1 1 200px}
+.no{background:transparent;color:var(--accent);border-color:var(--line);flex:0 1 160px}
+button[disabled]{opacity:.6;cursor:default}
+.confirm{margin-top:16px;padding:14px;border-radius:12px;background:var(--accent-soft)}
+.done{text-align:center;padding:30px 22px}
+.done .ic{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;margin:0 auto 12px;font-size:28px;font-weight:800}
+.ok .ic{background:var(--good-soft);color:var(--good)} .dec .ic{background:var(--accent-soft);color:var(--accent)}
+.err{color:var(--bad);background:var(--bad-soft);padding:12px 14px;border-radius:10px;margin-top:14px;font-size:.92rem}
+.foot{color:var(--muted);font-size:.85rem;margin-top:18px;text-align:center}
+.foot a{color:inherit}
+.skel{height:14px;border-radius:6px;background:var(--line);margin:10px 0;animation:p 1.2s ease-in-out infinite}
+@keyframes p{50%{opacity:.5}}
+@media (prefers-reduced-motion:reduce){.skel{animation:none}}
+</style>
+</head>
+<body>
+<main class="wrap" id="app" aria-live="polite">
+  <div class="card"><div class="skel" style="width:40%"></div><div class="skel"></div><div class="skel" style="width:70%"></div></div>
+</main>
+<script>
+const FN='https://quthcaplccvgpvlietyo.supabase.co/functions/v1/quote';
+const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1dGhjYXBsY2N2Z3B2bGlldHlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3MTM4ODMsImV4cCI6MjEwODI4OTg4M30.C4vsmsN7LhahIbwiCGdAy3Cwbl7FVbXV3mMZaS5fN5A';
+const P=new URLSearchParams(location.search); const T=P.get('t')||''; const pre=P.get('d');
+const app=document.getElementById('app');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money=n=>'$'+(Math.round(n*100)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtDate=s=>{ if(!s) return ''; const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'}); };
+let Q=null, choice=pre==='decline'?'decline':pre==='accept'?'accept':null, busy=false, err='';
+async function call(body){ const r=await fetch(FN,{method:'POST',headers:{'Content-Type':'application/json',apikey:KEY,Authorization:'Bearer '+KEY},body:JSON.stringify({t:T,...body})}); const j=await r.json().catch(()=>({})); return {status:r.status, ...j}; }
+function contact(){ const b=Q&&Q.business||{}; const bits=[b.phone?`call <a href="tel:${esc(String(b.phone).replace(/[^\d+]/g,''))}">${esc(b.phone)}</a>`:'', b.email?`email <a href="mailto:${esc(b.email)}">${esc(b.email)}</a>`:''].filter(Boolean); return bits.length?`Questions? ${bits.join(' or ')}.`:''; }
+function render(){
+  if(!Q){ app.innerHTML=`<div class="card"><h1>Quote not found</h1><p class="sub">${esc(err||'This link may be incomplete. Please use the button in your email, or contact us.')}</p></div>`; return; }
+  const b=Q.business, name=b.name||'Your quote';
+  document.title=`${name} quote`;
+  const head=`<div class="brand">${esc(name)}</div>${b.address?`<div class="sub">${esc(b.address)}</div>`:''}`;
+  if(Q.state==='accepted'||Q.state==='declined'){
+    const ok=Q.state==='accepted';
+    app.innerHTML=`${head}<div class="card done ${ok?'ok':'dec'}"><div class="ic" aria-hidden="true">${ok?'✓':'✕'}</div><h1>${ok?'Thank you, quote accepted':'Quote declined'}</h1><p class="sub">${ok?(Q.date?`You're on our schedule for <strong>${esc(fmtDate(Q.date))}</strong>. We'll be in touch before the visit.`:'We\'ll contact you shortly to pick a date that works.'):'Thanks for letting us know. If anything changes, we\'d be glad to help.'}</p></div><p class="foot">${contact()}</p>`;
+    return;
+  }
+  if(Q.state==='closed'){ app.innerHTML=`${head}<div class="card"><h1>This quote is no longer open</h1><p class="sub">It may already be booked or replaced. ${contact()}</p></div>`; return; }
+  const rows=Q.items.map(i=>`<tr><td>${esc(i.desc)}${i.qty>1?`<div class="sub">${esc(i.qty)} × ${esc(money(i.rate))}</div>`:''}</td><td class="r">${esc(money(i.qty*i.rate))}</td></tr>`).join('');
+  app.innerHTML=`${head}
+  <section class="card">
+    <h1>${Q.customer.first?`${esc(Q.customer.first)}, here's your quote`:'Your quote'}</h1>
+    <div class="meta">${Q.customer.address?`<div><b>Property:</b> ${esc(Q.customer.address)}</div>`:''}<div><b>Proposed date:</b> ${Q.date?esc(fmtDate(Q.date)):'To be scheduled together'}</div></div>
+    <table><thead><tr><th>Service</th><th class="r">Price</th></tr></thead><tbody>${rows||'<tr><td colspan="2" class="sub">No services listed</td></tr>'}<tr class="tot"><td>Total</td><td class="r">${esc(money(Q.total))}</td></tr></tbody></table>
+  </section>
+  <section class="card">
+    ${choice?`<div class="confirm"><strong>${choice==='accept'?(Q.date?`Accept this quote and book ${esc(fmtDate(Q.date))}?`:'Accept this quote?'):'Decline this quote?'}</strong></div>`:'<strong>Would you like to go ahead?</strong>'}
+    <label for="note">${choice==='decline'?'Mind sharing why? (optional)':'Anything we should know? (optional)'}</label>
+    <textarea id="note" maxlength="1000" placeholder="${choice==='decline'?'Price, timing, went with someone else…':'Gate code, best time to call, pets…'}"></textarea>
+    <div class="btns">${choice==='decline'
+      ?`<button class="yes" style="background:var(--bad);border-color:var(--bad);color:#fff" data-go="decline" ${busy?'disabled':''}>${busy?'Sending…':'Yes, decline'}</button><button class="no" data-pick="" ${busy?'disabled':''}>Back</button>`
+      :`<button class="yes" data-go="accept" ${busy?'disabled':''}>${busy?'Sending…':(choice==='accept'?'Yes, accept quote':'Accept quote')}</button><button class="no" data-pick="decline" ${busy?'disabled':''}>Decline</button>`}</div>
+    ${err?`<div class="err" role="alert">${esc(err)}</div>`:''}
+  </section>
+  <p class="foot">${contact()}</p>`;
+}
+app.addEventListener('click', async e=>{
+  const pk=e.target.closest('[data-pick]'); if(pk){ const n=document.getElementById('note').value; choice=pk.dataset.pick||null; err=''; render(); document.getElementById('note').value=n; return; }
+  const go=e.target.closest('[data-go]'); if(!go || busy) return;
+  const note=(document.getElementById('note')||{}).value||'';
+  busy=true; err=''; render(); document.getElementById('note').value=note;
+  const r=await call({action:'respond', decision:go.dataset.go, note});
+  busy=false;
+  if(r.ok){ Q=r; } else { if(r.state) Q={...Q,...r}; err=r.error||'Something went wrong. Please try again.'; }
+  render(); if(Q.state==='open'){ const n=document.getElementById('note'); if(n) n.value=note; }
+  window.scrollTo({top:0,behavior:'smooth'});
+});
+(async()=>{
+  if(!/^[a-f0-9]{32,64}$/.test(T)){ err='This link is incomplete. Please use the button in your email.'; render(); return; }
+  try{ const r=await call({action:'get'}); if(r.ok) Q=r; else err=r.error; }catch(e){ err='We couldn\'t load your quote. Check your connection and refresh.'; }
+  render();
+})();
+</script>
+</body>
+</html>
