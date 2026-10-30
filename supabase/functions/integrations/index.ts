@@ -18,6 +18,8 @@ const KEYS: Record<string, { secret: boolean; group: string }> = {
   RESEND_API_KEY: { secret: true, group: "email" },
   EMAIL_FROM: { secret: false, group: "email" },
   GOOGLE_MAPS_KEY: { secret: true, group: "maps" },
+  QBO_CLIENT_ID: { secret: false, group: "qbo" },
+  QBO_CLIENT_SECRET: { secret: true, group: "qbo" },
 };
 
 type Check = { label: string; ok: boolean | null; detail?: string; fix?: string };
@@ -33,6 +35,8 @@ function validate(key: string, raw: string): { value?: string; error?: string } 
     case "EMAIL_FROM": return /^\S+@\S+\.\S+$/.test(emailIn(v)) ? { value: v } : { error: "Use an address like office@purewash.net, or with a name: PureWash <office@purewash.net>." };
     case "PHONECOM_VOIP_ID": return /^\d+$/.test(v) ? { value: v } : { error: "The account (VoIP) ID is digits only." };
     case "PHONECOM_FROM": { const d = d10(v); return d.length === 10 ? { value: d } : { error: "Enter your 10-digit phone.com number, for example 908-555-1234." }; }
+    case "QBO_CLIENT_ID": return /^[A-Za-z0-9]{20,80}$/.test(v) ? { value: v } : { error: "The Client ID is a long string of letters and numbers. Copy it again from Intuit (Keys & credentials → Production)." };
+    case "QBO_CLIENT_SECRET": return /^[A-Za-z0-9]{20,80}$/.test(v) ? { value: v } : { error: "The Client Secret is a long string of letters and numbers. Copy it again from Intuit (Keys & credentials → Production)." };
     case "PHONECOM_TOKEN": return v.length >= 20 && !/\s/.test(v) ? { value: v } : { error: "That doesn't look like a phone.com API token. Copy the whole token with no spaces." };
   }
   return { error: "Unknown setting." };
@@ -70,7 +74,7 @@ Deno.serve(async (req) => {
         };
       }
       const tests: Record<string, unknown> = {};
-      for (const g of ["sms", "email", "maps"]) tests[g] = await state("test:" + g);
+      for (const g of ["sms", "email", "maps", "qbo"]) tests[g] = await state("test:" + g);
       return { ok: true, keys, tests, smsSync: await state("phonecom"), vmSync: await state("voicemail"), ownerEmail: me.email || user.email };
     }
 

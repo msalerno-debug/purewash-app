@@ -169,6 +169,14 @@ button,input,select,textarea{font:inherit;color:inherit}
 .notice.info{background:var(--accent-soft);color:var(--ink)}
 .notice.bad{background:var(--bad-soft);color:var(--bad)}
 .notice.good{background:var(--good-soft);color:var(--good)}
+.qbo-row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:8px 12px;border:1px solid var(--line);border-radius:12px}
+.qbo-steps{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--surface-2)}
+.qbo-steps summary{cursor:pointer}
+.qbo-steps ol{margin:10px 0 6px 18px;display:flex;flex-direction:column;gap:8px;font-size:.9rem}
+.qbo-urls{display:flex;flex-direction:column;gap:6px;margin:8px 0}
+.qbo-urls .copyline{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px 8px}
+.qbo-urls .lbl{grid-column:1/-1;font-size:.74rem}
+.qbo-urls .mono{font-size:.8rem;overflow-wrap:anywhere}
 
 mark{background:var(--mark-soft);color:inherit;border-radius:2px;box-shadow:0 0 0 1px var(--mark-soft)}
 .cpick{position:relative}
@@ -629,7 +637,7 @@ const SOURCES = ['Referral','Google','Facebook','Nextdoor','Yard sign','Door han
 const PAY_METHODS = ['Card','Check','Cash','Zelle','Venmo','ACH','Other'];
 
 /* ---------- state ---------- */
-const S = {customers:[], jobs:[], invoices:[], photos:[], messages:[], voicemails:[], vmFilter:'all', vmLimit:50, vmConfirm:null, vmBusy:new Set(), vehicles:[], vehicle_logs:[], settingsDoc:null, view:'today',
+const S = {qbo:null, customers:[], jobs:[], invoices:[], photos:[], messages:[], voicemails:[], vmFilter:'all', vmLimit:50, vmConfirm:null, vmBusy:new Set(), vehicles:[], vehicle_logs:[], settingsDoc:null, view:'today',
   jobFilter:'upcoming', jobQuery:'', custQuery:'', custStatus:'All', photoQuery:'', invFilter:'Open', invQuery:'', msgQuery:'', msgChan:'all', msgTab:'conv', rep:{id:'summary', period:'ytd', from:'', to:''}, cal:{mode:'month', anchor:'', sel:null, showQuotes:true}, settingsDirty:false, dbState:'connecting',
   canWrite:null, canAdmin:false, uid:null, assetsOn:true, downloadsOn:true, role:null, profile:null, team:[], activity:null, integ:{email:false, sms:false}, sel:{jobs:new Set(), invoices:new Set()}, _visible:{jobs:[], invoices:[]}, setTab:'general', wipe:{open:false, typed:'', photos:false, messages:false, busy:false, result:null}, api:{loaded:false, loading:false, data:null, busy:{}, err:null}, mapsKey:null};
 // data, photo storage and downloads are defined in the Supabase data layer below
@@ -938,7 +946,7 @@ function selBox(kind, id){ return `<label class="selbox" title="Select"><input t
 const BULK_ACTIONS={
   jobs:[['status','Change status'],['date','Reschedule'],['crew','Assign crew'],['invoice','Create invoices'],['export','Export'],['delete','Delete']],
   quotes:[['book','Book'],['lost','Mark lost'],['date','Change date'],['status','Change status'],['export','Export'],['delete','Delete']],
-  invoices:[['sent','Mark sent'],['pay','Record payment'],['due','Change due date'],['qb','Export for QuickBooks'],['void','Void'],['delete','Delete']],
+  invoices:[['sent','Mark sent'],['pay','Record payment'],['due','Change due date'],['qbsend','Send to QuickBooks'],['qb','Export for QuickBooks (CSV)'],['void','Void'],['delete','Delete']],
 };
 function bulkBar(kind, mode, count){
   const sel=S.sel[kind]; const ids=S._visible[kind]||[]; const n=ids.filter(i=>sel.has(i)).length;
@@ -1678,6 +1686,9 @@ const API_DEFS=[
   {id:'maps', name:'Google Street View', icon:'person', what:'Shows Street View or satellite view of the property right on each customer and job.',
     keys:[['GOOGLE_MAPS_KEY','Maps API key',true,'AIza…']],
     links:[['Google Cloud credentials','https://console.cloud.google.com/apis/credentials'],['Turn on the Maps Embed API','https://console.cloud.google.com/apis/library/maps-embed-backend.googleapis.com']]},
+  {id:'qbo', name:'QuickBooks Online', icon:'invoices', what:'Sends invoices to QuickBooks when you click Send to QuickBooks, and keeps payments in step both ways.',
+    keys:[['QBO_CLIENT_ID','Client ID',false,'From Intuit: Keys & credentials → Production'],['QBO_CLIENT_SECRET','Client Secret',true,'From Intuit: Keys & credentials → Production']],
+    links:[['Intuit Developer portal','https://developer.intuit.com/app/developer/myapps']]},
 ];
 function apiStatus(def){
   const D=S.api.data; if(!D) return {cls:'', label:'Checking…'};
@@ -1686,6 +1697,7 @@ function apiStatus(def){
   if(missing===def.keys.length) return {cls:'', label:'Not set up'};
   if(missing) return {cls:'overdue', label:'Missing details'};
   if(def.id==='sms' && ((D.smsSync && D.smsSync.lastError) || (D.vmSync && D.vmSync.lastError))) return {cls:'overdue', label:'Needs attention'};
+  if(def.id==='qbo'){ const Q=S.qbo; if(!Q) return {cls:'', label:'Checking…'}; if(Q.lost) return {cls:'overdue', label:'Needs attention'}; if(!Q.connected) return {cls:'quoted', label:'Not connected'}; if(Q.lastError) return {cls:'overdue', label:'Needs attention'}; return {cls:'paid', label:'Connected'}; }
   if(!t) return {cls:'quoted', label:'Not tested'};
   return t.ok ? {cls:'paid', label:'Connected'} : {cls:'overdue', label:'Needs attention'};
 }
@@ -1695,6 +1707,31 @@ function checksHtml(r){
   if(!r) return '';
   return `<ul class="checks">${r.checks.map(c=>`<li class="chk ${c.ok===true?'ok':c.ok===false?'bad':'info'}"><span class="chk-i" aria-hidden="true">${c.ok===true?'✓':c.ok===false?'✕':'i'}</span><div><div class="chk-l">${esc(c.label)}</div>${c.detail?`<div class="chk-d">${esc(c.detail)}</div>`:''}${c.fix&&c.ok!==true?`<div class="chk-f"><strong>${c.ok===false?'How to fix:':'Tip:'}</strong> ${esc(c.fix)}</div>`:''}</div></li>`).join('')}</ul>
     <p class="hint">Tested ${esc(ago(r.at))}.</p>`;
+}
+const QBO_URLS = () => { const o='https://purewash-app.vercel.app'; return [
+  ['Redirect URI (Settings → Redirect URIs, Production)', (S.qbo&&S.qbo.redirectUri)||'https://quthcaplccvgpvlietyo.supabase.co/functions/v1/qbo'],
+  ['Host domain', 'purewash-app.vercel.app'], ['Launch URL', o+'/'], ['Disconnect URL', o+'/?qbo=disconnected'],
+  ['End-user license agreement URL', o+'/terms'], ['Privacy policy URL', o+'/privacy']]; };
+function qboExtra(busy){
+  const Q=S.qbo||{}; const D=S.api.data; const keys=D&&D.keys&&D.keys.QBO_CLIENT_ID&&D.keys.QBO_CLIENT_ID.set&&D.keys.QBO_CLIENT_SECRET&&D.keys.QBO_CLIENT_SECRET.set;
+  const steps = `<details class="qbo-steps" ${Q.connected?'':'open'}><summary><strong>How to get your Client ID and Client Secret</strong> (about 15 minutes, one time)</summary>
+    <ol>
+      <li>Go to the <a href="https://developer.intuit.com" target="_blank" rel="noopener">Intuit Developer portal</a> and sign in with the same Intuit account you use for QuickBooks (or create one).</li>
+      <li>Create a workspace if asked, then create an app: choose <strong>QuickBooks Online</strong> (Accounting) and name it <em>PureWash</em>. Allow the <strong>Accounting</strong> permission.</li>
+      <li>Open the app, go to <strong>Keys & credentials</strong>, switch to <strong>Production</strong>, and fill in the questionnaire. Paste these where it asks:
+        <div class="qbo-urls">${QBO_URLS().map(([l,u])=>`<div class="copyline"><span class="lbl">${esc(l)}</span><span class="mono">${esc(u)}</span><button class="btn sm" type="button" data-act="copy" data-text="${esc(u)}">Copy</button></div>`).join('')}</div>
+        For app category pick <em>Invoicing</em>; for regulated industries pick <em>None of the above</em>; hosting is <em>United States</em>.</li>
+      <li>Add the <strong>Redirect URI</strong> above under the app's Redirect URIs (Production) and save.</li>
+      <li>Copy the Production <strong>Client ID</strong> and <strong>Client Secret</strong> into the boxes above.</li>
+      <li>Click <strong>Connect to QuickBooks</strong> above and approve as a QuickBooks admin.</li>
+    </ol>
+    <p class="hint">In QuickBooks, turning on <em>Custom transaction numbers</em> (Settings → Account and settings → Sales) keeps the app's invoice numbers.</p></details>`;
+  const conn = Q.connected
+    ? `<div class="notice good" style="flex-direction:column;align-items:flex-start;gap:4px"><strong>Connected to ${esc(Q.company||'QuickBooks')}</strong><span>Since ${esc(fmtStamp(Q.connectedAt))}. ${Q.lastPull?`Checked for QuickBooks payments ${esc(ago(Q.lastPull))}${Q.lastError?'':'.'}`:'Payments made in QuickBooks are checked every 15 minutes.'}</span>${Q.lastError?`<span style="color:var(--bad)">Last check failed: ${esc(Q.lastError)}</span>`:''}</div>
+       <div class="api-actions"><button class="btn" data-act="qboPull" ${busy?'disabled':''}>Check for QuickBooks payments</button><button class="btn ghost" data-act="qboDisconnectAsk">Disconnect</button></div><div id="qbo-confirm"></div>`
+    : `${Q.lost?'<div class="notice bad">The QuickBooks connection expired or was disconnected in QuickBooks. Connect again to keep syncing.</div>':''}
+       <div class="api-actions"><button class="btn primary" data-act="qboConnect" ${keys&&!busy?'':'disabled'}>Connect to QuickBooks</button>${keys?'':'<span class="hint">Save the Client ID and Client Secret first.</span>'}</div>`;
+  return `${conn}${steps}`;
 }
 function apiCard(def){
   const D=S.api.data; const st=apiStatus(def); const busy=S.api.busy[def.id]; const t=D&&D.tests&&D.tests[def.id];
@@ -1713,6 +1750,7 @@ function apiCard(def){
       </div>
       ${D&&D.smsSync&&D.smsSync.lastRun?`<p class="hint">Text sync last ran ${esc(ago(D.smsSync.lastRun))}${D.smsSync.lastError?` and failed: <span style="color:var(--bad)">${esc(D.smsSync.lastError)}</span>`:', with no errors'}.</p>`:''}
       ${D&&D.vmSync&&D.vmSync.lastRun?`<p class="hint">Voicemail sync last ran ${esc(ago(D.vmSync.lastRun))}${D.vmSync.lastError?` and failed: <span style="color:var(--bad)">${esc(D.vmSync.lastError)}</span>`:', with no errors'}${D.vmSync.audioQueue?` · ${D.vmSync.audioQueue} recording${D.vmSync.audioQueue===1?'':'s'} still being copied`:''}.</p>`:''}`
+    : def.id==='qbo' ? qboExtra(busy)
     : def.id==='email' ? `
       <div class="api-actions"><button class="btn" data-act="apiTest" data-i="email" data-send="1" ${busy?'disabled':''}>Send test email to ${esc((D&&D.ownerEmail)||'me')}</button></div>`
     : `
@@ -1736,6 +1774,29 @@ function apisHtml(){
   </div>`;
 }
 function refreshApis(){ const box=document.getElementById('apis-box'); if(box) box.innerHTML=apisHtml(); document.querySelectorAll('#st-apis').forEach(el=>{ el.innerHTML='APIs'+apiTabBadge(); }); }
+async function loadQbo(){ if(!['owner','office'].includes(S.role)) return; const r=await callFn('qbo',{action:'status'}); if(r.ok){ S.qbo=r; scheduleRender(); refreshApis(); } }
+const qboOn = () => !!(S.qbo && S.qbo.connected);
+function qbCustInfo(c){ const b=billTo(c); const {first,last}=nameParts(c);
+  return {displayName:(c.company&&c.type==='Commercial'?c.company:(fullName(c)||c.company))||'Customer', first, last, company:c.company||b.company||'', email:b.email||'', phone:b.phone||'', street:b.street||'', city:b.city||'', state:b.state||'', zip:b.zip||''}; }
+async function qboPush(ids){
+  const list=ids.map(inv).filter(Boolean); if(!list.length) return null;
+  const customers={}; list.forEach(v=>{ const c=cust(v.customerId); if(c) customers[v.id]=qbCustInfo(c); });
+  const r=await callFn('qbo',{action:'push', ids:list.map(v=>v.id), customers});
+  if(!r.ok){ toast(r.error,'bad'); return null; }
+  const ok=r.results.filter(x=>x.ok && !x.skipped), bad=r.results.filter(x=>!x.ok), warn=r.results.filter(x=>x.warning), skip=r.results.filter(x=>x.skipped);
+  const msg = ok.length===1&&list.length===1 ? (ok[0].voided?'Voided in QuickBooks':ok[0].linked?'Already in QuickBooks, now linked and updated':ok[0].created?'Sent to QuickBooks':'Updated in QuickBooks') : `${ok.length} sent to QuickBooks`;
+  if(bad.length) toast(`${ok.length?msg+'. ':''}${bad.length} couldn't be sent: ${bad[0].error}`,'bad');
+  else if(warn.length) toast(`${msg}. ${warn[0].warning}`,'bad');
+  else toast(msg+(skip.length?`, ${skip.length} skipped`:''));
+  return r;
+}
+async function qboPayments(ids, deleted){
+  if(!qboOn()) return; const linked=ids.filter(id=>{ const v=inv(id); return v && v.qbo && v.qbo.id; }); if(!linked.length) return;
+  const r=await callFn('qbo',{action:'payments', ids:linked, deleted:deleted||{}});
+  if(!r.ok){ toast('Saved here, but QuickBooks wasn\'t updated: '+r.error,'bad'); return; }
+  const bad=r.results.find(x=>!x.ok); if(bad) toast('Saved here, but QuickBooks wasn\'t updated: '+bad.error,'bad');
+  else { const n=r.results.reduce((a,x)=>a+(x.sent||0)+(x.removed||0),0); if(n) toast(`Payment${n===1?'':'s'} updated in QuickBooks too`); }
+}
 async function loadApis(force){
   if(S.role!=='owner' || (S.api.loading && !force)) return;
   S.api.loading=true; S.api.err=null;
@@ -2002,6 +2063,7 @@ function bulkDrawer({kind, mode, a}){
   else if(a==='void') note='Voided invoices stay on file but no longer count as owed or in reports.', btn=`Void ${n} ${what}`, danger=true;
   else if(a==='delete'){ note = kind==='invoices' ? 'Deleted invoices are removed for good. Their jobs stay.' : 'Deleted jobs are removed for good, along with their place in service history.'; btn=`Delete ${n} ${what}`; danger=true; }
   else if(a==='export') note=`Downloads the ${n} selected ${what} as a spreadsheet, one row per service line.`, btn='Download';
+  else if(a==='qbsend'){ const ok=items.filter(v=>invStatus(v)!=='Void' || (v.qbo&&v.qbo.id&&!v.qbo.voided)); note = qboOn() ? `Sends ${ok.length} invoice${ok.length===1?'':'s'} to QuickBooks${items.length-ok.length?` (${items.length-ok.length} voided, never sent, skipped)`:''}. Ones already there are updated, along with their payments.` : 'QuickBooks isn\'t connected. The owner can connect it in Settings → APIs.'; btn=`Send ${ok.length} to QuickBooks`; }
   else if(a==='qb') note=`Downloads the ${n} selected ${what} in QuickBooks' import layout and marks them exported.`, btn='Download for QuickBooks';
   return {back:false, title:`${lbl}: ${n} ${what}`, body:`
     <form data-form="bulk" data-kind="${kind}" data-mode="${mode}" data-a="${a}" style="display:flex;flex-direction:column;gap:14px">
@@ -2239,7 +2301,8 @@ const DRAWERS = {
   invoice({id}){
     const v=inv(id); if(!v) return null; const c=cust(v.customerId); const t=totals(v); const s=settings(); const st=invStatus(v);
     return {detail:true, back:stack.length>0, title:`Invoice #${esc(v.number)}`, body:`
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${pill(st)}${v.qbExportedAt?`<span class="pill">Exported to QuickBooks ${esc(fmtStamp(v.qbExportedAt))}</span>`:''}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${pill(st)}${v.qbo&&v.qbo.id?`<span class="pill paid">In QuickBooks${v.qbo.voided?' (voided)':''}</span>`:v.qbExportedAt?`<span class="pill">Exported to QuickBooks ${esc(fmtStamp(v.qbExportedAt))}</span>`:''}</div>
+      ${qboOn()?`<div class="qbo-row office-only"><span class="muted" style="font-size:.86rem">${v.qbo&&v.qbo.id?`QuickBooks invoice ${v.qbo.docNumber?'#'+esc(v.qbo.docNumber):''} · last sent ${esc(fmtStamp(v.qbo.at))}`:st==='Void'?'Voided invoices aren\'t sent to QuickBooks.':'Not in QuickBooks yet.'}</span>${st==='Void'&&!(v.qbo&&v.qbo.id)?'':(v.qbo&&v.qbo.voided)?'':`<button class="btn sm" data-act="qboSend" data-id="${id}">${st==='Void'?'Void in QuickBooks':v.qbo&&v.qbo.id?'Update in QuickBooks':'Send to QuickBooks'}</button>`}</div>${v.qbo&&v.qbo.warning?`<div class="notice info" style="font-size:.86rem">${esc(v.qbo.warning)}</div>`:''}`:''}
       <div class="btnrow">
         ${t.balance>0&&st!=='Void'?`<button class="btn primary" data-act="addPayment" data-id="${id}">Record payment</button>`:''}
         ${st==='Draft'?`<button class="btn" data-act="invMark" data-id="${id}" data-s="Sent">Mark as sent</button>`:''}
@@ -2650,6 +2713,7 @@ const A = {
   apiReload(){ loadApis(true); },
   async apiTest(d){
     const i=d.i; const body={action:'test', integration:i};
+    if(i==='qbo'){ S.api.busy.qbo=true; refreshApis(); const r=await callFn('qbo',{action:'test'}); S.api.busy.qbo=false; if(!r.ok || !r.result){ toast(r.error||'The test didn\'t finish. Try again.','bad'); refreshApis(); return; } if(S.api.data){ S.api.data.tests=S.api.data.tests||{}; S.api.data.tests.qbo=r.result; } await loadQbo(); refreshApis(); toast(r.result.ok?'All checks passed':'Some checks need attention. See below.', r.result.ok?'':'bad'); return; }
     if(d.send && i==='sms'){ const to=(document.getElementById('api-sms-to')||{}).value||''; if(String(to).replace(/\D/g,'').length<10) return toast('Enter the 10-digit number to send the test text to.','bad'); body.sendTo=to; }
     if(d.send && i==='email') body.sendTest=true;
     S.api.busy[i]=true; refreshApis();
@@ -2662,6 +2726,12 @@ const A = {
     const el=document.getElementById('api-'+i); if(el) el.querySelector('.api-result')?.scrollIntoView({block:'nearest'});
     toast(r.result.ok?'All checks passed':'Some checks failed. See how to fix them below.', r.result.ok?'':'bad');
   },
+  async qboConnect(){ S.api.busy.qbo=true; refreshApis(); const r=await callFn('qbo',{action:'connect'}); S.api.busy.qbo=false; if(!r.ok){ refreshApis(); return toast(r.error,'bad'); } location.href=r.url; },
+  qboDisconnectAsk(){ const el=document.getElementById('qbo-confirm'); if(el) el.innerHTML=`<div class="confirm"><strong>Disconnect QuickBooks?</strong><span>Invoices already sent stay in QuickBooks. Nothing new will sync until you connect again.</span><div class="btnrow"><button class="btn danger" data-act="qboDisconnect">Disconnect</button><button class="btn" data-act="qboDisconnectCancel">Keep connected</button></div></div>`; },
+  qboDisconnectCancel(){ const el=document.getElementById('qbo-confirm'); if(el) el.innerHTML=''; },
+  async qboDisconnect(){ const r=await callFn('qbo',{action:'disconnect'}); if(!r.ok) return toast(r.error,'bad'); toast('QuickBooks disconnected'); await loadQbo(); refreshApis(); },
+  async qboPull(){ S.api.busy.qbo=true; refreshApis(); const r=await callFn('qbo',{action:'pull'}); S.api.busy.qbo=false; if(!r.ok) toast(r.error,'bad'); else toast(r.added?`${r.added} payment${r.added===1?'':'s'} brought in from QuickBooks`:'No new QuickBooks payments'); await loadQbo(); refreshApis(); },
+  async qboSend(d,el){ if(el){ el.disabled=true; el.textContent='Sending…'; } await qboPush([d.id]); if(el&&el.isConnected){ el.disabled=false; } rerender(); },
   async apiResync(){
     S.api.busy.sms=true; refreshApis();
     const r=await callFn('integrations',{action:'resync'});
@@ -2731,7 +2801,7 @@ const A = {
     const ok = await write(()=>saveDoc('jobs',j.id,upd), d.s==='Completed'?'Job marked complete':d.s==='Scheduled'?`Booked for ${fmtDate(j.date)}`:'Job started');
     if(ok && S.role!=='crew' && (d.s==='Completed'||d.s==='Scheduled')){ const c=cust(j.customerId); if(c && c.status!=='Active') await write(()=>saveDoc('customers',c.id,{...c,status:'Active',updatedAt:Date.now()})); } },
   async invMark(d){ const v=inv(d.id); if(!v) return; await write(()=>saveDoc('invoices',v.id,{...v,status:d.s,updatedAt:Date.now()}), d.s==='Void'?'Invoice voided':'Marked as sent'); },
-  async rmPayment(d){ const v=inv(d.id); if(!v) return; const p=[...(v.payments||[])]; p.splice(+d.i,1); await write(()=>saveDoc('invoices',v.id,{...v,payments:p,updatedAt:Date.now()}),'Payment removed'); },
+  async rmPayment(d){ const v=inv(d.id); if(!v) return; const p=[...(v.payments||[])]; const [gone]=p.splice(+d.i,1); if(await write(()=>saveDoc('invoices',v.id,{...v,payments:p,updatedAt:Date.now()}),'Payment removed') && gone && gone.qboId) qboPayments([v.id], {[v.id]:[gone.qboId]}); },
   askDelete(d){
     const what = {customers:'this customer (their jobs, invoices and photos stay in your records)', jobs:'this job', invoices:'this invoice', photos:'this photo', vehicles:'this vehicle, its service history and its documents', vehicle_logs:'this service record'}[d.col];
     $('#confirm-slot').innerHTML = `<div class="confirm"><strong>Delete ${what}?</strong><span>This can't be undone.</span><div class="btnrow"><button class="btn danger" data-act="doDelete" data-col="${d.col}" data-id="${d.id}">Yes, delete</button><button class="btn" data-act="cancelDelete">Keep it</button></div></div>`;
@@ -2900,7 +2970,7 @@ const F = {
     const fd=Object.fromEntries(new FormData(f)); const v=inv(f.dataset.id); if(!v) return;
     const amt=Math.round((+fd.amount||0)*100)/100; if(amt<=0){ toast('Enter an amount.','bad'); return; }
     const data={...v, payments:[...(v.payments||[]), {amount:amt, date:fd.date||todayISO(), method:fd.method, ref:fd.ref.trim()}], status:v.status==='Draft'?'Sent':v.status, updatedAt:Date.now()};
-    if(await write(()=>saveDoc('invoices',v.id,data), `Recorded ${money(amt)}`)){ back(); }
+    if(await write(()=>saveDoc('invoices',v.id,data), `Recorded ${money(amt)}`)){ back(); qboPayments([v.id]); }
   },
   async message(f){
     const cid=$('#m-cust').value, body=$('#m-body').value.trim(); if(!cid||!body){ toast('Choose a customer and write a message.','bad'); return; }
@@ -2991,8 +3061,10 @@ const F = {
       else if(a==='pay') r=await bulkRun('invoices', items, v=>{ const bal=totals(v).balance; if(invStatus(v)==='Void' || bal<=0) return null; return {...v, status:v.status==='Draft'?'Sent':v.status, payments:[...(v.payments||[]), {amount:Math.round(bal*100)/100, date:fd.date||todayISO(), method:fd.method, ref:(fd.ref||'').trim()}], updatedAt:now}; });
       else if(a==='delete') r=await bulkRun('invoices', items, ()=> 'delete');
       else if(a==='qb'){ const ok=await A.exportQB({ids:items.map(v=>v.id)}); if(ok!==false) closeDrawer(); return; }
+      else if(a==='qbsend'){ if(!qboOn()) return toast('Connect QuickBooks first (Settings → APIs).','bad'); const ids=items.filter(v=>invStatus(v)!=='Void' || (v.qbo&&v.qbo.id&&!v.qbo.voided)).map(v=>v.id); if(!ids.length) return toast('Nothing to send.'); const el=$('#bulk-prog'); if(el) el.textContent='Sending to QuickBooks…'; const res=await qboPush(ids); if(res){ S.sel[kind].clear(); closeDrawer(); render(); } return; }
     }
     if(!r) return;
+    if(kind==='invoices' && a==='pay') qboPayments(items.map(v=>v.id));
     S.sel[kind].clear(); closeDrawer(); render();
     toast(r.failed ? `${r.done} updated, ${r.failed} couldn't be changed (check your access)` : `${r.done} updated${r.skipped?`, ${r.skipped} skipped (no change needed)`:''}`, r.failed?'bad':'');
   },
@@ -3775,6 +3847,7 @@ function applyChange(t, p){
   const m=STORE[t]; if(!m) return;
   if(t==='messages' && p.eventType==='INSERT' && p.new && p.new.data && p.new.data.direction==='in' && !p.new.data.read){ const d=p.new.data; const c=msgCustomerId(d); toast(`New text from ${c?custLabel(cust(c)):fmtNum(d.number)}`); }
   if(t==='jobs' && p.new && p.new.data && p.new.data.quoteResponse && S.role!=='crew'){ const was=m.get(p.new.id); if(!was || !was.quoteResponse){ const d=p.new.data; toast(`${custName(d.customerId)} ${d.quoteResponse.decision} your quote${d.quoteResponse.decision==='accepted'?(d.status==='Scheduled'?` · booked ${fmtDate(d.date)}`:' · pick a date'):''}`); } }
+  if(t==='invoices' && p.new && p.new.data && S.role!=='crew'){ const was=m.get(p.new.id); const seen=new Set(((was&&was.payments)||[]).map(x=>x.qboId).filter(Boolean)); const fresh=(p.new.data.payments||[]).filter(x=>x.source==='quickbooks' && x.qboId && !seen.has(x.qboId)); if(was && fresh.length) toast(`QuickBooks payment: ${money(fresh.reduce((a,x)=>a+(+x.amount||0),0))} on invoice #${p.new.data.number}`); }
   if(t==='voicemails' && p.eventType==='INSERT' && p.new && p.new.data && !p.new.data.heard && !p.new.data.deleted) toast(`New voicemail from ${vmWho(p.new.data)}`);
   if(p.eventType==='DELETE'){ if(p.old && p.old.id) m.delete(p.old.id); } else if(p.new){ m.set(p.new.id, {id:p.new.id, ...(p.new.data||{})}); }
   S[t]=[...m.values()]; scheduleRender();
@@ -3796,6 +3869,14 @@ async function importOldPhotos(){
   }
   if(n){ toast(`${n} photo${n===1?'':'s'} moved over from the old app`); scheduleRender(); }
 }
+function qboReturn(){
+  let q; try{ q=new URLSearchParams(location.search); }catch(e){ return; } const v=q.get('qbo'); if(!v) return;
+  try{ history.replaceState(null,'',location.pathname); }catch(e){}
+  if(v==='connected') toast('QuickBooks is connected. Open an invoice and click Send to QuickBooks.');
+  else if(v==='error') toast(q.get('msg')||'QuickBooks wasn\'t connected.','bad');
+  else if(v==='disconnected') toast('QuickBooks was disconnected from the QuickBooks side. Reconnect it in Settings → APIs if that wasn\'t intended.','bad');
+  if(S.role==='owner'){ S.view='settings'; S.setTab='apis'; if(!S.api.loaded) loadApis(); render(); }
+}
 async function enterApp(session){
   S.uid=session.user.id;
   const {data:prof, error}=await sb.from('profiles').select('*').eq('id',S.uid).maybeSingle();
@@ -3807,6 +3888,7 @@ async function enterApp(session){
   await loadAll(); subscribe();
   callFn('messaging',{action:'status'}).then(r=>{ if(r.ok){ S.integ={email:!!r.email, sms:!!r.sms}; S.mapsKey=r.mapsKey||null; scheduleRender(); } });
   if(prof.role==='owner') loadApis();
+  loadQbo(); qboReturn();
   importOldPhotos();
 }
 (async function start(){
