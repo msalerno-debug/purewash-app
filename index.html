@@ -1678,7 +1678,7 @@ function refreshWipe(){ const b=document.getElementById('wipe-box'); if(b) b.inn
 /* ---------- APIs tab ---------- */
 const API_DEFS=[
   {id:'sms', name:'phone.com texting', icon:'messages', what:'Sends texts from your business number, brings customer replies into Messages every minute, and pulls in voicemail with playable recordings.',
-    keys:[['PHONECOM_TOKEN','API token',true,'Paste the permanent token'],['PHONECOM_VOIP_ID','Account (VoIP) ID',false,'Digits only'],['PHONECOM_FROM','Texting number',false,'908-555-1234']],
+    keys:[['PHONECOM_TOKEN','API token',true,'Paste a permanent token (not a temporary one)'],['PHONECOM_VOIP_ID','Account (VoIP) ID',false,'Digits only'],['PHONECOM_FROM','Texting number',false,'908-555-1234']],
     links:[['Get a phone.com API token','https://apidocs.phone.com/docs/access-token'],['phone.com API docs','https://apidocs.phone.com/docs/apiphonecom']]},
   {id:'email', name:'Email (Resend)', icon:'mail', what:'Sends invoices, quotes, reminders and receipts from your own address. Customer replies go to the business email on the Business tab.',
     keys:[['RESEND_API_KEY','API key',true,'re_…'],['EMAIL_FROM','Send from',false,'PureWash <office@purewash.net>']],
@@ -1748,6 +1748,7 @@ function apiCard(def){
         <button class="btn" data-act="apiTest" data-i="sms" data-send="1" ${busy?'disabled':''}>Send test text</button>
         <button class="btn" data-act="apiResync" ${busy?'disabled':''}>Sync texts & voicemail now</button>
       </div>
+      ${D&&D.pcToken&&D.pcToken.ok?(D.pcToken.permanent?'<p class="hint">The saved API token is a permanent token, so it won\'t expire.</p>':`<div class="notice bad" style="font-size:.88rem">The saved API token is temporary${D.pcToken.expiresAt?` and ${D.pcToken.expiresAt>Date.now()?'expires':'expired'} ${esc(fmtStamp(D.pcToken.expiresAt))}`:''}. Texts and voicemail stop syncing when it expires. In phone.com's API Client, tick <strong>Create permanent token</strong> before signing in, then save that token here.</div>`):''}
       ${D&&D.smsSync&&D.smsSync.lastRun?`<p class="hint">Text sync last ran ${esc(ago(D.smsSync.lastRun))}${D.smsSync.lastError?` and failed: <span style="color:var(--bad)">${esc(D.smsSync.lastError)}</span>`:', with no errors'}.</p>`:''}
       ${D&&D.vmSync&&D.vmSync.lastRun?`<p class="hint">Voicemail sync last ran ${esc(ago(D.vmSync.lastRun))}${D.vmSync.lastError?` and failed: <span style="color:var(--bad)">${esc(D.vmSync.lastError)}</span>`:', with no errors'}${D.vmSync.audioQueue?` · ${D.vmSync.audioQueue} recording${D.vmSync.audioQueue===1?'':'s'} still being copied`:''}.</p>`:''}`
     : def.id==='qbo' ? qboExtra(busy)
@@ -3001,7 +3002,7 @@ const F = {
     if(!value) return toast('Paste the value first.','bad');
     const r=await callFn('integrations',{action:'set', key, value});
     if(!r.ok) return toast(r.error,'bad');
-    S.api.data=r; inp.value=''; await refreshInteg(); refreshApis(); toast('Saved. Click Test connection to check it.');
+    S.api.data=r; inp.value=''; await refreshInteg(); refreshApis(); if(r.warning) toast(r.warning,'bad'); else toast('Saved. Click Test connection to check it.');
   },
   async vehicle(f){
     const fd=Object.fromEntries(new FormData(f)); const id=f.dataset.id;

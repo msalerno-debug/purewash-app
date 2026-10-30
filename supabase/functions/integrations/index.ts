@@ -26,6 +26,24 @@ type Check = { label: string; ok: boolean | null; detail?: string; fix?: string 
 const d10 = (p: unknown) => String(p ?? "").replace(/\D/g, "").slice(-10);
 const emailIn = (s: string) => (s.match(/<([^>]+)>/)?.[1] || s).trim();
 
+// Asks phone.com when a token expires. Permanent tokens have no expiry (or one decades away).
+async function pcTokenInfo(token: string): Promise<{ checkedAt: number; ok: boolean; expiresAt: number | null; permanent: boolean | null; status?: number }> {
+  try {
+    const r = await fetch("https://api.phone.com/v4/oauth/access-token", { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
+    if (!r.ok) return { checkedAt: Date.now(), ok: false, expiresAt: null, permanent: null, status: r.status };
+    const j = await r.json().catch(() => ({}));
+    let exp: unknown = null;
+    const walk = (o: unknown) => { if (!o || typeof o !== "object" || exp !== null) return; for (const [k, v] of Object.entries(o as Record<string, unknown>)) { if (exp !== null) return; if (/expir/i.test(k) && v !== null && v !== "" && typeof v !== "object") exp = v; else if (typeof v === "object") walk(v); } };
+    walk(j);
+    let ms: number | null = null;
+    if (typeof exp === "number" || /^\d+$/.test(String(exp ?? ""))) { const n = Number(exp); ms = n > 1e12 ? n : n * 1000; }
+    else if (exp) { const t = Date.parse(String(exp)); ms = isNaN(t) ? null : t; }
+    if (ms !== null && ms <= 0) ms = null;
+    const permanent = ms === null ? true : ms - Date.now() > 3 * 365 * 864e5;
+    return { checkedAt: Date.now(), ok: true, expiresAt: permanent ? null : ms, permanent };
+  } catch (_) { return { checkedAt: Date.now(), ok: false, expiresAt: null, permanent: null }; }
+}
+
 function validate(key: string, raw: string): { value?: string; error?: string } {
   const v = raw.trim();
   if (!v) return { value: "" };
@@ -75,7 +93,7 @@ Deno.serve(async (req) => {
       }
       const tests: Record<string, unknown> = {};
       for (const g of ["sms", "email", "maps", "qbo"]) tests[g] = await state("test:" + g);
-      return { ok: true, keys, tests, smsSync: await state("phonecom"), vmSync: await state("voicemail"), ownerEmail: me.email || user.email };
+      return { ok: true, keys, tests, pcToken: await state("phonecom:token"), smsSync: await state("phonecom"), vmSync: await state("voicemail"), ownerEmail: me.email || user.email };
     }
 
     if (action === "list") return json(await list());
@@ -89,9 +107,19 @@ Deno.serve(async (req) => {
       else await admin.from("app_secrets").upsert({ key, value: r.value, updated_at: new Date().toISOString(), updated_by: user.id });
       await admin.from("activity").insert({ user_id: user.id, tbl: "settings", row_id: "api", action: "update", summary: `${r.value === "" ? "Removed" : "Saved"} ${key.replace(/_/g, " ").toLowerCase()}` });
       await putState("test:" + KEYS[key].group, null);
+      let warning: string | null = null;
+      if (key === "PHONECOM_TOKEN") {
+        if (r.value === "") await putState("phonecom:token", null);
+        else {
+          const info = await pcTokenInfo(r.value!);
+          await putState("phonecom:token", info);
+          if (info.ok && info.permanent === false && info.expiresAt) warning = `Saved, but this is a temporary token. phone.com will stop accepting it ${new Date(info.expiresAt).toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}. In phone.com's API Client, tick "Create permanent token" before signing in, then save that token here instead.`;
+          else if (!info.ok && info.status === 401) warning = "Saved, but phone.com rejected this token right away. It may be expired or copied incompletely.";
+        }
+      }
       const { data: rows2 } = await admin.from("app_secrets").select("key,value,updated_at");
       saved.clear(); for (const x of rows2 || []) saved.set(x.key, x);
-      return json(await list());
+      return json({ ...(await list()), warning });
     }
 
     if (action === "resync") {
@@ -115,11 +143,13 @@ Deno.serve(async (req) => {
         if (token && /^\d+$/.test(voip)) {
           const H = { "Authorization": `Bearer ${token}`, "Accept": "application/json" };
           const r = await fetch(`https://api.phone.com/v4/accounts/${encodeURIComponent(voip)}`, { headers: H });
+          const ti = await pcTokenInfo(token); if (ti.ok) await putState("phonecom:token", ti);
           if (r.status === 200) add({ label: "phone.com accepted the token and account ID", ok: true });
-          else if (r.status === 401) add({ label: "phone.com rejected the token", ok: false, detail: "Error 401", fix: "The token is wrong or was revoked. Create a new permanent token in phone.com's API Client and save it here." });
+          else if (r.status === 401) add({ label: "phone.com rejected the token", ok: false, detail: "Error 401. If this keeps happening every day or two, the token is a temporary one that expired.", fix: "In phone.com's API Client (api-client.cit-phone.com), tick \"Create permanent token\" before you sign in, then save the new token here. Temporary tokens stop working after a short time." });
           else if (r.status === 403) add({ label: "The token isn't allowed to use this account", ok: false, detail: "Error 403", fix: "The token belongs to a different account or lacks permissions. Check the account ID, or ask phone.com API support (apisupport@phone.com) to enable API access." });
           else if (r.status === 404) add({ label: "phone.com couldn't find that account ID", ok: false, detail: "Error 404", fix: "Double-check the account (VoIP) ID. It's the number phone.com uses for your account, not your phone number." });
           else add({ label: "phone.com didn't respond normally", ok: false, detail: `Error ${r.status}`, fix: "phone.com may be having trouble. Wait a few minutes and test again." });
+          if (ti.ok) add(ti.permanent ? { label: "The token is permanent", ok: true } : { label: "The token is temporary and will expire", ok: false, detail: ti.expiresAt ? `phone.com will stop accepting it ${new Date(ti.expiresAt).toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}.` : undefined, fix: "In phone.com's API Client, tick \"Create permanent token\" before you sign in, then save that token here. Texts and voicemail stop syncing when a temporary token expires." });
           if (r.status === 200 && from.length === 10) {
             const pr = await fetch(`https://api.phone.com/v4/accounts/${encodeURIComponent(voip)}/phone-numbers?limit=200`, { headers: H });
             if (pr.ok) {
