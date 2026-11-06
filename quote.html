@@ -71,7 +71,7 @@ function render(){
     return;
   }
   if(Q.state==='closed'){ app.innerHTML=`${head}<div class="card"><h1>This quote is no longer open</h1><p class="sub">It may already be booked or replaced. ${contact()}</p></div>`; return; }
-  const rows=Q.items.map(i=>`<tr><td>${esc(i.desc)}${i.qty>1?`<div class="sub">${esc(i.qty)} × ${esc(money(i.rate))}</div>`:''}</td><td class="r">${esc(money(i.qty*i.rate))}</td></tr>`).join('');
+  const rows=Q.items.map(i=>`<tr><td>${esc(i.desc)}${i.details?`<div class="sub" style="white-space:pre-wrap;margin-top:2px">${esc(i.details)}</div>`:''}${i.qty>1?`<div class="sub">${esc(i.qty)} × ${esc(money(i.rate))}</div>`:''}</td><td class="r">${esc(money(i.qty*i.rate))}</td></tr>`).join('');
   app.innerHTML=`${head}
   <section class="card">
     <h1>${Q.customer.first?`${esc(Q.customer.first)}, here's your quote`:'Your quote'}</h1>

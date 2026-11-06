@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
       admin.from("customers").select("id,data").eq("id", String(j.customerId || "")).maybeSingle(),
     ]);
     const s = (st?.data || {}) as Rec; const c = (cr?.data || null) as Rec | null;
-    const items = ((j.items || []) as Rec[]).filter((i) => i.desc || i.rate);
+    const items = ((j.items || []) as Rec[]).filter((i) => i.desc || i.rate || i.details);
     const resp = (j.quoteResponse || null) as Rec | null;
     const state = resp ? String(resp.decision) : j.status === "Quoted" ? "open" : "closed";
     const exempt = !!j.taxExempt || (!(j.taxRate != null && j.taxRate !== "") && !!c?.taxExempt);
@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
       ok: true, state,
       business: { name: s.businessName || "", phone: s.phone || "", email: s.email || "", address: s.address || "" },
       customer: { first: firstName(c), address: address(c) },
-      items: items.map((i) => ({ desc: String(i.desc || ""), qty: Number(i.qty) || 0, rate: Number(i.rate) || 0 })),
+      items: items.map((i) => ({ desc: String(i.desc || ""), details: String(i.details || ""), qty: Number(i.qty) || 0, rate: Number(i.rate) || 0 })),
       subtotal: sub, taxRate: rate, tax: taxAmt, taxExempt: exempt, total: grand, date: String(j.date || ""), response: resp ? { decision: resp.decision, at: resp.at } : null,
     });
 

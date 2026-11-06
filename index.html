@@ -169,6 +169,9 @@ button,input,select,textarea{font:inherit;color:inherit}
 .notice.info{background:var(--accent-soft);color:var(--ink)}
 .notice.bad{background:var(--bad-soft);color:var(--bad)}
 .notice.good{background:var(--good-soft);color:var(--good)}
+.logo-pick{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.logo-prev{width:220px;height:90px;border:1px dashed var(--line);border-radius:10px;display:grid;place-items:center;background:#fff;overflow:hidden}
+.logo-prev img{max-width:100%;max-height:100%;object-fit:contain}
 .qbo-row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:8px 12px;border:1px solid var(--line);border-radius:12px}
 .qbo-steps{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--surface-2)}
 .qbo-steps summary{cursor:pointer}
@@ -351,6 +354,9 @@ td.n,th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabula
 /* items */
 .items{display:flex;flex-direction:column;gap:8px}
 .item-row{display:grid;grid-template-columns:1.2fr 1.4fr 64px 84px 78px 34px;gap:6px;align-items:center}
+.item-row .it-details{grid-column:1 / -1;min-height:52px;font-size:.9rem;resize:vertical}
+.items .item-row + .item-row{border-top:1px dashed var(--line);padding-top:8px;margin-top:2px}
+.line-details{white-space:pre-wrap;color:var(--muted);font-size:.86rem;margin-top:2px}
 .item-row .it-amt{text-align:right;font-size:.86rem}
 @media(max-width:620px){.item-row{grid-template-columns:1fr 1fr 34px}.item-row .it-desc{grid-column:1 / -1;grid-row:2}.item-row .it-qty{grid-row:3}.item-row .it-rate{grid-row:3}.item-row .it-amt{grid-row:3}.item-row .it-svc{grid-column:1 / 3}}
 .lines{width:100%;font-size:.9rem}
@@ -598,7 +604,12 @@ const LOGO = '<svg class="logo" viewBox="0 0 34 34" aria-hidden="true"><rect x="
 
 /* ---------- defaults ---------- */
 const DEFAULT_SETTINGS = {
-  businessName:'Your Window Co.', phone:'', email:'', address:'', taxRate:6.625, termsDays:14, dayCapacity:8, invoiceStart:1001,
+  businessName:'Your Window Co.', phone:'', email:'', address:'', website:'', logo:'', taxRate:6.625, termsDays:14, dayCapacity:8, invoiceStart:1001,
+  invoiceThanks:'Thank you for your business, have a great day!',
+  invoiceFooter:'We accept all major credit cards. All credit card payments over the amount of $500.00 are subject to a 3% processing fee. Thank you for your business',
+  invoicePage2On:true, invoicePage2Title:'PREPARING FOR YOUR APPOINTMENT',
+  invoicePage2:"Thank you for choosing PureWash Window Cleaning. We look forward to making your windows sparkling clean. Please help us provide an excellent customer service experience for you by reviewing these tips and procedures:\n\n# PRIOR TO OUR ARRIVAL\nPlease be sure any delicate or breakable objects near your windows have been moved to a safe place prior to our arrival. If we are not cleaning the inside of your windows, please remove any exterior screens so that we can have ready access to the exterior glass.\n\n# WHAT WE MEAN BY “ALL WINDOWS AND DOORS CLEANED”\nWe will clean all glass on our estimate to remove all natural debris—that’s our 100% guarantee. Our standard cleaning does not include removal of physical damage, paint, hard water or chemical stains. Services for removing hard water stains or construction clean-up are available upon request and can be quoted separately.\n\n# WHAT WE MEAN BY “WIPE SILLS”\nWhen we clean, we wipe your sills and tracks with a towel. We can also provide deep clean track services for an additional charge. This service includes scraping and vacuuming tracks. If you would like this service, please request it prior to your scheduled cleaning.\n\n# WHAT WE MEAN BY “WE CLEAN YOUR SCREENS”\nWe remove screens from their tracks and wipe them down with a towel and cleaning solution. If we are not cleaning your interior glass, any screen that you would like cleaned should be left outside your home and will be cleaned at the additional charge of $3 per screen.\n\n# STORM WINDOWS\nPlease check to be sure that all storm windows can be opened and closed. We will remove and clean all sides of the storm windows.\n\n# OUR CLEANERS\nOur professional cleaners have received background checks, are bonded, insured, and wear uniforms. All cleaners receive ongoing safety and skills training to ensure their safety and the safety of your property. You can trust them to treat you and your home with the utmost care and respect.\n\n# WEATHER CHANGES\nIf adverse weather conditions prevent cleaning at your scheduled time, we will contact you immediately to reschedule your cleaning.\n\n# ADDITIONAL CLEANING SERVICES\nOur professional cleaners can also clean gutters, skylights, chandeliers, ceiling fans, mirrors, screens, light fixtures, awnings, and solar panels.",
+  serviceDescriptions:{},
   invoiceNote:'Thank you for your business! Streak-free guarantee: if anything was missed, call within 7 days and we will come back.',
   services:[
     {name:'Exterior windows', price:6, unit:'per pane'},
@@ -1626,13 +1637,31 @@ function viewSettings(){
       <div class="field"><label for="s-terms">Payment terms (days)</label><input type="number" min="0" id="s-terms" name="termsDays" value="${esc(s.termsDays)}" ${ro?'disabled':''}></div>
       <div class="field"><label for="s-invstart">Starting invoice number</label><input type="number" min="1" step="1" id="s-invstart" name="invoiceStart" value="${esc(s.invoiceStart)}" inputmode="numeric" ${ro?'disabled':''}><span class="hint">Next invoice will be <strong>#${esc(nextInvoiceNumber())}</strong>. Numbers always continue after your highest existing invoice, so there are never duplicates.</span></div>
       <div class="field"><label for="s-cap">Work hours per day (all crews)</label><input type="number" min="0" step="0.5" id="s-cap" name="dayCapacity" value="${esc(s.dayCapacity)}" ${ro?'disabled':''}><span class="hint">Calendar days fill up against this. Two crews working 8 hours = 16.</span></div>
-      <div class="field full"><label for="s-note">Invoice footer note</label><textarea id="s-note" name="invoiceNote" ${ro?'disabled':''}>${esc(s.invoiceNote)}</textarea></div>
+      <div class="field full"><label for="s-note">Default note on new invoices</label><textarea id="s-note" name="invoiceNote" ${ro?'disabled':''}>${esc(s.invoiceNote)}</textarea><span class="hint">Prints in the Note box. You can change it on each invoice.</span></div>
+    </div>
+    <h2 style="margin-top:22px">Invoice PDF</h2>
+    <div class="fgrid">
+      <div class="field full"><span class="lbl">Logo</span>
+        <div class="logo-pick"><div class="logo-prev" id="s-logo-prev">${s.logo?`<img src="${esc(s.logo)}" alt="Business logo">`:'<span class="muted">No logo yet</span>'}</div>
+          ${ro?'':`<div class="btnrow"><label class="btn sm" for="s-logo-file">Upload logo</label><input type="file" id="s-logo-file" accept="image/png,image/jpeg,image/webp" hidden>${s.logo?'<button type="button" class="btn sm ghost" data-act="logoRemove">Remove</button>':''}</div>`}</div>
+        <input type="hidden" name="logo" id="s-logo" value="${esc(s.logo||'')}"><span class="hint">Shown at the top of invoices and on the instructions page.</span></div>
+      <div class="field"><label for="s-web">Website</label><input type="text" id="s-web" name="website" value="${esc(s.website||'')}" placeholder="www.purewash.net" ${ro?'disabled':''}></div>
+      <div class="field"><label for="s-thanks">Thank-you line</label><input type="text" id="s-thanks" name="invoiceThanks" value="${esc(s.invoiceThanks||'')}" ${ro?'disabled':''}></div>
+      <div class="field full"><label for="s-foot">Fine print at the bottom</label><textarea id="s-foot" name="invoiceFooter" style="min-height:60px" ${ro?'disabled':''}>${esc(s.invoiceFooter||'')}</textarea></div>
+      <div class="field full"><label class="chk-row" for="s-p2on" style="font-weight:600"><input type="checkbox" id="s-p2on" name="invoicePage2On" ${s.invoicePage2On!==false?'checked':''} ${ro?'disabled':''}> Attach the instructions page (page 2) to every invoice</label></div>
+      <div class="field full"><label for="s-p2t">Page 2 title</label><input type="text" id="s-p2t" name="invoicePage2Title" value="${esc(s.invoicePage2Title||'')}" ${ro?'disabled':''}></div>
+      <div class="field full"><label for="s-p2">Page 2 text</label><textarea id="s-p2" name="invoicePage2" style="min-height:320px;font-size:.88rem" ${ro?'disabled':''}>${esc(s.invoicePage2||'')}</textarea>
+        <span class="hint">Start a line with <strong>#</strong> to make it a blue section heading (for example <em># STORM WINDOWS</em>). Leave a blank line between paragraphs.</span></div>
+      <div class="field full"><div class="btnrow"><button type="button" class="btn" data-act="viewInvoicePdf" data-id="sample">Preview invoice PDF</button><span class="hint">Shows your most recent invoice with the saved settings. Save first to see changes.</span></div></div>
     </div>
     </section>
     <section class="panel set-panel" id="sp-services" role="tabpanel" aria-labelledby="st-services" data-tabpanel="services" ${hid('services')}>
     <h2>Services & starting prices</h2>
     <div class="field"><label for="s-svc">One per line: Service | price | unit</label><textarea id="s-svc" name="services" style="min-height:190px;font-family:var(--f-mono);font-size:.85rem" ${ro?'disabled':''}>${esc(s.services.map(x=>`${x.name} | ${x.price} | ${x.unit||''}`).join('\n'))}</textarea>
       <span class="hint">These fill in job and invoice lines. The starting list is a placeholder; set your own prices.</span></div>
+    <h2 style="margin-top:18px">Standard descriptions</h2>
+    <p class="hint" style="margin-bottom:8px">Optional. When you pick a service on a job, quote or invoice, its standard description fills in below it, ready to edit. Save after adding services above to see them here.</p>
+    <div style="display:flex;flex-direction:column;gap:10px">${s.services.map(x=>`<div class="field"><label>${esc(x.name)}</label><textarea class="svc-desc" data-name="${esc(x.name)}" rows="3" style="font-size:.88rem" placeholder="What's included for ${esc(x.name.toLowerCase())}…" ${ro?'disabled':''}>${esc((s.serviceDescriptions||{})[x.name]||'')}</textarea></div>`).join('')}</div>
     </section>
     <section class="panel set-panel" id="sp-templates" role="tabpanel" aria-labelledby="st-templates" data-tabpanel="templates" ${hid('templates')}>
     <h2>Text templates</h2>
@@ -2323,7 +2352,8 @@ const DRAWERS = {
         <button class="btn" data-act="compose" data-cid="${v.customerId}" data-inv="${id}" data-tpl="Invoice ready">${I.messages} Text customer</button>
         <button class="btn" data-act="emailCompose" data-cid="${v.customerId}" data-inv="${id}" data-tpl="Invoice">${I.mail} Email invoice</button>
         ${t.paid>0?`<button class="btn" data-act="emailCompose" data-cid="${v.customerId}" data-inv="${id}" data-tpl="Payment receipt">${I.mail} Email receipt</button>`:''}
-        <button class="btn" data-act="downloadInvoice" data-id="${id}" ${S.downloadsOn?'':'disabled'}>${I.download} Download</button>
+        <button class="btn" data-act="viewInvoicePdf" data-id="${id}">View PDF</button>
+        <button class="btn" data-act="downloadInvoice" data-id="${id}" ${S.downloadsOn?'':'disabled'}>${I.download} Download PDF</button>
         <button class="btn" data-act="editInvoice" data-id="${id}">Edit</button>
       </div>
       <section class="panel" style="display:flex;flex-direction:column;gap:14px">
@@ -2580,7 +2610,8 @@ function itemRow(it={}){
     <input type="number" class="it-qty" aria-label="Quantity" min="0" step="any" inputmode="decimal" value="${esc(it.qty ?? 1)}">
     <input type="number" class="it-rate" aria-label="Rate" min="0" step="0.01" inputmode="decimal" placeholder="Rate" value="${esc(it.rate ?? '')}">
     <span class="it-amt num">${money((+it.qty||0)*(+it.rate||0))}</span>
-    <button type="button" class="icon-btn" data-act="rmItem" aria-label="Remove line">×</button></div>`;
+    <button type="button" class="icon-btn" data-act="rmItem" aria-label="Remove line">×</button>
+    <textarea class="it-details" rows="2" aria-label="Description" placeholder="Description (optional): what's included, window counts, notes. Shows under the service on the invoice and quote.">${esc(it.details||'')}</textarea></div>`;
 }
 function itemsEditor(items){
   return `<div class="field"><span class="lbl">Services</span><div class="items" id="items">${items.map(itemRow).join('')}</div>
@@ -2588,7 +2619,7 @@ function itemsEditor(items){
     <span class="hint">Qty is panes, screens or panels depending on the service.</span></div>`;
 }
 function readItems(form){
-  return [...form.querySelectorAll('.item-row')].map(r=>({desc:r.querySelector('.it-desc').value.trim(), qty:+r.querySelector('.it-qty').value||0, rate:+r.querySelector('.it-rate').value||0})).filter(i=>i.desc||i.rate);
+  return [...form.querySelectorAll('.item-row')].map(r=>{ const d=r.querySelector('.it-details'); const o={desc:r.querySelector('.it-desc').value.trim(), qty:+r.querySelector('.it-qty').value||0, rate:+r.querySelector('.it-rate').value||0}; const det=d?d.value.replace(/\s+$/,''):''; if(det.trim()) o.details=det; return o; }).filter(i=>i.desc||i.rate||i.details);
 }
 function recalcItems(){
   const rows=[...document.querySelectorAll('#items .item-row')]; let t=0;
@@ -2609,7 +2640,7 @@ function syncTaxFromCustomer(boxId, custId){ const b=$('#'+boxId); if(!b || b.da
 function syncInvTax(){ const b=$('#i-taxex'), r=$('#i-tax'); if(!b||!r) return; r.disabled=b.checked; if(!b.checked && !(+r.value)) r.value=settings().taxRate; }
 function linesTable(items){
   if(!(items||[]).length) return '<p class="muted">No services listed.</p>';
-  return `<div class="tablewrap"><table class="lines"><thead><tr><th>Service</th><th class="n">Qty</th><th class="n">Rate</th><th class="n">Amount</th></tr></thead><tbody>${items.map(i=>`<tr><td>${esc(i.desc)}</td><td class="n">${esc(i.qty)}</td><td class="n">${money(i.rate)}</td><td class="n">${money((+i.qty||0)*(+i.rate||0))}</td></tr>`).join('')}</tbody></table></div>`;
+  return `<div class="tablewrap"><table class="lines"><thead><tr><th>Service</th><th class="n">Qty</th><th class="n">Rate</th><th class="n">Amount</th></tr></thead><tbody>${items.map(i=>`<tr><td>${esc(i.desc)}${i.details?`<div class="line-details">${esc(i.details)}</div>`:''}</td><td class="n">${esc(i.qty)}</td><td class="n">${money(i.rate)}</td><td class="n">${money((+i.qty||0)*(+i.rate||0))}</td></tr>`).join('')}</tbody></table></div>`;
 }
 function updateCmp(r){
   const box=document.getElementById(r.dataset.cmp); if(!box) return; const v=r.value;
@@ -2726,7 +2757,8 @@ const A = {
     const v=f.dataset.inv?inv(f.dataset.inv):null; const s=settings();
     const jid=f.dataset.job||''; let quoteLinkSent='';
     if(jid && quoteOpen(job(jid)) && body.includes(quoteLink(jid))){ if(!await commitQuoteToken(jid, true)) return toast('Couldn\'t prepare the quote link. Try again.','bad'); quoteLinkSent=quoteLink(jid); }
-    const attachments = v ? [{filename:`Invoice-${v.number}.html`, content:btoa(unescape(encodeURIComponent(invoiceHTML(v))))}] : [];
+    let attachments = [];
+    if(v){ try{ attachments=[{filename:`Invoice-${v.number}.pdf`, content:await invoicePdfBase64(v)}]; }catch(e){ attachments=[{filename:`Invoice-${v.number}.html`, content:btoa(unescape(encodeURIComponent(invoiceHTML(v))))}]; } }
     el.disabled=true; el.textContent='Sending…';
     const r=await callFn('messaging',{action:'email', to, subject, text:body, replyTo:s.email||'', attachments, quoteLink:quoteLinkSent});
     if(!r.ok){ el.disabled=false; el.textContent='Send email'; return toast(r.error,'bad'); }
@@ -2866,7 +2898,9 @@ const A = {
     S.customers.forEach(c=>{ const b=billTo(c); rows.push([fullName(c)||c.company,nameParts(c).first,nameParts(c).last,c.company||b.company,b.email,b.phone,b.street,b.city,b.state,b.zip,[b.different?`Bill to: ${[b.name,b.company].filter(Boolean).join(', ')}`:'', c.gate,c.notes].filter(Boolean).join(' | ')]); });
     await saveFile(`quickbooks-customers-${todayISO()}.csv`, toCSV(rows));
   },
-  async downloadInvoice(d){ const v=inv(d.id); if(!v) return; await saveFile(`invoice-${v.number}.html`, invoiceHTML(v)); },
+  logoRemove(){ $('#s-logo').value=''; $('#s-logo-prev').innerHTML='<span class="muted">No logo yet</span>'; S.settingsDirty=true; toast('Logo removed. Click Save settings to keep the change.'); },
+  async downloadInvoice(d,el){ const v=inv(d.id); if(!v) return; if(el){ el.disabled=true; } try{ const blob=await invoicePdfBlob(v); await saveFile(`Invoice-${v.number}.pdf`, blob); }catch(e){ toast(e.message||'Couldn\'t make the PDF.','bad'); } finally{ if(el&&el.isConnected) el.disabled=false; } },
+  async viewInvoicePdf(d){ const v=d.id==='sample'?sampleInvoice():inv(d.id); if(!v) return; const w=window.open('','_blank'); try{ const blob=await invoicePdfBlob(v); const url=URL.createObjectURL(blob); if(w) w.location.href=url; else location.href=url; setTimeout(()=>URL.revokeObjectURL(url), 120000); }catch(e){ if(w) w.close(); toast(e.message||'Couldn\'t make the PDF.','bad'); } },
   setTheme(d){ try{ if(d.t==='system') localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY,d.t); }catch(e){ toast('This browser won\'t save the choice, so it resets next visit.','bad'); } if(d.t!=='system'){ document.documentElement.setAttribute('data-theme',d.t); } else applyTheme(); render(); },
   cpickClear(d){ const {inp,hid}=cpickEls(d.for); const had=!!hid.value; hid.value=''; inp.value=''; inp.focus(); cpickRender(inp); if(had) hid.dispatchEvent(new Event('change',{bubbles:true})); },
   openImport(){ if(IMP && IMP.running) return openDrawer('importCust',{}); IMP=null; IMP_KIND='customers'; stack.length=0; openDrawer('importCust',{}); },
@@ -2901,6 +2935,135 @@ function copyText(text, ok){
   const fallback=()=>{ const ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); let done=false; try{ done=document.execCommand('copy'); }catch(e){} ta.remove(); toast(done?ok:'Select the text and copy it manually.', done?'':'bad'); };
   try{ navigator.clipboard.writeText(text).then(()=>toast(ok), fallback); }catch(e){ fallback(); }
 }
+/* ---------- invoice PDF (matches the PureWash paper invoice) ---------- */
+let jspdfP;
+function loadJsPDF(){
+  if(window.jspdf) return Promise.resolve(window.jspdf);
+  return jspdfP ||= new Promise((res,rej)=>{ const sc=document.createElement('script'); sc.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'; sc.onload=()=>window.jspdf?res(window.jspdf):rej(new Error('The PDF tool didn\'t load.')); sc.onerror=()=>{ jspdfP=null; rej(new Error('Couldn\'t load the PDF tool. Check your connection and try again.')); }; document.head.appendChild(sc); });
+}
+const ordDate = iso => { if(!iso) return ''; const d=parseISO(iso); const n=d.getDate(); const sx=(n%100>=11&&n%100<=13)?'th':({1:'st',2:'nd',3:'rd'}[n%10]||'th'); return `${n}${sx} ${d.toLocaleDateString('en-US',{month:'long'})} ${d.getFullYear()}`; };
+function invTerms(v){ const days = v.date&&v.dueDate ? dayDiff(v.date, v.dueDate) : (+settings().termsDays||0); return days<=0 ? 'COD' : `Net ${days}`; }
+function addrLines(str){ const t=String(str||'').trim(); if(!t) return []; const m=t.match(/^(.*),\s*([^,]+,\s*[A-Za-z]{2}\s*\d{5}(?:-\d{4})?)$/) || t.match(/^(.*),\s*([^,]+\s[A-Za-z]{2}\s*\d{5}(?:-\d{4})?)$/); return m?[m[1].trim(), m[2].trim()]:[t]; }
+const cityLine = o => [[o.city,o.state].filter(Boolean).join(', '), o.zip].filter(Boolean).join(' ');
+function pdfSafe(t){ return String(t??'').replace(/[′ʼ]/g,"'").replace(/[^\x09\x0A\x0D\x20-\x7E\xA0-\xFF‘’“”–—…•€]/g,''); }
+
+const LOGO={};
+async function logoData(src){
+  if(!src || src.startsWith('data:')) return src||'';
+  if(LOGO[src]) return LOGO[src];
+  try{ const r=await fetch(src); if(!r.ok) return ''; const b=await r.blob(); return LOGO[src]=await new Promise(res=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=()=>res(''); fr.readAsDataURL(b); }); }catch(e){ return ''; }
+}
+async function invoicePdf(v){
+  const {jsPDF}=await loadJsPDF();
+  const s={...settings()}; s.logo=await logoData(s.logo); const c=cust(v.customerId)||{}; const t=totals(v); const b=billTo(c);
+  const doc=new jsPDF({unit:'pt', format:'letter', compress:true});
+  const W=612, H=792, M=36, R=W-M, INK=[20,24,32], CYAN=[0,176,240];
+  const set=(font,style,size,color=INK)=>{ doc.setFont(font,style); doc.setFontSize(size); doc.setTextColor(...color); };
+  const tx=(str,x,y,o)=>doc.text(pdfSafe(str),x,y,o);
+  const wrap=(str,w)=>doc.splitTextToSize(pdfSafe(str),w);
+  const pen=()=>{ doc.setLineWidth(0.7); doc.setDrawColor(40,40,40); };
+  const footer=()=>{ if(!String(s.invoiceFooter||'').trim()) return; set('helvetica','normal',7.5,[45,45,45]); const ls=wrap(s.invoiceFooter, W-2*M); tx(ls, W/2, H-26-(ls.length-1)*9, {align:'center'}); };
+  pen();
+  // logo / name
+  let logoBottom=58;
+  if(s.logo){ try{ const ip=doc.getImageProperties(s.logo); let w=210, h=w*ip.height/ip.width; if(h>88){ h=88; w=h*ip.width/ip.height; } doc.addImage(s.logo, ip.fileType||'JPEG', M, 26, w, h); logoBottom=26+h; }catch(e){ logoBottom=58; set('times','bold',20); tx(s.businessName, M, 52); } }
+  else { set('times','bold',20); tx(s.businessName, M, 52); }
+  // INVOICE + header table
+  set('times','bold',18); tx('INVOICE', R, 40, {align:'right'});
+  const hx=306, hw=R-hx, cw=hw/3, hy=50; pen();
+  doc.rect(hx,hy,hw,46); doc.line(hx,hy+21,R,hy+21); doc.line(hx+cw,hy,hx+cw,hy+46); doc.line(hx+2*cw,hy,hx+2*cw,hy+46);
+  set('times','bold',9.5); ['DATE','INVOICE #','TERMS'].forEach((h,i)=>tx(h, hx+cw*i+cw/2, hy+14, {align:'center'}));
+  [ordDate(v.date), String(v.number||''), invTerms(v)].forEach((x,i)=>{ set('times','normal',10); if(doc.getTextWidth(pdfSafe(x))>cw-8) doc.setFontSize(10*(cw-8)/doc.getTextWidth(pdfSafe(x))); tx(x, hx+cw*i+cw/2, hy+37, {align:'center'}); });
+  // business details
+  let y=Math.max(logoBottom+18, 118); set('times','normal',10);
+  [...addrLines(s.address), s.phone, s.email, s.website].filter(Boolean).forEach(l=>{ tx(l, M, y); y+=13; });
+  // bill to / job address
+  y=Math.max(y+12, 186);
+  const bw=(R-M-18)/2, jx=R-bw;
+  const billLines=[b.name, b.company&&b.company!==b.name?b.company:'', b.street, cityLine(b)].filter(Boolean);
+  const jobLines=[c.street, cityLine(c)].filter(Boolean);
+  const bh=Math.max(74, 22+Math.max(billLines.length, jobLines.length)*12.5+8);
+  [[M,'BILL TO',billLines],[jx,'JOB ADDRESS',jobLines]].forEach(([x,h,ls])=>{ pen(); doc.rect(x,y,bw,bh); doc.line(x,y+13,x+bw,y+13); set('times','bold',8.5); tx(h,x+5,y+9.8); set('times','normal',10); ls.forEach((l,i)=>tx(l,x+5,y+25+i*12.5)); });
+  y+=bh+26;
+  // line items
+  const C=[M, 300, 384, 478, R], LH=12.6, LIMIT=H-62;
+  const head=yy=>{ pen(); doc.rect(M,yy,R-M,21); for(let i=1;i<4;i++) doc.line(C[i],yy,C[i],yy+21); set('times','bold',9.5); ['DESCRIPTION','QTY','RATE','AMOUNT'].forEach((h,i)=>tx(h,(C[i]+C[i+1])/2,yy+14,{align:'center'})); return yy+21; };
+  let top=head(y); y=top+14;
+  const close=endY=>{ pen(); doc.rect(M,top,R-M,endY-top); for(let i=1;i<4;i++) doc.line(C[i],top,C[i],endY); };
+  const brk=()=>{ close(y-6); footer(); doc.addPage(); top=head(40); y=top+14; };
+  const items=(v.items||[]).filter(i=>i.desc||i.details||+i.rate);
+  for(const it of items){
+    set('times','italic',10);
+    const dw=C[1]-C[0]-10;
+    const lines=[...(it.desc?wrap(it.desc,dw):[]), ...String(it.details||'').split('\n').flatMap(p=>p.trim()===''?['']:wrap(p,dw))];
+    const itemH=lines.length*LH; if(y+LH>LIMIT || (y+itemH>LIMIT && itemH<LIMIT-120)) brk();
+    set('times','italic',10); tx(String(it.qty??''), C[1]+6, y); tx(money(it.rate), C[2]+6, y); tx(money((+it.qty||0)*(+it.rate||0)), C[3]+6, y);
+    lines.forEach((l,k)=>{ if(y+LH>LIMIT){ brk(); set('times','italic',10); } tx(l, C[0]+5, y); if(k<lines.length-1) y+=LH; });
+    y+=LH+9;
+  }
+  const rows=[['SUBTOTAL', money(t.sub)], [+v.taxRate?`SALES TAX (${fmtRate(v.taxRate)})`:'SALES TAX', +v.taxRate?money(t.tax):(v.taxExempt?'Exempt':money(0))]];
+  const paidRows = t.paid ? [['PAID', '-'+money(t.paid)], ['BALANCE DUE', money(t.balance)]] : [];
+  const totH = rows.length*20 + 30 + paidRows.length*20;
+  let bodyEnd=Math.max(y, top+200);
+  if(bodyEnd+totH>LIMIT){ bodyEnd=Math.max(y, top+30); close(bodyEnd); footer(); doc.addPage(); bodyEnd=40; }
+  else close(bodyEnd);
+  // totals block
+  const ty=bodyEnd; pen();
+  doc.rect(M, ty, C[2]-M, totH);
+  set('times','normal',7.5); tx('Note:', M+5, ty+11);
+  let ny=ty+24; set('times','italic',9.5);
+  wrap(v.notes||'', C[2]-M-14).slice(0, Math.max(0, Math.floor((totH-40)/11))).forEach(l=>{ tx(l, M+7, ny); ny+=11; });
+  if(s.invoiceThanks){ set('times','normal',10.5); tx(s.invoiceThanks, (M+C[2])/2, ty+totH-18, {align:'center', maxWidth:C[2]-M-16}); }
+  let ry=ty;
+  const row=(l,val,h,opt={})=>{ if(opt.fill){ doc.setFillColor(...CYAN); doc.rect(C[2],ry,R-C[2],h,'F'); } pen(); doc.rect(C[2],ry,C[3]-C[2],h); doc.rect(C[3],ry,R-C[3],h);
+    const big=!!opt.big; set('times','bold',big?13:(l.length>14?8:9.5)); tx(l, C[2]+5, ry+(big?18:13.5)); set('times',big?'bolditalic':'italic',big?13:10); tx(val, C[3]+6, ry+(big?18:13.5)); ry+=h; };
+  rows.forEach(([l,v2])=>row(l,v2,20));
+  row('TOTAL', money(t.total), 30, {fill:true, big:true});
+  paidRows.forEach(([l,v2],i)=>row(l,v2,20,{}));
+  footer();
+  // page 2: instructions
+  if(s.invoicePage2On!==false && String(s.invoicePage2||'').trim()) invoicePage2(doc, s, {W,H,set,tx,wrap});
+  return doc;
+}
+function invoicePage2(doc, s, {W,H,set,tx,wrap}){
+  const BLUE=[46,116,181], M=50;
+  const frame=()=>{ doc.setDrawColor(74,134,197); doc.setLineWidth(1.6); doc.rect(20,20,W-40,H-40); doc.setLineWidth(0.6); doc.rect(25,25,W-50,H-50); };
+  doc.addPage(); frame();
+  let y=40;
+  if(s.logo){ try{ const ip=doc.getImageProperties(s.logo); let w=280, h=w*ip.height/ip.width; if(h>115){ h=115; w=h*ip.width/ip.height; } doc.addImage(s.logo, ip.fileType||'JPEG', (W-w)/2, y, w, h); y+=h+28; }catch(e){ y+=10; } }
+  set('helvetica','bolditalic',17); tx(s.invoicePage2Title||'', W/2, y, {align:'center'}); y+=24;
+  const LIM=H-46, LH=13.4, w=W-2*M;
+  const need=n=>{ if(y+n>LIM){ doc.addPage(); frame(); y=50; } };
+  String(s.invoicePage2||'').replace(/\r/g,'').split(/\n\s*\n/).forEach(block=>{
+    const ls=block.split('\n'); let first=true;
+    ls.forEach(line=>{
+      const hm=line.match(/^#\s*(.+)$/);
+      if(hm){ need(LH*2); set('helvetica','italic',10,BLUE); y+= first?2:4; tx(hm[1].trim(), M, y); y+=LH+1; }
+      else if(line.trim()){ set('helvetica','italic',10,[25,25,25]); wrap(line.trim(), w).forEach(l=>{ need(LH); tx(l, M, y); y+=LH; }); }
+      first=false;
+    });
+    y+=5;
+  });
+}
+function sampleInvoice(){
+  const last=[...S.invoices].sort((a,b)=>(+b.number||0)-(+a.number||0))[0]; if(last) return last;
+  return {number:nextInvoiceNumber(), date:todayISO(), dueDate:todayISO(), customerId:(S.customers[0]||{}).id||'', taxRate:+settings().taxRate||0, notes:'', payments:[],
+    items:[{desc:'Exterior Window Wash', details:'Clean all exterior windows, only the outside glass will be cleaned.\n\n12 - Double hung windows\n2 - Sliding doors', qty:1, rate:350}]};
+}
+async function logoUpload(file){
+  if(file.size>8e6) return toast('That image is too large. Use one under 8 MB.','bad');
+  try{
+    const url=await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); });
+    const img=await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=()=>rej(new Error('bad image')); i.src=url; });
+    const sc=Math.min(1, 900/Math.max(img.width,img.height)); const cv=document.createElement('canvas'); cv.width=Math.round(img.width*sc); cv.height=Math.round(img.height*sc);
+    const g=cv.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,cv.width,cv.height); g.drawImage(img,0,0,cv.width,cv.height);
+    const data=cv.toDataURL('image/jpeg',0.88);
+    $('#s-logo').value=data; $('#s-logo-prev').innerHTML=`<img src="${data}" alt="Business logo">`; S.settingsDirty=true; toast('Logo ready. Click Save settings to keep it.');
+  }catch(e){ toast('Couldn\'t read that image. Try a PNG or JPG.','bad'); }
+}
+async function invoicePdfBlob(v){ const d=await invoicePdf(v); return d.output('blob'); }
+async function invoicePdfBase64(v){ const d=await invoicePdf(v); return d.output('datauristring').split(',')[1]; }
+
 function invoiceHTML(v){
   const s=settings(); const c=cust(v.customerId)||{}; const t=totals(v);
   const e=esc;
@@ -2914,7 +3077,7 @@ function invoiceHTML(v){
   <div style="text-align:right"><div style="font-size:22px;font-weight:700;color:#0A6884">INVOICE</div><div class="muted">#${e(v.number)}<br>Date: ${e(fmtDate(v.date))}<br>Due: ${e(fmtDate(v.dueDate))}</div></div></div>
   ${(()=>{ const b=billTo(c); return `<p style="margin-top:20px"><span class="muted">Bill to</span><br><strong>${e(b.name||b.company||'')}</strong>${b.company&&b.name?'<br>'+e(b.company):''}<br>${e(billAddress(b))}</p>${b.different&&fullAddress(c)?`<p class="muted" style="margin-top:-6px">Service address: ${e(fullAddress(c))}</p>`:''}`; })()}
   <table><thead><tr><th>Service</th><th class="n">Qty</th><th class="n">Rate</th><th class="n">Amount</th></tr></thead><tbody>
-  ${(v.items||[]).map(i=>`<tr><td>${e(i.desc)}</td><td class="n">${e(i.qty)}</td><td class="n">${money(i.rate)}</td><td class="n">${money((+i.qty||0)*(+i.rate||0))}</td></tr>`).join('')}</tbody></table>
+  ${(v.items||[]).map(i=>`<tr><td>${e(i.desc)}${i.details?`<div style="white-space:pre-wrap;color:#566974;font-size:13px">${e(i.details)}</div>`:''}</td><td class="n">${e(i.qty)}</td><td class="n">${money(i.rate)}</td><td class="n">${money((+i.qty||0)*(+i.rate||0))}</td></tr>`).join('')}</tbody></table>
   <div class="tot"><div><span>Subtotal</span><span>${money(t.sub)}</span></div>${+v.taxRate?`<div><span>Sales tax (${e(fmtRate(v.taxRate))})</span><span>${money(t.tax)}</span></div>`:v.taxExempt?'<div><span>Sales tax</span><span>Exempt</span></div>':''}<div class="big"><span>Total</span><span>${money(t.total)}</span></div>
   ${t.paid?`<div><span>Paid</span><span>-${money(t.paid)}</span></div><div class="big"><span>Balance due</span><span>${money(t.balance)}</span></div>`:''}</div>
   ${v.notes?`<div class="note">${e(v.notes)}</div>`:''}</body></html>`;
@@ -3129,7 +3292,9 @@ const F = {
     const services = fd.services.split('\n').map(l=>l.split('|').map(s=>s.trim())).filter(p=>p[0]).map(([name,price,unit])=>({name, price:+String(price||'0').replace(/[^\d.]/g,'')||0, unit:unit||''}));
     const templates = fd.templates.split('\n').map(l=>{ const i=l.indexOf('|'); return i<0?null:{name:l.slice(0,i).trim(), text:l.slice(i+1).trim()}; }).filter(x=>x&&x.name&&x.text);
     const emailTemplates=[...f.querySelectorAll('.etpl')].map(r=>({name:r.querySelector('.et-name').value.trim(), subject:r.querySelector('.et-subj').value.trim(), body:r.querySelector('.et-body').value})).filter(x=>x.name&&(x.subject||x.body.trim()));
-    const data={businessName:fd.businessName.trim()||'Your Window Co.', phone:fd.phone.trim(), email:fd.email.trim(), address:fd.address.trim(), taxRate:+fd.taxRate||0, termsDays:+fd.termsDays||0, dayCapacity:+fd.dayCapacity||0, invoiceStart:Math.max(1,parseInt(fd.invoiceStart,10)||1001), invoiceNote:fd.invoiceNote, services, templates, emailTemplates, updatedAt:Date.now()};
+    const serviceDescriptions={}; f.querySelectorAll('.svc-desc').forEach(t=>{ if(t.value.trim()) serviceDescriptions[t.dataset.name]=t.value.replace(/\s+$/,''); });
+    const data={...(S.settingsDoc||{}), logo:fd.logo||'', website:(fd.website||'').trim(), invoiceThanks:(fd.invoiceThanks||'').trim(), invoiceFooter:(fd.invoiceFooter||'').trim(), invoicePage2On:!!fd.invoicePage2On, invoicePage2Title:(fd.invoicePage2Title||'').trim(), invoicePage2:fd.invoicePage2||'', serviceDescriptions,
+      businessName:fd.businessName.trim()||'Your Window Co.', phone:fd.phone.trim(), email:fd.email.trim(), address:fd.address.trim(), taxRate:+fd.taxRate||0, termsDays:+fd.termsDays||0, dayCapacity:+fd.dayCapacity||0, invoiceStart:Math.max(1,parseInt(fd.invoiceStart,10)||1001), invoiceNote:fd.invoiceNote, services, templates, emailTemplates, updatedAt:Date.now()};
     if(await write(()=>db.doc('settings/app').set(data),'Settings saved')){ S.settingsDirty=false; render(); }
   },
 };
@@ -3743,6 +3908,7 @@ document.addEventListener('change', e=>{
   else if(t.id==='bk-usedate'){ const w=$('#bk-date-wrap'); if(w) w.hidden=!t.checked; }
   else if(t.id==='c-billsame'){ const b=$('#c-billing'); if(b){ b.hidden=t.checked; if(!t.checked){ const f=$('#c-bname'); if(f) f.focus(); } } }
   else if(t.closest && t.closest('form[data-form=job]') && (['j-repeat','j-status','j-date','j-tbd','rep-until','rep-count'].includes(t.id) || t.name==='repEnd')){ syncTbd(); updateRepPreview(); }
+  else if(t.id==='s-logo-file' && t.files && t.files[0]){ logoUpload(t.files[0]); t.value=''; }
   else if(t.id==='j-taxex'||t.id==='i-taxex'){ t.dataset.auto='0'; if(t.id==='i-taxex') syncInvTax(); recalcItems(); }
   else if(t.id==='j-cust'||t.id==='i-cust'){ syncTaxFromCustomer(t.id==='j-cust'?'j-taxex':'i-taxex', t.value); if(t.id==='j-cust') updateRepPreview(); }
   else if(t.id==='rep-pick'){ S.rep.id=t.value; render(); }
@@ -3759,7 +3925,7 @@ document.addEventListener('change', e=>{
   else if(t.id==='imp-create'){ IMP.createCust=t.checked; openDrawer('importCust',{},true); }
   else if(t.id==='imp-combine'){ IMP.combine=t.checked; openDrawer('importCust',{},true); }
   else if(t.id==='xj-status'||t.id==='xj-from'||t.id==='xj-to'){ const n=jobsForExport().length; const el=$('#xj-count'); if(el) el.textContent=`${n} job${n===1?'':'s'} match.`; }
-  else if(t.classList.contains('it-svc') && t.value!==''){ const s=settings().services[+t.value]; const r=t.closest('.item-row'); r.querySelector('.it-desc').value=s.name; r.querySelector('.it-rate').value=s.price; recalcItems(); }
+  else if(t.classList.contains('it-svc') && t.value!==''){ const s=settings().services[+t.value]; const r=t.closest('.item-row'); r.querySelector('.it-desc').value=s.name; r.querySelector('.it-rate').value=s.price; const d=r.querySelector('.it-details'); const std=(settings().serviceDescriptions||{})[s.name]; if(d && std && !d.value.trim()) d.value=std; recalcItems(); }
   else if(t.id==='e-tpl' || t.id==='e-cust'){
     const f=t.form; const cid=$('#e-cust').value; const c=cust(cid); const tpl=settings().emailTemplates.find(x=>x.name===$('#e-tpl').value);
     if(t.id==='e-cust') $('#e-to').value = (f.dataset.inv ? billTo(c).email : c?.email)||'';
