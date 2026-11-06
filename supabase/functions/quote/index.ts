@@ -40,13 +40,16 @@ Deno.serve(async (req) => {
     const items = ((j.items || []) as Rec[]).filter((i) => i.desc || i.rate);
     const resp = (j.quoteResponse || null) as Rec | null;
     const state = resp ? String(resp.decision) : j.status === "Quoted" ? "open" : "closed";
+    const exempt = !!j.taxExempt || (!(j.taxRate != null && j.taxRate !== "") && !!c?.taxExempt);
+    const rate = exempt ? 0 : (j.taxRate != null && j.taxRate !== "" ? Number(j.taxRate) || 0 : Number(s.taxRate) || 0);
+    const sub = Math.round(total(items) * 100) / 100, taxAmt = Math.round(sub * rate) / 100, grand = Math.round((sub + taxAmt) * 100) / 100;
 
     const view = () => ({
       ok: true, state,
       business: { name: s.businessName || "", phone: s.phone || "", email: s.email || "", address: s.address || "" },
       customer: { first: firstName(c), address: address(c) },
       items: items.map((i) => ({ desc: String(i.desc || ""), qty: Number(i.qty) || 0, rate: Number(i.rate) || 0 })),
-      total: total(items), date: String(j.date || ""), response: resp ? { decision: resp.decision, at: resp.at } : null,
+      subtotal: sub, taxRate: rate, tax: taxAmt, taxExempt: exempt, total: grand, date: String(j.date || ""), response: resp ? { decision: resp.decision, at: resp.at } : null,
     });
 
     if (body.action === "get") return json(view());
@@ -74,11 +77,11 @@ Deno.serve(async (req) => {
         let to = String(s.email || "").trim();
         if (!/^\S+@\S+\.\S+$/.test(to)) { const { data: own } = await admin.from("profiles").select("email").eq("role", "owner").eq("active", true).limit(1); to = own?.[0]?.email || ""; }
         if (key && from && to) {
-          const name = custName(c); const amt = money(total(items));
+          const name = custName(c); const amt = money(grand);
           const what = decision === "accepted" ? (booked ? `accepted and is booked for ${fmtDate(String(j.date))}` : "accepted. The date is TBD, so pick one in the app to book it") : "declined";
           const subject = `Quote ${decision}: ${name} (${amt})`;
-          const text = `${name} ${what}.\n\nServices:\n${items.map((i) => `- ${i.desc}${Number(i.qty) > 1 ? ` x${i.qty}` : ""}: ${money((Number(i.qty) || 0) * (Number(i.rate) || 0))}`).join("\n")}\nTotal: ${amt}\n${note ? `\nTheir note: "${note}"\n` : ""}\nAddress: ${address(c) || "none on file"}${c?.phone ? `\nPhone: ${c.phone}` : ""}\n\nOpen the app: https://purewash-app.vercel.app`;
-          const html = `<div style="font-family:Arial,sans-serif;font-size:15px;color:#13233f;line-height:1.5"><p style="font-size:17px"><strong>${esc(name)}</strong> ${esc(what)}.</p><p>${items.map((i) => `${esc(i.desc)}: ${esc(money((Number(i.qty) || 0) * (Number(i.rate) || 0)))}`).join("<br>")}<br><strong>Total: ${esc(amt)}</strong></p>${note ? `<p style="background:#f2f5fa;padding:10px 12px;border-radius:8px">Their note: “${esc(note)}”</p>` : ""}<p>${esc(address(c))}${c?.phone ? `<br>${esc(c.phone)}` : ""}</p><p><a href="https://purewash-app.vercel.app" style="background:#2B5190;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;display:inline-block">Open PureWash</a></p></div>`;
+          const text = `${name} ${what}.\n\nServices:\n${items.map((i) => `- ${i.desc}${Number(i.qty) > 1 ? ` x${i.qty}` : ""}: ${money((Number(i.qty) || 0) * (Number(i.rate) || 0))}`).join("\n")}${taxAmt ? `\nSales tax: ${money(taxAmt)}` : ""}\nTotal: ${amt}\n${note ? `\nTheir note: "${note}"\n` : ""}\nAddress: ${address(c) || "none on file"}${c?.phone ? `\nPhone: ${c.phone}` : ""}\n\nOpen the app: https://purewash-app.vercel.app`;
+          const html = `<div style="font-family:Arial,sans-serif;font-size:15px;color:#13233f;line-height:1.5"><p style="font-size:17px"><strong>${esc(name)}</strong> ${esc(what)}.</p><p>${items.map((i) => `${esc(i.desc)}: ${esc(money((Number(i.qty) || 0) * (Number(i.rate) || 0)))}`).join("<br>")}${taxAmt ? `<br>Sales tax: ${esc(money(taxAmt))}` : ""}<br><strong>Total: ${esc(amt)}</strong></p>${note ? `<p style="background:#f2f5fa;padding:10px 12px;border-radius:8px">Their note: “${esc(note)}”</p>` : ""}<p>${esc(address(c))}${c?.phone ? `<br>${esc(c.phone)}` : ""}</p><p><a href="https://purewash-app.vercel.app" style="background:#2B5190;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;display:inline-block">Open PureWash</a></p></div>`;
           await fetch("https://api.resend.com/emails", { method: "POST", headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ from, to: [to], subject, text, html }) });
         }
       } catch (_) { /* the in-app alert still shows */ }
