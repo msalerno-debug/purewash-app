@@ -2947,11 +2947,11 @@ function addrLines(str){ const t=String(str||'').trim(); if(!t) return []; const
 const cityLine = o => [[o.city,o.state].filter(Boolean).join(', '), o.zip].filter(Boolean).join(' ');
 function pdfSafe(t){ return String(t??'').replace(/[′ʼ]/g,"'").replace(/[^\x09\x0A\x0D\x20-\x7E\xA0-\xFF‘’“”–—…•€]/g,''); }
 
-const LOGO={};
+const LOGO_DATA={};
 async function logoData(src){
   if(!src || src.startsWith('data:')) return src||'';
-  if(LOGO[src]) return LOGO[src];
-  try{ const r=await fetch(src); if(!r.ok) return ''; const b=await r.blob(); return LOGO[src]=await new Promise(res=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=()=>res(''); fr.readAsDataURL(b); }); }catch(e){ return ''; }
+  if(LOGO_DATA[src]) return LOGO_DATA[src];
+  try{ const r=await fetch(src); if(!r.ok) return ''; const type=(r.headers.get('content-type')||'image/jpeg').split(';')[0]; const u8=new Uint8Array(await r.arrayBuffer()); let bin=''; for(let i=0;i<u8.length;i+=0x8000) bin+=String.fromCharCode.apply(null, u8.subarray(i,i+0x8000)); return LOGO_DATA[src]=`data:${type};base64,${btoa(bin)}`; }catch(e){ return ''; }
 }
 async function invoicePdf(v){
   const {jsPDF}=await loadJsPDF();
