@@ -7,6 +7,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="PureWash">
 <title>PureWash</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -100,6 +103,16 @@ button,input,select,textarea{font:inherit;color:inherit}
   .main{padding-block:28px 48px;padding-left:32px;padding-right:32px}
 }
 .logo{width:34px;height:34px;flex:none}
+.logo-card{display:inline-flex;align-items:center;justify-content:center;background:#fff;border-radius:10px;padding:6px 10px;line-height:0}
+.logo-card img{display:block;max-width:100%;height:auto;object-fit:contain}
+.side .brand-img{padding:2px 4px 18px}
+.side .logo-card{width:100%;padding:8px 10px}
+.side .logo-card img{max-height:70px}
+.topbar .logo-card{padding:3px 8px;border:1px solid var(--line)}
+.topbar .logo-card img{height:34px;width:auto;max-width:150px}
+.auth-brand .logo-card{padding:10px 14px;border:1px solid var(--line)}
+.auth-brand .logo-card img{width:250px;max-width:100%;max-height:110px}
+.auth-brand{justify-content:center}
 
 /* page parts */
 .page-head{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;justify-content:space-between}
@@ -170,7 +183,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .notice.bad{background:var(--bad-soft);color:var(--bad)}
 .notice.good{background:var(--good-soft);color:var(--good)}
 .logo-pick{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-.logo-prev{width:220px;height:90px;border:1px dashed var(--line);border-radius:10px;display:grid;place-items:center;background:#fff;overflow:hidden}
+.logo-prev{width:240px;height:96px;border:1px dashed var(--line);border-radius:10px;display:grid;place-items:center;background:#fff;overflow:hidden;padding:6px}
 .logo-prev img{max-width:100%;max-height:100%;object-fit:contain}
 .qbo-row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:8px 12px;border:1px solid var(--line);border-radius:12px}
 .qbo-steps{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--surface-2)}
@@ -555,14 +568,14 @@ td.selcol,th.selcol{width:36px;padding-right:0}
 
 <div class="app" id="app" hidden>
   <aside class="side" aria-label="Main navigation">
-    <div class="brand"><span id="logo1"></span><div style="min-width:0"><div class="brand-name" data-bizname>Your Window Co.</div><div class="brand-sub">Field office</div></div></div>
+    <div class="brand brand-img"><span class="logo-card" id="logo1"></span><span class="sr" data-bizname>Your Window Co.</span></div>
     <div id="sidenav" style="display:flex;flex-direction:column;gap:2px"></div>
     <div class="grow"></div>
     <div class="side-foot"><button class="nav" data-act="nav" data-view="settings" id="nav-settings" style="width:100%"></button></div>
   </aside>
   <div style="min-width:0;display:flex;flex-direction:column">
     <header class="topbar">
-      <div class="brand"><span id="logo2"></span><div style="min-width:0"><div class="brand-name" data-bizname>Your Window Co.</div></div></div>
+      <div class="brand brand-img"><span class="logo-card" id="logo2"></span><span class="sr" data-bizname>Your Window Co.</span></div>
       <div class="spacer"></div>
       <button class="icon-btn" data-act="nav" data-view="fleet" aria-label="Fleet" id="tb-fleet"></button>
       <button class="icon-btn" data-act="nav" data-view="reports" aria-label="Reports" id="tb-rep"></button>
@@ -915,7 +928,7 @@ try{ new MutationObserver(()=>{ if(getTheme()!=='system') applyTheme(); }).obser
 /* ---------- shell ---------- */
 const NAV = [['today','Dashboard'],['calendar','Calendar'],['jobs','Jobs'],['customers','Customers'],['photos','Photos'],['fleet','Fleet'],['invoices','Invoices'],['messages','Messages'],['reports','Reports']];
 function renderShell(){
-  $('#logo1').innerHTML=LOGO; $('#logo2').innerHTML=LOGO;
+  paintLogos();
   const navBtn = ([v,l]) => { const badge = v==='invoices' ? S.invoices.filter(x=>invStatus(x)==='Overdue').length : v==='messages' ? inboxCount() : v==='fleet' ? fleetAttention().length : 0;
     return `<button class="nav" data-act="nav" data-view="${v}" ${S.view===v?'aria-current="page"':''}>${I[v]}<span style="flex:1">${l}</span>${badge?`<span class="nav-badge" aria-label="${badge} ${v==='messages'?'unread':v==='fleet'?'need attention':'overdue'}">${badge}</span>`:''}</button>`; };
   const nav = NAV.filter(([v])=> S.role!=='crew' || !['invoices','messages','reports'].includes(v));
@@ -926,7 +939,7 @@ function renderShell(){
   $('#tabbar').style.gridTemplateColumns = `repeat(${tabs.length},1fr)`;
   $('#tabbar').innerHTML = tabs.map(([v,l])=>`<button class="tab" data-act="nav" data-view="${v}" ${S.view===v?'aria-current="page"':''}>${I[v]}${l}</button>`).join('');
   { const u=S.role!=='crew'?inboxCount():0; $('#tb-msg').innerHTML=I.messages+(u?`<span class="tb-dot" aria-label="${u} unread">${u>9?'9+':u}</span>`:''); } { const n=fleetAttention().length; $('#tb-fleet').innerHTML=I.fleet+(n?`<span class="tb-dot" aria-label="${n} vehicle alerts">${n>9?'9+':n}</span>`:''); } $('#tb-rep').innerHTML=I.reports; $('#tb-set').innerHTML=I.settings;
-  document.querySelectorAll('[data-bizname]').forEach(el=>el.textContent=settings().businessName||'Your Window Co.');
+  document.querySelectorAll('[data-bizname]').forEach(el=>el.textContent=settings().businessName||'Your Window Co.'); paintLogos();
 }
 function banner(){
   if(S.dbState==='connecting') return `<div class="notice info">Connecting to your shared records…</div>`;
@@ -1642,9 +1655,9 @@ function viewSettings(){
     <h2 style="margin-top:22px">Invoice PDF</h2>
     <div class="fgrid">
       <div class="field full"><span class="lbl">Logo</span>
-        <div class="logo-pick"><div class="logo-prev" id="s-logo-prev">${s.logo?`<img src="${esc(s.logo)}" alt="Business logo">`:'<span class="muted">No logo yet</span>'}</div>
-          ${ro?'':`<div class="btnrow"><label class="btn sm" for="s-logo-file">Upload logo</label><input type="file" id="s-logo-file" accept="image/png,image/jpeg,image/webp" hidden>${s.logo?'<button type="button" class="btn sm ghost" data-act="logoRemove">Remove</button>':''}</div>`}</div>
-        <input type="hidden" name="logo" id="s-logo" value="${esc(s.logo||'')}"><span class="hint">Shown at the top of invoices and on the instructions page.</span></div>
+        <div class="logo-pick"><div class="logo-prev" id="s-logo-prev"><img src="${esc(s.logo||DEFAULT_LOGO)}" alt="Business logo"></div>
+          ${ro?'':`<div class="btnrow"><label class="btn sm" for="s-logo-file">Upload a different logo</label><input type="file" id="s-logo-file" accept="image/png,image/jpeg,image/webp" hidden>${s.logo&&s.logo!==DEFAULT_LOGO?'<button type="button" class="btn sm ghost" data-act="logoRemove">Use the PureWash logo</button>':''}</div>`}</div>
+        <input type="hidden" name="logo" id="s-logo" value="${esc(s.logo||'')}"><span class="hint">Used in the app's menu and sign-in screen, on invoices (both pages) and on the customer quote page. A PNG with a transparent background looks best. Click <strong>Save settings</strong> after uploading.</span></div>
       <div class="field"><label for="s-web">Website</label><input type="text" id="s-web" name="website" value="${esc(s.website||'')}" placeholder="www.purewash.net" ${ro?'disabled':''}></div>
       <div class="field"><label for="s-thanks">Thank-you line</label><input type="text" id="s-thanks" name="invoiceThanks" value="${esc(s.invoiceThanks||'')}" ${ro?'disabled':''}></div>
       <div class="field full"><label for="s-foot">Fine print at the bottom</label><textarea id="s-foot" name="invoiceFooter" style="min-height:60px" ${ro?'disabled':''}>${esc(s.invoiceFooter||'')}</textarea></div>
@@ -2898,7 +2911,7 @@ const A = {
     S.customers.forEach(c=>{ const b=billTo(c); rows.push([fullName(c)||c.company,nameParts(c).first,nameParts(c).last,c.company||b.company,b.email,b.phone,b.street,b.city,b.state,b.zip,[b.different?`Bill to: ${[b.name,b.company].filter(Boolean).join(', ')}`:'', c.gate,c.notes].filter(Boolean).join(' | ')]); });
     await saveFile(`quickbooks-customers-${todayISO()}.csv`, toCSV(rows));
   },
-  logoRemove(){ $('#s-logo').value=''; $('#s-logo-prev').innerHTML='<span class="muted">No logo yet</span>'; S.settingsDirty=true; toast('Logo removed. Click Save settings to keep the change.'); },
+  logoRemove(){ $('#s-logo').value=DEFAULT_LOGO; $('#s-logo-prev').innerHTML=`<img src="${DEFAULT_LOGO}" alt="Business logo">`; S.settingsDirty=true; toast('Switched back to the PureWash logo. Click Save settings to keep it.'); },
   async downloadInvoice(d,el){ const v=inv(d.id); if(!v) return; if(el){ el.disabled=true; } try{ const blob=await invoicePdfBlob(v); await saveFile(`Invoice-${v.number}.pdf`, blob); }catch(e){ toast(e.message||'Couldn\'t make the PDF.','bad'); } finally{ if(el&&el.isConnected) el.disabled=false; } },
   async viewInvoicePdf(d){ const v=d.id==='sample'?sampleInvoice():inv(d.id); if(!v) return; const w=window.open('','_blank'); try{ const blob=await invoicePdfBlob(v); const url=URL.createObjectURL(blob); if(w) w.location.href=url; else location.href=url; setTimeout(()=>URL.revokeObjectURL(url), 120000); }catch(e){ if(w) w.close(); toast(e.message||'Couldn\'t make the PDF.','bad'); } },
   setTheme(d){ try{ if(d.t==='system') localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY,d.t); }catch(e){ toast('This browser won\'t save the choice, so it resets next visit.','bad'); } if(d.t!=='system'){ document.documentElement.setAttribute('data-theme',d.t); } else applyTheme(); render(); },
@@ -2955,7 +2968,7 @@ async function logoData(src){
 }
 async function invoicePdf(v){
   const {jsPDF}=await loadJsPDF();
-  const s={...settings()}; s.logo=await logoData(s.logo); const c=cust(v.customerId)||{}; const t=totals(v); const b=billTo(c);
+  const s={...settings()}; s.logo=await logoData(!s.logo || s.logo===DEFAULT_LOGO ? '/purewash-logo-invoice.jpg' : s.logo); const c=cust(v.customerId)||{}; const t=totals(v); const b=billTo(c);
   const doc=new jsPDF({unit:'pt', format:'letter', compress:true});
   const W=612, H=792, M=36, R=W-M, INK=[20,24,32], CYAN=[0,176,240];
   const set=(font,style,size,color=INK)=>{ doc.setFont(font,style); doc.setFontSize(size); doc.setTextColor(...color); };
@@ -3056,8 +3069,8 @@ async function logoUpload(file){
     const url=await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); });
     const img=await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=()=>rej(new Error('bad image')); i.src=url; });
     const sc=Math.min(1, 900/Math.max(img.width,img.height)); const cv=document.createElement('canvas'); cv.width=Math.round(img.width*sc); cv.height=Math.round(img.height*sc);
-    const g=cv.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,cv.width,cv.height); g.drawImage(img,0,0,cv.width,cv.height);
-    const data=cv.toDataURL('image/jpeg',0.88);
+    const g=cv.getContext('2d'); const alpha=/png|webp|gif/i.test(file.type); if(!alpha){ g.fillStyle='#fff'; g.fillRect(0,0,cv.width,cv.height); } g.drawImage(img,0,0,cv.width,cv.height);
+    const data=alpha ? cv.toDataURL('image/png') : cv.toDataURL('image/jpeg',0.88);
     $('#s-logo').value=data; $('#s-logo-prev').innerHTML=`<img src="${data}" alt="Business logo">`; S.settingsDirty=true; toast('Logo ready. Click Save settings to keep it.');
   }catch(e){ toast('Couldn\'t read that image. Try a PNG or JPG.','bad'); }
 }
@@ -3994,7 +4007,14 @@ document.addEventListener('mousedown', e=>{ const o=e.target.closest('.cpick-opt
 window.addEventListener('resize', ()=>document.querySelectorAll('input[data-cmp]').forEach(updateCmp));
 
 /* ---------- sign-in & boot ---------- */
-function authCard(inner){ return `<div class="auth"><div class="auth-card"><div class="auth-brand">${LOGO}<span>${esc(settings().businessName==='Your Window Co.'?'PureWash':settings().businessName)}</span></div>${inner}</div></div>`; }
+function authCard(inner){ return `<div class="auth"><div class="auth-card"><div class="auth-brand"><span class="logo-card"><img src="${esc(appLogo())}" alt="${esc(settings().businessName==='Your Window Co.'?'PureWash':settings().businessName)}"></span></div>${inner}</div></div>`; }
+const DEFAULT_LOGO='/purewash-logo.png';
+function appLogo(){ let l=settings().logo; if(!l){ try{ l=localStorage.getItem('pw.logo')||''; }catch(e){} } return l||DEFAULT_LOGO; }
+function paintLogos(){
+  const src=appLogo(), name=settings().businessName||'PureWash';
+  try{ if(settings().logo) localStorage.setItem('pw.logo', settings().logo); }catch(e){}
+  ['#logo1','#logo2'].forEach(id=>{ const el=$(id); if(!el) return; const img=el.querySelector('img'); if(img && img.getAttribute('src')===src) return; el.innerHTML=`<img src="${esc(src)}" alt="${esc(name)}" onerror="this.onerror=null;this.src='${DEFAULT_LOGO}'">`; });
+}
 function showAuth(mode, msg){
   document.getElementById('app').hidden=true; const root=document.getElementById('auth-root'); root.hidden=false;
   if(mode==='setup') root.innerHTML=authCard(`<div><h1>Create the owner account</h1><p class="muted" style="margin-top:6px">This is the first sign-in. The account you create here becomes the owner, with access to everything.</p></div>

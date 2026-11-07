@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
-<title>Your Quote</title>
+<title>Your Quote</title><link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png"><link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -15,6 +15,8 @@
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased}
 .wrap{max-width:640px;margin:0 auto;padding:28px 16px 48px}
 .brand{font-weight:800;font-size:1.25rem;letter-spacing:-.01em}
+.qhead{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.qlogo{display:block;width:260px;max-width:80%;height:auto;background:#fff;border-radius:12px;padding:8px 12px}
 .sub{color:var(--muted);font-size:.9rem}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px;margin-top:18px;box-shadow:0 1px 2px rgba(19,35,63,.05)}
 h1{font-size:1.5rem;line-height:1.25;margin:0 0 6px;letter-spacing:-.015em}
@@ -64,7 +66,8 @@ function render(){
   if(!Q){ app.innerHTML=`<div class="card"><h1>Quote not found</h1><p class="sub">${esc(err||'This link may be incomplete. Please use the button in your email, or contact us.')}</p></div>`; return; }
   const b=Q.business, name=b.name||'Your quote';
   document.title=`${name} quote`;
-  const head=`<div class="brand">${esc(name)}</div>${b.address?`<div class="sub">${esc(b.address)}</div>`:''}`;
+  const logo=b.logo?`<img class="qlogo" src="${esc(b.logo)}" alt="${esc(name)}">`:`<div class="brand">${esc(name)}</div>`;
+  const head=`<div class="qhead">${logo}${b.address?`<div class="sub">${esc(b.address)}</div>`:''}</div>`;
   if(Q.state==='accepted'||Q.state==='declined'){
     const ok=Q.state==='accepted';
     app.innerHTML=`${head}<div class="card done ${ok?'ok':'dec'}"><div class="ic" aria-hidden="true">${ok?'✓':'✕'}</div><h1>${ok?'Thank you, quote accepted':'Quote declined'}</h1><p class="sub">${ok?(Q.date?`You're on our schedule for <strong>${esc(fmtDate(Q.date))}</strong>. We'll be in touch before the visit.`:'We\'ll contact you shortly to pick a date that works.'):'Thanks for letting us know. If anything changes, we\'d be glad to help.'}</p></div><p class="foot">${contact()}</p>`;

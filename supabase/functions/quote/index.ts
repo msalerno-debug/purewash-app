@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
 
     const view = () => ({
       ok: true, state,
-      business: { name: s.businessName || "", phone: s.phone || "", email: s.email || "", address: s.address || "" },
+      business: { name: s.businessName || "", phone: s.phone || "", email: s.email || "", address: s.address || "", logo: (() => { const l = String(s.logo || "/purewash-logo.png"); return l.startsWith("/") ? "https://purewash-app.vercel.app" + l : l; })() },
       customer: { first: firstName(c), address: address(c) },
       items: items.map((i) => ({ desc: String(i.desc || ""), details: String(i.details || ""), qty: Number(i.qty) || 0, rate: Number(i.rate) || 0 })),
       subtotal: sub, taxRate: rate, tax: taxAmt, taxExempt: exempt, total: grand, date: String(j.date || ""), response: resp ? { decision: resp.decision, at: resp.at } : null,
