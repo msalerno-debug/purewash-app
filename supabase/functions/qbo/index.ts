@@ -157,7 +157,9 @@ class Pusher {
     if (!row) return { id, ok: false, error: "Invoice not found." };
     const v = row.data as Rec;
     const sub = r2((v.items || []).reduce((s: number, i: Rec) => s + (Number(i.qty) || 0) * (Number(i.rate) || 0), 0));
-    const total = r2(sub + r2(sub * (Number(v.taxRate) || 0) / 100));
+    const dv = Number(v.discValue) || 0;
+    const disc = !v.discType || dv <= 0 || sub <= 0 ? 0 : v.discType === "pct" ? r2(sub * Math.min(dv, 100) / 100) : Math.min(r2(dv), sub);
+    const total = r2((sub - disc) + r2((sub - disc) * (Number(v.taxRate) || 0) / 100));
     if (v.status === "Void") {
       if (!v.qbo?.id) return { id, ok: true, skipped: "Voided, so it wasn't sent." };
       const cur = await this.qb.req("GET", `invoice/${v.qbo.id}`);
@@ -177,8 +179,9 @@ class Pusher {
       BillEmail: info.email ? { Address: info.email } : undefined,
       CustomerMemo: v.notes ? { value: String(v.notes).slice(0, 1000) } : undefined,
       PrivateNote: "Sent from the PureWash app",
-      Line: await Promise.all(lines.map(async (i: Rec) => ({ DetailType: "SalesItemLineDetail", Amount: r2((Number(i.qty) || 0) * (Number(i.rate) || 0)), Description: String(i.desc || "").slice(0, 4000),
-        SalesItemLineDetail: { ItemRef: { value: await this.item(String(i.desc || "")) }, Qty: Number(i.qty) || 0, UnitPrice: Number(i.rate) || 0, ...(withTax ? { TaxCodeRef: { value: taxed ? "TAX" : "NON" } } : {}) } }))),
+      Line: await Promise.all(lines.map(async (i: Rec) => ({ DetailType: "SalesItemLineDetail", Amount: r2((Number(i.qty) || 0) * (Number(i.rate) || 0)), Description: [String(i.desc || ""), String(i.details || "")].filter(Boolean).join("\n").slice(0, 4000),
+        SalesItemLineDetail: { ItemRef: { value: await this.item(String(i.desc || "")) }, Qty: Number(i.qty) || 0, UnitPrice: Number(i.rate) || 0, ...(withTax ? { TaxCodeRef: { value: taxed ? "TAX" : "NON" } } : {}) } }))).then((ls: Rec[]) => disc ? [...ls, { DetailType: "DiscountLineDetail", Amount: disc, Description: String(v.discNote || "Discount").slice(0, 4000), DiscountLineDetail: v.discType === "pct" ? { PercentBased: true, DiscountPercent: Math.min(dv, 100) } : { PercentBased: false } }] : ls),
+      ...(disc ? { ApplyTaxAfterDiscount: true } : {}),
     });
     let qbId = v.qbo?.id ? String(v.qbo.id) : "", linked = false, syncToken = "";
     if (qbId) { try { const cur = await this.qb.req("GET", `invoice/${qbId}`); syncToken = cur.Invoice.SyncToken; } catch (e) { rethrowFatal(e); qbId = ""; } }

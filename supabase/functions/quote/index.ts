@@ -42,14 +42,19 @@ Deno.serve(async (req) => {
     const state = resp ? String(resp.decision) : j.status === "Quoted" ? "open" : "closed";
     const exempt = !!j.taxExempt || (!(j.taxRate != null && j.taxRate !== "") && !!c?.taxExempt);
     const rate = exempt ? 0 : (j.taxRate != null && j.taxRate !== "" ? Number(j.taxRate) || 0 : Number(s.taxRate) || 0);
-    const sub = Math.round(total(items) * 100) / 100, taxAmt = Math.round(sub * rate) / 100, grand = Math.round((sub + taxAmt) * 100) / 100;
+    const sub = Math.round(total(items) * 100) / 100;
+    const dv = Number(j.discValue) || 0;
+    const disc = !j.discType || dv <= 0 || sub <= 0 ? 0 : j.discType === "pct" ? Math.round(sub * Math.min(dv, 100)) / 100 : Math.min(Math.round(dv * 100) / 100, sub);
+    const net = Math.round((sub - disc) * 100) / 100;
+    const taxAmt = Math.round(net * rate) / 100, grand = Math.round((net + taxAmt) * 100) / 100;
+    const discLabel = disc ? `Discount${j.discType === "pct" ? ` (${Number(dv.toFixed(2))}%)` : ""}${j.discNote ? `: ${String(j.discNote)}` : ""}` : "";
 
     const view = () => ({
       ok: true, state,
       business: { name: s.businessName || "", phone: s.phone || "", email: s.email || "", address: s.address || "", logo: (() => { const l = String(s.logo || "/purewash-logo.png"); return l.startsWith("/") ? "https://purewash-app.vercel.app" + l : l; })() },
       customer: { first: firstName(c), address: address(c) },
       items: items.map((i) => ({ desc: String(i.desc || ""), details: String(i.details || ""), qty: Number(i.qty) || 0, rate: Number(i.rate) || 0 })),
-      subtotal: sub, taxRate: rate, tax: taxAmt, taxExempt: exempt, total: grand, date: String(j.date || ""), response: resp ? { decision: resp.decision, at: resp.at } : null,
+      subtotal: sub, discount: disc, discountLabel: discLabel, taxRate: rate, tax: taxAmt, taxExempt: exempt, total: grand, date: String(j.date || ""), response: resp ? { decision: resp.decision, at: resp.at } : null,
     });
 
     if (body.action === "get") return json(view());
@@ -80,8 +85,8 @@ Deno.serve(async (req) => {
           const name = custName(c); const amt = money(grand);
           const what = decision === "accepted" ? (booked ? `accepted and is booked for ${fmtDate(String(j.date))}` : "accepted. The date is TBD, so pick one in the app to book it") : "declined";
           const subject = `Quote ${decision}: ${name} (${amt})`;
-          const text = `${name} ${what}.\n\nServices:\n${items.map((i) => `- ${i.desc}${Number(i.qty) > 1 ? ` x${i.qty}` : ""}: ${money((Number(i.qty) || 0) * (Number(i.rate) || 0))}`).join("\n")}${taxAmt ? `\nSales tax: ${money(taxAmt)}` : ""}\nTotal: ${amt}\n${note ? `\nTheir note: "${note}"\n` : ""}\nAddress: ${address(c) || "none on file"}${c?.phone ? `\nPhone: ${c.phone}` : ""}\n\nOpen the app: https://purewash-app.vercel.app`;
-          const html = `<div style="font-family:Arial,sans-serif;font-size:15px;color:#13233f;line-height:1.5"><p style="font-size:17px"><strong>${esc(name)}</strong> ${esc(what)}.</p><p>${items.map((i) => `${esc(i.desc)}: ${esc(money((Number(i.qty) || 0) * (Number(i.rate) || 0)))}`).join("<br>")}${taxAmt ? `<br>Sales tax: ${esc(money(taxAmt))}` : ""}<br><strong>Total: ${esc(amt)}</strong></p>${note ? `<p style="background:#f2f5fa;padding:10px 12px;border-radius:8px">Their note: “${esc(note)}”</p>` : ""}<p>${esc(address(c))}${c?.phone ? `<br>${esc(c.phone)}` : ""}</p><p><a href="https://purewash-app.vercel.app" style="background:#2B5190;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;display:inline-block">Open PureWash</a></p></div>`;
+          const text = `${name} ${what}.\n\nServices:\n${items.map((i) => `- ${i.desc}${Number(i.qty) > 1 ? ` x${i.qty}` : ""}: ${money((Number(i.qty) || 0) * (Number(i.rate) || 0))}`).join("\n")}${disc ? `\n${discLabel}: -${money(disc)}` : ""}${taxAmt ? `\nSales tax: ${money(taxAmt)}` : ""}\nTotal: ${amt}\n${note ? `\nTheir note: "${note}"\n` : ""}\nAddress: ${address(c) || "none on file"}${c?.phone ? `\nPhone: ${c.phone}` : ""}\n\nOpen the app: https://purewash-app.vercel.app`;
+          const html = `<div style="font-family:Arial,sans-serif;font-size:15px;color:#13233f;line-height:1.5"><p style="font-size:17px"><strong>${esc(name)}</strong> ${esc(what)}.</p><p>${items.map((i) => `${esc(i.desc)}: ${esc(money((Number(i.qty) || 0) * (Number(i.rate) || 0)))}`).join("<br>")}${disc ? `<br>${esc(discLabel)}: -${esc(money(disc))}` : ""}${taxAmt ? `<br>Sales tax: ${esc(money(taxAmt))}` : ""}<br><strong>Total: ${esc(amt)}</strong></p>${note ? `<p style="background:#f2f5fa;padding:10px 12px;border-radius:8px">Their note: “${esc(note)}”</p>` : ""}<p>${esc(address(c))}${c?.phone ? `<br>${esc(c.phone)}` : ""}</p><p><a href="https://purewash-app.vercel.app" style="background:#2B5190;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;display:inline-block">Open PureWash</a></p></div>`;
           await fetch("https://api.resend.com/emails", { method: "POST", headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ from, to: [to], subject, text, html }) });
         }
       } catch (_) { /* the in-app alert still shows */ }

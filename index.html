@@ -301,9 +301,28 @@ mark{background:var(--mark-soft);color:inherit;border-radius:2px;box-shadow:0 0 
 .bk-n{border:0;background:none;padding:0;text-align:left;font-weight:650;color:var(--ink);cursor:pointer;font-size:.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bk-n:hover{color:var(--accent)}
 .cal-daylist{display:none}
+.addr-sug{position:absolute;left:0;right:0;top:100%;z-index:60;margin-top:4px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
+.addr-opt{display:flex;flex-direction:column;gap:1px;padding:8px 12px;cursor:pointer;font-size:.9rem}
+.addr-opt span{color:var(--muted);font-size:.8rem}
+.addr-opt:hover,.addr-opt.on{background:var(--accent-soft)}
+.addr-by{font-size:.68rem;color:var(--muted);text-align:right;padding:3px 10px 5px;border-top:1px solid var(--line)}
+.cwx{display:flex;align-items:center;gap:4px;font-size:.74rem;color:var(--muted);line-height:1.2;flex-wrap:wrap}
+.cwx b{color:var(--ink);font-weight:600}.cwx i{font-style:normal}.cwx em{font-style:normal;color:#1E6FD9;font-weight:600}
+.cwx small{flex-basis:100%;font-size:.72rem}
+.cwx.wet em{color:#fff;background:#1E6FD9;border-radius:6px;padding:0 4px}
+.ccell.wet,.wcol.wet{background:linear-gradient(0deg,rgba(30,111,217,.07),rgba(30,111,217,.07)),var(--surface)}
+.coff{display:flex;gap:4px;align-items:baseline;width:100%;min-width:0;border:0;border-left:3px solid var(--bad);background:var(--bad-soft);color:var(--bad);border-radius:4px;padding:2px 6px;font-size:.72rem;font-weight:600;cursor:pointer;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.coff span{font-weight:400;opacity:.85}.coff.more{border:0;background:none;padding:0 2px}
+.off-list{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
+.wx-detail{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border:1px solid var(--line);border-radius:10px;margin-bottom:10px;font-size:.88rem}
+.wx-detail .big{font-size:1.7rem;line-height:1}.wx-detail div{display:flex;flex-direction:column;gap:2px}.wx-detail span{color:var(--muted)}
+.wx-detail.wet{border-color:#1E6FD9;background:rgba(30,111,217,.07)}.wx-detail .warn{color:#1E6FD9;font-weight:600}
+.wet-key{margin-right:10px;color:#1E6FD9;font-weight:600}
+.ccell.hasoff .cnum{text-decoration:underline;text-decoration-color:var(--bad);text-decoration-thickness:2px}
 @media(max-width:759px){
   .ccell{min-height:56px;padding:4px 2px;align-items:center}
   .cchips,.cload,.cadd{display:none}
+  .cwx{justify-content:center;gap:0}.cwx b,.cwx i,.cwx em,.cwx small{display:none}
   .cdots{display:flex}
   .chead{justify-content:center}
   .cal-dow{padding:6px 0;text-align:center;font-size:.62rem}
@@ -367,6 +386,8 @@ td.n,th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabula
 /* items */
 .items{display:flex;flex-direction:column;gap:8px}
 .item-row{display:grid;grid-template-columns:1.2fr 1.4fr 64px 84px 78px 34px;gap:6px;align-items:center}
+.disc-grid{display:grid;grid-template-columns:170px 110px 1fr;gap:6px}
+@media (max-width:560px){.disc-grid{grid-template-columns:1fr 1fr}.disc-grid #disc-note{grid-column:1/-1}}
 .item-row .it-details{grid-column:1 / -1;min-height:52px;font-size:.9rem;resize:vertical}
 .items .item-row + .item-row{border-top:1px dashed var(--line);padding-top:8px;margin-top:2px}
 .line-details{white-space:pre-wrap;color:var(--muted);font-size:.86rem;margin-top:2px}
@@ -661,7 +682,7 @@ const SOURCES = ['Referral','Google','Facebook','Nextdoor','Yard sign','Door han
 const PAY_METHODS = ['Card','Check','Cash','Zelle','Venmo','ACH','Other'];
 
 /* ---------- state ---------- */
-const S = {qbo:null, customers:[], jobs:[], invoices:[], photos:[], messages:[], voicemails:[], vmFilter:'all', vmLimit:50, vmConfirm:null, vmBusy:new Set(), vehicles:[], vehicle_logs:[], settingsDoc:null, view:'today',
+const S = {qbo:null, timeoff:[], wx:null, customers:[], jobs:[], invoices:[], photos:[], messages:[], voicemails:[], vmFilter:'all', vmLimit:50, vmConfirm:null, vmBusy:new Set(), vehicles:[], vehicle_logs:[], settingsDoc:null, view:'today',
   jobFilter:'upcoming', jobQuery:'', custQuery:'', custStatus:'All', photoQuery:'', invFilter:'Open', invQuery:'', msgQuery:'', msgChan:'all', msgTab:'conv', rep:{id:'summary', period:'ytd', from:'', to:''}, cal:{mode:'month', anchor:'', sel:null, showQuotes:true}, settingsDirty:false, dbState:'connecting',
   canWrite:null, canAdmin:false, uid:null, assetsOn:true, downloadsOn:true, role:null, profile:null, team:[], activity:null, integ:{email:false, sms:false}, sel:{jobs:new Set(), invoices:new Set()}, _visible:{jobs:[], invoices:[]}, setTab:'general', wipe:{open:false, typed:'', photos:false, messages:false, busy:false, result:null}, api:{loaded:false, loading:false, data:null, busy:{}, err:null}, mapsKey:null};
 // data, photo storage and downloads are defined in the Supabase data layer below
@@ -785,19 +806,23 @@ const itemsSummary = items => (items||[]).map(i=>i.desc).filter(Boolean).join(' 
 /* ---------- sales tax on quotes / jobs ---------- */
 const custExempt = id => { const c=cust(id); return !!(c && c.taxExempt); };
 function jobRate(j){ if(!j) return 0; if(j.taxExempt) return 0; if(j.taxRate!=null && j.taxRate!=='') return +j.taxRate||0; return custExempt(j.customerId) ? 0 : (+settings().taxRate||0); }
-function jobTotals(j){ const sub=Math.round(itemsTotal(j&&j.items)*100)/100; const rate=jobRate(j); const tax=Math.round(sub*rate)/100; return {sub, rate, tax, total:Math.round((sub+tax)*100)/100}; }
+function discOf(d, sub){ const v=+(d&&d.discValue)||0; if(!d || !d.discType || v<=0 || sub<=0) return 0; return d.discType==='pct' ? Math.round(sub*Math.min(v,100))/100 : Math.min(Math.round(v*100)/100, sub); }
+const discLabel = d => d && d.discType ? `Discount${d.discType==='pct'?` (${+(+d.discValue).toFixed(2)}%)`:''}${d.discNote?`: ${d.discNote}`:''}` : 'Discount';
+function jobTotals(j){ const sub=Math.round(itemsTotal(j&&j.items)*100)/100; const disc=discOf(j,sub); const net=Math.round((sub-disc)*100)/100; const rate=jobRate(j); const tax=Math.round(net*rate)/100; return {sub, disc, net, discLabel:discLabel(j), rate, tax, total:Math.round((net+tax)*100)/100}; }
 const jobTotal = j => jobTotals(j).total;
 const fmtRate = r => `${+(+r).toFixed(3)}%`;
 function totalsHtml(t, exempt){
-  return `<span>Subtotal</span><span class="n">${money(t.sub)}</span>${t.rate>0||t.tax>0?`<span>Sales tax (${esc(fmtRate(t.rate))})</span><span class="n">${money(t.tax)}</span>`:exempt?`<span>Sales tax</span><span class="n muted">Exempt</span>`:''}<span class="big">Total</span><span class="n big">${money(t.total)}</span>`;
+  return `<span>Subtotal</span><span class="n">${money(t.sub)}</span>${t.disc?`<span>${esc(t.discLabel)}</span><span class="n">−${money(t.disc)}</span>`:''}${t.rate>0||t.tax>0?`<span>Sales tax (${esc(fmtRate(t.rate))})</span><span class="n">${money(t.tax)}</span>`:exempt?`<span>Sales tax</span><span class="n muted">Exempt</span>`:''}<span class="big">Total</span><span class="n big">${money(t.total)}</span>`;
 }
 function totals(v){
   const sub = Math.round(itemsTotal(v.items)*100)/100;
-  const tax = Math.round(sub*(+v.taxRate||0))/100;
-  const total = Math.round((sub+tax)*100)/100;
+  const disc = discOf(v, sub);
+  const net = Math.round((sub-disc)*100)/100;
+  const tax = Math.round(net*(+v.taxRate||0))/100;
+  const total = Math.round((net+tax)*100)/100;
   const rate = +v.taxRate||0;
   const paid = Math.round((v.payments||[]).reduce((s,p)=>s+(+p.amount||0),0)*100)/100;
-  return {sub, tax, total, rate, paid, balance:Math.round((total-paid)*100)/100};
+  return {sub, disc, net, discLabel:discLabel(v), tax, total, rate, paid, balance:Math.round((total-paid)*100)/100};
 }
 function invStatus(v){
   if(v.status==='Void') return 'Void';
@@ -838,7 +863,7 @@ function svButtons(c, small){
 const SB_URL='https://quthcaplccvgpvlietyo.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1dGhjYXBsY2N2Z3B2bGlldHlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3MTM4ODMsImV4cCI6MjEwODI4OTg4M30.C4vsmsN7LhahIbwiCGdAy3Cwbl7FVbXV3mMZaS5fN5A';
 let sb=null;
-const STORE={customers:new Map(), jobs:new Map(), invoices:new Map(), photos:new Map(), messages:new Map(), voicemails:new Map(), vehicles:new Map(), vehicle_logs:new Map()};
+const STORE={customers:new Map(), jobs:new Map(), invoices:new Map(), photos:new Map(), messages:new Map(), voicemails:new Map(), vehicles:new Map(), vehicle_logs:new Map(), timeoff:new Map()};
 const genId = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random()).replace(/[^a-z0-9]/gi,'').slice(0,20);
 function pgErr(error){ const m=String(error&&error.message||''); if(error&&(error.code==='42501'||/row-level security|permission/i.test(m))) return {code:'invalid_argument', message:m}; if(/fetch|network/i.test(m)) return {code:'unavailable', message:m}; return {code:'unavailable', message:m}; }
 function applyLocal(col, id, body){ const m=STORE[col]; if(!m) return; if(body===null) m.delete(id); else m.set(id,{id,...body}); S[col]=[...m.values()]; scheduleRender(); }
@@ -1130,7 +1155,7 @@ const RP = {
   },
   summary(P){
     const months=monthsBetween(P.from,P.to); const row={}; months.forEach(m=>row[m]={n:0,inv:0,tax:0,col:0});
-    liveInvoices().forEach(v=>{ if(v.date>=P.from && v.date<=P.to){ const r=row[v.date.slice(0,7)]; if(r){ const t=totals(v); r.n++; r.inv+=t.sub; r.tax+=t.tax; } } });
+    liveInvoices().forEach(v=>{ if(v.date>=P.from && v.date<=P.to){ const r=row[v.date.slice(0,7)]; if(r){ const t=totals(v); r.n++; r.inv+=t.net; r.tax+=t.tax; } } });
     allPayments().forEach(p=>{ if(p.date>=P.from && p.date<=P.to){ const r=row[p.date.slice(0,7)]; if(r) r.col+=+p.amount||0; } });
     const sum=k=>months.reduce((a,m)=>a+row[m][k],0);
     const done=S.jobs.filter(j=>j.status==='Completed' && j.date>=P.from && j.date<=P.to);
@@ -1180,7 +1205,7 @@ const RP = {
   },
   tax(P){
     const months=monthsBetween(P.from,P.to); const row={}; months.forEach(m=>row[m]={sales:0,taxable:0,tax:0,cash:0});
-    liveInvoices().forEach(v=>{ const t=totals(v); if(v.date>=P.from && v.date<=P.to){ const r=row[v.date.slice(0,7)]; if(r){ r.sales+=t.sub; if(+v.taxRate>0) r.taxable+=t.sub; r.tax+=t.tax; } }
+    liveInvoices().forEach(v=>{ const t=totals(v); if(v.date>=P.from && v.date<=P.to){ const r=row[v.date.slice(0,7)]; if(r){ r.sales+=t.net; if(+v.taxRate>0) r.taxable+=t.net; r.tax+=t.tax; } }
       if(t.tax>0 && t.total>0) (v.payments||[]).forEach(p=>{ if(p.date>=P.from && p.date<=P.to){ const r=row[p.date.slice(0,7)]; if(r) r.cash+=(+p.amount||0)*t.tax/t.total; } }); });
     const sum=k=>months.reduce((a,m)=>a+row[m][k],0);
     return {kpis:[['Total sales',money(sum('sales')),'before tax'],['Taxable sales',money(sum('taxable')),''],['Tax invoiced',money(sum('tax')),'accrual basis'],['Tax collected',money(sum('cash')),'cash basis (from payments)']],
@@ -1192,7 +1217,7 @@ const RP = {
   },
   customers(P){
     const g={}; const R=cid=>g[cid] ||= {inv:0,col:0,jobs:0};
-    liveInvoices().forEach(v=>{ if(v.date>=P.from && v.date<=P.to) R(v.customerId).inv+=totals(v).sub; (v.payments||[]).forEach(p=>{ if(p.date>=P.from && p.date<=P.to) R(v.customerId).col+=+p.amount||0; }); });
+    liveInvoices().forEach(v=>{ if(v.date>=P.from && v.date<=P.to) R(v.customerId).inv+=totals(v).net; (v.payments||[]).forEach(p=>{ if(p.date>=P.from && p.date<=P.to) R(v.customerId).col+=+p.amount||0; }); });
     S.jobs.forEach(j=>{ if(j.status==='Completed' && j.date>=P.from && j.date<=P.to) R(j.customerId).jobs++; });
     const list=Object.entries(g).filter(([,r])=>r.inv||r.col||r.jobs).sort((a,b)=>b[1].inv-a[1].inv||b[1].col-a[1].col); const tot=list.reduce((a,[,r])=>a+r.inv,0); const max=list[0]?list[0][1].inv:0;
     const top=list.slice(0,25); const top5=list.slice(0,5).reduce((a,[,r])=>a+r.inv,0);
@@ -1226,7 +1251,7 @@ const RP = {
   },
   sources(P){
     const g={}; const custs=S.customers.filter(c=>{ const d=msISO(c.createdAt); return d && d>=P.from && d<=P.to; });
-    custs.forEach(c=>{ const k=c.source||'Not recorded'; const r=g[k] ||= {n:0,active:0,rev:0}; r.n++; if(c.status==='Active') r.active++; r.rev+=liveInvoices().filter(v=>v.customerId===c.id).reduce((a,v)=>a+totals(v).sub,0); });
+    custs.forEach(c=>{ const k=c.source||'Not recorded'; const r=g[k] ||= {n:0,active:0,rev:0}; r.n++; if(c.status==='Active') r.active++; r.rev+=liveInvoices().filter(v=>v.customerId===c.id).reduce((a,v)=>a+totals(v).net,0); });
     const list=Object.entries(g).sort((a,b)=>b[1].n-a[1].n); const T=k=>list.reduce((a,[,r])=>a+r[k],0); const max=list[0]?list[0][1].n:0;
     return {kpis:[['New customers',String(T('n')),'added in this period'],['Became active',String(T('active')),pct(T('active'),T('n'))],['Best source',list[0]?esc(list[0][0]):'—',list[0]?list[0][1].n+' customers':'']],
       head:['Source','New customers','Now active','Conversion','Revenue to date',''], num:[1,2,3,4],
@@ -1292,6 +1317,124 @@ function calRange(){
   return {start:iso(st), days:Math.ceil((first.getDay()+last.getDate())/7)*7};
 }
 function jobState(j){ return (j.status==='Scheduled' && j.date<todayISO()) ? 'Past due' : j.status; }
+/* ---------- team time off ---------- */
+const OFF_TYPES=['Vacation','Sick','Personal','Training','Unavailable','Other'];
+const firstTok = n => String(n||'').trim().toLowerCase().split(/\s+/)[0]||'';
+function crewTokens(crew){ return String(crew||'').toLowerCase().split(/\s*(?:,|&|\/|\+|\band\b)\s*/).map(x=>x.trim()).filter(Boolean); }
+function teamNames(){
+  const set=new Map();
+  S.team.filter(m=>m.active!==false && (m.full_name||'').trim()).forEach(m=>set.set(m.full_name.trim().toLowerCase(), m.full_name.trim()));
+  S.jobs.forEach(j=>crewTokens(j.crew).forEach(tk=>{ const nm=tk.replace(/\b\w/g,c=>c.toUpperCase()); if(![...set.keys()].some(k=>k===tk || firstTok(k)===tk)) set.set(tk, nm); }));
+  S.timeoff.forEach(o=>{ const k=String(o.member||'').trim().toLowerCase(); if(k && !set.has(k)) set.set(k, o.member.trim()); });
+  return [...set.values()].sort((a,b)=>a.localeCompare(b));
+}
+const offOn = d => S.timeoff.filter(o=>o.from && d>=o.from && d<=(o.to||o.from)).sort((a,b)=>String(a.member).localeCompare(String(b.member)));
+const offTime = o => o.allDay!==false ? 'All day' : `${fmtTime(o.start||'')}–${fmtTime(o.end||'')}`;
+function memberMatches(member, crew){ const m=String(member||'').trim().toLowerCase(); if(!m) return false; const f=firstTok(m); return crewTokens(crew).some(tk=>tk===m || tk===f || firstTok(tk)===f); }
+function overlaps(o, time, hours){
+  if(o.allDay!==false || !time) return true;
+  const toMin=t=>{ const [h,mm]=String(t).split(':').map(Number); return h*60+(mm||0); };
+  const js=toMin(time), je=js+Math.max(30, Math.round((+hours||2)*60));
+  return js < toMin(o.end||'23:59') && je > toMin(o.start||'00:00');
+}
+function offConflicts(date, crew, time, hours){ if(!date || !String(crew||'').trim()) return []; return offOn(date).filter(o=>memberMatches(o.member, crew) && overlaps(o, time, hours)); }
+const offText = list => list.map(o=>`${o.member} is off ${o.allDay!==false?'that day':offTime(o)} (${o.type||'Time off'}${o.note?': '+o.note:''})`).join('. ');
+function jobFormWarn(date, crew, time, hours){
+  const cf=offConflicts(date, crew, time, hours); const w=wxDay(date);
+  return (cf.length?`<div class="notice bad" style="margin:0">⛔ ${esc(offText(cf))}.</div>`:'')+(w&&wxWet(w)?`<div class="notice info" style="margin:0">🌧️ ${esc(w.short||'Rain')} forecast for ${esc(fmtDate(date))}: ${w.workPop!=null?w.workPop:w.pop}% chance of rain 7am–5pm.</div>`:'');
+}
+function refreshJobWarn(){ const el=$('#j-offwarn'); if(!el) return; const v=id=>(($('#'+id)||{}).value||''); el.innerHTML=jobFormWarn(v('j-date'), v('j-crew'), v('j-time'), v('j-hours')); }
+function offChips(d, wide){ const list=offOn(d); if(!list.length) return ''; return list.slice(0, wide?9:2).map(o=>`<button class="coff" data-act="editTimeoff" data-id="${o.id}" title="${esc(o.member)} · ${esc(o.type||'Time off')} · ${esc(offTime(o))}${o.note?' · '+esc(o.note):''}">⛔ ${esc(wide?o.member:firstTok(o.member).replace(/^\w/,c=>c.toUpperCase()))}${wide?` <span>${esc(o.allDay!==false?(o.type||'Off'):offTime(o))}</span>`:' off'}</button>`).join('')+(!wide&&list.length>2?`<span class="coff more">+${list.length-2} off</span>`:''); }
+
+/* ---------- address suggestions (Google Places API New) ---------- */
+const AC={timer:null, token:null, el:null, items:[], idx:-1, off:null, seq:0};
+const acBias = () => { const s=settings(); const lat=+s.weatherLat||40.6976, lng=+s.weatherLon||-74.2632; return {circle:{center:{latitude:lat, longitude:lng}, radius:50000}}; };
+async function placesCheck(){
+  if(!S.mapsKey){ await refreshInteg(); } if(!S.mapsKey) return null;
+  try{
+    const r=await fetch('https://places.googleapis.com/v1/places:autocomplete', {method:'POST', headers:{'Content-Type':'application/json','X-Goog-Api-Key':S.mapsKey}, body:JSON.stringify({input:'2400 Morris Ave Union', includedRegionCodes:['us']})});
+    const j=await r.json().catch(()=>({}));
+    if(r.ok){ AC.off=null; return {label:'Address suggestions work', ok:true}; }
+    const m=(j.error&&j.error.message)||`Error ${r.status}`;
+    return {label:'Address suggestions aren\'t turned on', ok:false, detail:m.slice(0,200), fix:/not been used|disabled|not enabled/i.test(m)?'In Google Cloud, open APIs & Services → Library, search “Places API (New)” and click Enable (same project as this key). If the key has API restrictions, add Places API (New) to its list. Then test again.':/referer|referrer/i.test(m)?'Add https://purewash-app.vercel.app/* to the key\'s website restrictions in Google Cloud → Credentials.':'Check that billing is on for the Google Cloud project and Places API (New) is enabled for this key.'};
+  }catch(e){ return {label:'Couldn\'t reach Google to check address suggestions', ok:null}; }
+}
+function acClose(){ document.querySelectorAll('.addr-sug').forEach(x=>x.remove()); AC.items=[]; AC.idx=-1; }
+function acToken(){ return AC.token ||= (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random().toString(16).slice(2)); }
+function acInput(el){
+  clearTimeout(AC.timer); AC.el=el; const q=el.value.trim();
+  if(q.length<4 || !S.mapsKey || AC.off){ acClose(); if(AC.off && q.length>=4) acHint(el); return; }
+  AC.timer=setTimeout(()=>acFetch(el, q), 230);
+}
+async function acFetch(el, q){
+  const my=++AC.seq;
+  try{
+    const r=await fetch('https://places.googleapis.com/v1/places:autocomplete', {method:'POST', headers:{'Content-Type':'application/json','X-Goog-Api-Key':S.mapsKey},
+      body:JSON.stringify({input:q, includedRegionCodes:['us'], locationBias:acBias(), sessionToken:acToken()})});
+    const j=await r.json().catch(()=>({}));
+    if(my!==AC.seq || document.activeElement!==el) return;
+    if(!r.ok){ AC.off = (j.error&&j.error.message) || `Error ${r.status}`; acClose(); acHint(el); return; }
+    AC.items=(j.suggestions||[]).map(x=>x.placePrediction).filter(Boolean).slice(0,5); AC.idx=-1; acShow(el);
+  }catch(e){ /* offline: just no suggestions */ }
+}
+function acShow(el){
+  document.querySelectorAll('.addr-sug').forEach(x=>x.remove()); if(!AC.items.length) return;
+  const box=document.createElement('div'); box.className='addr-sug'; box.setAttribute('role','listbox');
+  box.innerHTML=AC.items.map((p,i)=>`<div class="addr-opt" role="option" id="ao-${i}" data-i="${i}"><strong>${esc(p.structuredFormat&&p.structuredFormat.mainText?p.structuredFormat.mainText.text:p.text.text)}</strong><span>${esc(p.structuredFormat&&p.structuredFormat.secondaryText?p.structuredFormat.secondaryText.text:'')}</span></div>`).join('')+'<div class="addr-by">Powered by Google</div>';
+  el.parentElement.style.position='relative'; el.after(box); el.setAttribute('aria-expanded','true');
+  box.addEventListener('mousedown', e=>{ const o=e.target.closest('.addr-opt'); if(!o) return; e.preventDefault(); acPick(el, +o.dataset.i); });
+}
+function acHint(el){ if(S.role!=='owner' || el.parentElement.querySelector('.addr-off')) return; const h=document.createElement('span'); h.className='hint addr-off'; h.textContent='Address suggestions are off: Google says “'+String(AC.off).slice(0,140)+'”. Turn on “Places API (New)” for your Google key (Settings → APIs → Google Street View has the steps).'; el.parentElement.appendChild(h); }
+function acKey(e){
+  const box=e.target.parentElement && e.target.parentElement.querySelector('.addr-sug'); if(!box) return;
+  const n=AC.items.length;
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){ e.preventDefault(); AC.idx=(AC.idx+(e.key==='ArrowDown'?1:-1)+n)%n; box.querySelectorAll('.addr-opt').forEach((o,i)=>o.classList.toggle('on',i===AC.idx)); e.target.setAttribute('aria-activedescendant','ao-'+AC.idx); }
+  else if(e.key==='Enter' && AC.idx>=0){ e.preventDefault(); acPick(e.target, AC.idx); }
+  else if(e.key==='Escape'){ acClose(); }
+}
+async function acPick(el, i){
+  const p=AC.items[i]; acClose(); if(!p) return;
+  const kind=el.dataset.addr;
+  try{
+    const r=await fetch(`https://places.googleapis.com/v1/places/${encodeURIComponent(p.placeId)}?sessionToken=${encodeURIComponent(acToken())}`, {headers:{'X-Goog-Api-Key':S.mapsKey,'X-Goog-FieldMask':'addressComponents,location,formattedAddress'}});
+    AC.token=null; const d=await r.json(); if(!r.ok) throw new Error((d.error&&d.error.message)||'lookup failed');
+    const comp=t=>(d.addressComponents||[]).find(c=>(c.types||[]).includes(t));
+    const L=t=>{ const c=comp(t); return c?c.longText:''; }, Sh=t=>{ const c=comp(t); return c?c.shortText:''; };
+    const street=[L('street_number'), Sh('route')].filter(Boolean).join(' ') + (L('subpremise')?` #${L('subpremise')}`:'');
+    const city=L('locality')||L('postal_town')||L('sublocality_level_1')||L('sublocality')||L('administrative_area_level_3')||L('neighborhood');
+    const st=Sh('administrative_area_level_1'), zip=L('postal_code');
+    const set=(id,v)=>{ const x=$('#'+id); if(x && v!=null){ x.value=v; try{ x.dispatchEvent(new Event('input',{bubbles:true})); }catch(e){} } };
+    if(kind==='c'){ set('c-street', street||p.text.text); set('c-city', city); set('c-state', st); set('c-zip', zip); const lc=$('#c-loc'); if(lc && !lc.value.trim() && d.location) lc.value=`${d.location.latitude.toFixed(6)}, ${d.location.longitude.toFixed(6)}`; }
+    else if(kind==='cb'){ set('c-bstreet', street||p.text.text); set('c-bcity', city); set('c-bstate', st); set('c-bzip', zip); }
+    else if(kind==='s'){ set('s-addr', [street, [city, [st, zip].filter(Boolean).join(' ')].filter(Boolean).join(', ')].filter(Boolean).join(', ')||d.formattedAddress); const w=$('#s-wx'); if(w && d.location) w.value=`${d.location.latitude.toFixed(4)}, ${d.location.longitude.toFixed(4)}`; }
+    else el.value=d.formattedAddress||p.text.text;
+  }catch(e){ el.value=(p.structuredFormat&&p.structuredFormat.mainText&&p.structuredFormat.mainText.text)||p.text.text; toast('Filled the street. Check the city, state and ZIP.','bad'); }
+}
+document.addEventListener('keydown', e=>{ if(e.target && e.target.dataset && e.target.dataset.addr) acKey(e); }, true);
+document.addEventListener('focusout', e=>{ if(e.target && e.target.dataset && e.target.dataset.addr) setTimeout(acClose, 120); }, true);
+
+/* ---------- weather (National Weather Service) ---------- */
+let wxLoading=false;
+async function loadWeather(force){
+  if(wxLoading) return; if(!force && S.wx && Date.now()-S.wx.at<30*60000) return;
+  wxLoading=true; const r=await callFn('weather',{}); wxLoading=false;
+  if(r.ok){ S.wx={at:Date.now(), days:r.days||{}, place:r.place||'', error:null}; } else S.wx={at:Date.now(), days:(S.wx&&S.wx.days)||{}, place:'', error:r.error||'Forecast unavailable'};
+  scheduleRender();
+}
+function wxIcon(f){ f=String(f||'').toLowerCase(); return /thunder|t-storm/.test(f)?'⛈️':/snow|sleet|flurr|ice|freezing/.test(f)?'🌨️':/rain|shower/.test(f)?'🌧️':/drizzle/.test(f)?'🌦️':/fog|haze|smoke/.test(f)?'🌫️':/partly|mostly sunny|mostly clear/.test(f)?'⛅':/cloud|overcast/.test(f)?'☁️':/wind|breez/.test(f)?'💨':/sunny|clear/.test(f)?'☀️':'🌤️'; }
+const wxDay = d => S.wx && S.wx.days && S.wx.days[d];
+const wxWet = w => w && (w.workPop!=null ? w.workPop : w.pop) >= 50;
+function wxMini(d, wide){
+  const w=wxDay(d); if(!w) return '';
+  const p=w.workPop!=null?w.workPop:w.pop;
+  return `<span class="cwx${wxWet(w)?' wet':''}" title="${esc(w.short||'')}${w.hi!=null?` · High ${w.hi}°`:''}${w.lo!=null?` / Low ${w.lo}°`:''}${p!=null?` · ${p}% chance of rain 7am–5pm`:''}${w.wind?` · Wind ${esc(w.wind)}`:''}"><span aria-hidden="true">${wxIcon(w.short)}</span>${w.hi!=null?`<b>${w.hi}°</b>`:''}${wide&&w.lo!=null?`<i>${w.lo}°</i>`:''}${p!=null&&p>=20?`<em>💧${p}%</em>`:''}${wide&&w.short?`<small>${esc(w.short)}</small>`:''}</span>`;
+}
+function wxDetail(d){
+  const w=wxDay(d); if(!w) return '';
+  const p=w.workPop!=null?w.workPop:w.pop;
+  return `<div class="wx-detail${wxWet(w)?' wet':''}"><span class="big" aria-hidden="true">${wxIcon(w.short)}</span><div><strong>${esc(w.short||'')}</strong><span>${w.hi!=null?`High ${w.hi}°`:''}${w.lo!=null?` · Low ${w.lo}°`:''}${p!=null?` · ${p}% chance of rain during work hours`:''}${w.wind?` · Wind ${esc(w.wind)}`:''}</span>${w.rainHours&&w.rainHours.length?`<span>Rain likely: ${esc(w.rainHours.join(', '))}</span>`:''}${wxWet(w)?'<span class="warn">Rain likely. Consider rescheduling exterior work.</span>':''}</div></div>`;
+}
+
 function calChip(j, wide){
   const c=cust(j.customerId); const st=jobState(j); const drag=['Scheduled','Quoted','In progress'].includes(j.status);
   const nm = c ? (wide ? custLabel(c) : (nameParts(c).last || custLabel(c))) : 'Deleted';
@@ -1311,6 +1454,7 @@ function loadBar(st){
   return `<div class="loadbar ${cls}" title="${st.hours} of ${cap} hours booked"><span style="width:${Math.min(100,pct)}%"></span></div>`;
 }
 function viewCalendar(){
+  loadWeather();
   const C=S.cal; const t=todayISO(); const {start,days}=calRange(); const end=addDays(start,days-1);
   const show=j=>j.status!=='Cancelled' && (C.showQuotes || j.status!=='Quoted');
   const by={}; S.jobs.filter(j=>j.date>=start && j.date<=end && show(j)).forEach(j=>(by[j.date] ||= []).push(j));
@@ -1325,17 +1469,19 @@ function viewCalendar(){
   if(C.mode==='month'){
     grid = `<div class="cal-grid" role="grid" aria-label="${esc(title)}">${DOW.map(d=>`<div class="cal-dow" role="columnheader">${d}</div>`).join('')}
     ${dates.map(d=>{ const list=by[d]||[]; const st=dayStats(list); const pd=parseISO(d); const out=pd.getMonth()!==a.getMonth();
-      return `<div class="ccell${out?' out':''}${d===t?' today':''}${d===C.sel?' sel':''}${d<t?' past':''}" role="gridcell" data-date="${d}" data-act="calSel" data-d="${d}" aria-label="${esc(fmtDay(d))}: ${st.n} job${st.n===1?'':'s'}">
+      return `<div class="ccell${out?' out':''}${d===t?' today':''}${d===C.sel?' sel':''}${d<t?' past':''}${wxWet(wxDay(d))?' wet':''}${offOn(d).length?' hasoff':''}" role="gridcell" data-date="${d}" data-act="calSel" data-d="${d}" aria-label="${esc(fmtDay(d))}: ${st.n} job${st.n===1?'':'s'}">
         <div class="chead"><span class="cnum">${pd.getDate()}</span>${st.n?`<span class="cload">${money(st.val).replace(/\.00$/,'')}</span>`:''}<button class="cadd" data-act="calNew" data-d="${d}" aria-label="New job on ${esc(fmtDay(d))}">+</button></div>
-        <div class="cchips">${list.slice(0,3).map(j=>calChip(j,false)).join('')}${list.length>3?`<button class="cmore" data-act="calWeek" data-d="${d}">+${list.length-3} more</button>`:''}</div>
+        ${wxMini(d,false)}
+        <div class="cchips">${offChips(d,false)}${list.slice(0,3).map(j=>calChip(j,false)).join('')}${list.length>3?`<button class="cmore" data-act="calWeek" data-d="${d}">+${list.length-3} more</button>`:''}</div>
         <div class="cdots" aria-hidden="true">${list.slice(0,5).map(j=>`<i class="${slug(jobState(j))}"></i>`).join('')}</div>
         ${loadBar(st)}</div>`; }).join('')}</div>`;
   } else {
     grid = `<div class="wgrid">${dates.map(d=>{ const list=by[d]||[]; const st=dayStats(list); const pd=parseISO(d);
-      return `<div class="wcol${d===t?' today':''}${d<t?' past':''}" data-date="${d}">
+      return `<div class="wcol${d===t?' today':''}${d<t?' past':''}${wxWet(wxDay(d))?' wet':''}" data-date="${d}">
         <div class="whead"><span class="dow">${DOW[pd.getDay()]}</span><span class="dn">${pd.getDate()}</span><span class="ds">${st.n?`${st.n} job${st.n===1?'':'s'} · ${money(st.val).replace(/\.00$/,'')}`:'Open'}${st.hours&&cap?` · ${st.hours}/${cap}h`:''}</span></div>
+        ${wxMini(d,true)}
         ${loadBar(st)}
-        <div class="wlist">${list.map(j=>calChip(j,true)).join('')}</div>
+        <div class="wlist">${offChips(d,true)}${list.map(j=>calChip(j,true)).join('')}</div>
         <button class="btn ghost sm wadd" data-act="calNew" data-d="${d}">${I.plus} Job</button></div>`; }).join('')}</div>`;
   }
   // selected day (phones, month view)
@@ -1343,6 +1489,7 @@ function viewCalendar(){
   if(C.mode==='month'){
     const sd = C.sel || (t>=start && t<=end ? t : null);
     if(sd){ const list=(by[sd]||[]); daylist = `<section class="panel cal-daylist"><div class="panel-head"><h2>${esc(fmtDay(sd))}</h2><span class="btnrow"><button class="btn sm" data-act="calNew" data-d="${sd}" data-quote="1">${I.plus} Quote</button><button class="btn sm primary" data-act="calNew" data-d="${sd}">${I.plus} Job</button></span></div>
+      ${wxDetail(sd)}${offOn(sd).length?`<div class="off-list">${offChips(sd,true)}</div>`:''}
       ${list.length?`<div class="list">${list.map(j=>jobRow(j)).join('')}</div>`:'<p class="muted">Nothing booked. Tap + Job to schedule this day.</p>'}</section>`; }
   }
   // to-book list
@@ -1350,6 +1497,9 @@ function viewCalendar(){
   const due=S.customers.filter(c=>c.status==='Active').map(c=>({c,due:nextDue(c)})).filter(x=>x.due && x.due<=horizon && !nextJob(x.c.id)).sort((x,y)=>x.due.localeCompare(y.due));
   const quotes=S.jobs.filter(j=>j.status==='Quoted').sort((x,y)=>(x.createdAt||0)-(y.createdAt||0));
   const tip = 'ontouchstart' in window ? 'Pick a day on the calendar, then tap Book.' : 'Drag onto a day, or pick a day and tap Book.';
+  const upOff=S.timeoff.filter(o=>(o.to||o.from)>=t && o.from<=addDays(t,60)).sort((x,y)=>x.from.localeCompare(y.from));
+  const offPanel = `<section class="panel tobook-off" aria-label="Team time off"><div class="panel-head"><h2>Team time off</h2><button class="btn sm office-only" data-act="newTimeoff" data-d="${C.sel||t}">${I.plus} Add</button></div>
+    ${upOff.length?`<div class="list">${upOff.map(o=>`<button class="row" data-act="editTimeoff" data-id="${o.id}"><span class="t">${esc(o.member)}</span><span class="s">${esc(o.from===(o.to||o.from)?fmtDate(o.from):`${fmtDate(o.from)} – ${fmtDate(o.to)}`)} · ${esc(offTime(o))}</span><span class="r"><span class="pill">${esc(o.type||'Off')}</span></span></button>`).join('')}</div>`:'<p class="muted" style="font-size:.88rem">No time off in the next 60 days. Blocked days show on the calendar with ⛔, and you\'re warned when booking someone who\'s off.</p>'}</section>`;
   const tobook = `<aside class="panel tobook" aria-label="To book"><div class="panel-head"><h2>To book</h2><span class="muted" style="font-size:.8rem">${due.length+quotes.length}</span></div>
     <p class="hint" style="margin-bottom:10px">${tip}${C.sel?` Booking for <strong>${esc(fmtDate(C.sel))}</strong>.`:''}</p>
     ${quotes.length?`<div class="lbl" style="margin:4px 0 6px">Open quotes</div>${quotes.map(j=>`<div class="bk" draggable="true" data-drag="quote:${j.id}"><div class="bk-t"><button class="bk-n" data-act="openJob" data-id="${j.id}">${esc(custName(j.customerId))}</button><span>${money(jobTotal(j))}${j.date?` · proposed ${esc(fmtDate(j.date))}`:' · date TBD'}</span></div><button class="btn sm" data-act="calBookQuote" data-id="${j.id}">Book</button></div>`).join('')}`:''}
@@ -1357,7 +1507,7 @@ function viewCalendar(){
     ${!due.length&&!quotes.length?'<p class="muted" style="font-size:.88rem">Nothing waiting. Open quotes and recurring customers coming due in the next 6 weeks show up here.</p>':''}
   </aside>`;
   return `
-  <div class="page-head"><div><p class="eyebrow">Schedule</p><h1>Calendar</h1></div><div class="actions"><button class="btn" data-act="calNew" data-d="${C.sel||t}" data-quote="1">${I.plus} Quote</button><button class="btn primary" data-act="calNew" data-d="${C.sel||t}">${I.plus} Job</button></div></div>
+  <div class="page-head"><div><p class="eyebrow">Schedule</p><h1>Calendar</h1></div><div class="actions"><button class="btn office-only" data-act="newTimeoff" data-d="${C.sel||t}">⛔ Time off</button><button class="btn" data-act="calNew" data-d="${C.sel||t}" data-quote="1">${I.plus} Quote</button><button class="btn primary" data-act="calNew" data-d="${C.sel||t}">${I.plus} Job</button></div></div>
   <div class="cal-bar">
     <div class="cal-nav"><button class="icon-btn" data-act="calNav" data-dir="-1" aria-label="Previous ${C.mode}">‹</button><button class="btn sm" data-act="calToday">Today</button><button class="icon-btn" data-act="calNav" data-dir="1" aria-label="Next ${C.mode}">›</button><h2 class="cal-title">${esc(title)}</h2></div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -1366,8 +1516,9 @@ function viewCalendar(){
     </div>
   </div>
   <div class="cal-sum"><span><strong>${rs.n}</strong> job${rs.n===1?'':'s'} booked</span><span><strong>${money(rs.val)}</strong> scheduled</span>${rs.hours?`<span><strong>${rs.hours}</strong> est. hours</span>`:''}${rs.q&&C.showQuotes?`<span><strong>${rs.q}</strong> quote${rs.q===1?'':'s'} pencilled in</span>`:''}
-    <span class="legend"><i class="scheduled"></i>Scheduled <i class="in-progress"></i>In progress <i class="completed"></i>Done <i class="past-due"></i>Past due <i class="quoted"></i>Quote</span></div>
-  <div class="cal-wrap"><div style="min-width:0;display:flex;flex-direction:column;gap:14px">${grid}${daylist}</div>${tobook}</div>`;
+    <span class="legend">${S.wx&&Object.keys(S.wx.days||{}).length?'<span class="wet-key">💧 rain chance 7am–5pm</span>':''}<i class="scheduled"></i>Scheduled <i class="in-progress"></i>In progress <i class="completed"></i>Done <i class="past-due"></i>Past due <i class="quoted"></i>Quote</span></div>
+  ${S.wx&&S.wx.error?`<p class="hint">Weather forecast unavailable right now: ${esc(S.wx.error)}</p>`:''}
+  <div class="cal-wrap"><div style="min-width:0;display:flex;flex-direction:column;gap:14px">${grid}${daylist}</div><div style="min-width:0;display:flex;flex-direction:column;gap:14px">${tobook}${offPanel}</div></div>`;
 }
 function viewCustomers(){
   const q = S.custQuery.trim().toLowerCase();
@@ -1645,7 +1796,9 @@ function viewSettings(){
       <div class="field full"><label for="s-name">Business name</label><input type="text" id="s-name" name="businessName" value="${esc(s.businessName)}" ${ro?'disabled':''}></div>
       <div class="field"><label for="s-phone">Phone (your phone.com number)</label><input type="tel" id="s-phone" name="phone" value="${esc(s.phone)}" ${ro?'disabled':''}></div>
       <div class="field"><label for="s-email">Business email</label><input type="email" id="s-email" name="email" value="${esc(s.email)}" placeholder="office@purewash.net" ${ro?'disabled':''}><span class="hint">Shown on invoices and in emails. Customers' replies go here.</span></div>
-      <div class="field full"><label for="s-addr">Mailing address (shown on invoices)</label><input type="text" id="s-addr" name="address" value="${esc(s.address)}" ${ro?'disabled':''}></div>
+      <div class="field full"><label for="s-addr">Mailing address (shown on invoices)</label><input type="text" id="s-addr" name="address" value="${esc(s.address)}" data-addr="s" autocomplete="off" ${ro?'disabled':''}></div>
+      <div class="field full"><label for="s-wx">Weather forecast location</label><input type="text" id="s-wx" name="weatherLoc" value="${esc(s.weatherLat&&s.weatherLon?`${s.weatherLat}, ${s.weatherLon}`:'')}" placeholder="Union, NJ (default)" ${ro?'disabled':''}>
+        <span class="hint">Latitude, longitude for the calendar's forecast. Picking your mailing address from the suggestions above fills this in. Leave blank for Union, NJ.</span></div>
       <div class="field"><label for="s-tax">Sales tax rate (%)</label><input type="number" step="0.001" min="0" id="s-tax" name="taxRate" value="${esc(s.taxRate)}" ${ro?'disabled':''}></div>
       <div class="field"><label for="s-terms">Payment terms (days)</label><input type="number" min="0" id="s-terms" name="termsDays" value="${esc(s.termsDays)}" ${ro?'disabled':''}></div>
       <div class="field"><label for="s-invstart">Starting invoice number</label><input type="number" min="1" step="1" id="s-invstart" name="invoiceStart" value="${esc(s.invoiceStart)}" inputmode="numeric" ${ro?'disabled':''}><span class="hint">Next invoice will be <strong>#${esc(nextInvoiceNumber())}</strong>. Numbers always continue after your highest existing invoice, so there are never duplicates.</span></div>
@@ -1735,9 +1888,9 @@ const API_DEFS=[
   {id:'email', name:'Email (Resend)', icon:'mail', what:'Sends invoices, quotes, reminders and receipts from your own address. Customer replies go to the business email on the Business tab.',
     keys:[['RESEND_API_KEY','API key',true,'re_…'],['EMAIL_FROM','Send from',false,'PureWash <office@purewash.net>']],
     links:[['Resend API keys','https://resend.com/api-keys'],['Resend domains (DNS setup)','https://resend.com/domains']]},
-  {id:'maps', name:'Google Street View', icon:'person', what:'Shows Street View or satellite view of the property right on each customer and job.',
+  {id:'maps', name:'Google Maps', icon:'person', what:'Shows Street View of the property on each customer and job, and suggests addresses as you type.',
     keys:[['GOOGLE_MAPS_KEY','Maps API key',true,'AIza…']],
-    links:[['Google Cloud credentials','https://console.cloud.google.com/apis/credentials'],['Turn on the Maps Embed API','https://console.cloud.google.com/apis/library/maps-embed-backend.googleapis.com']]},
+    links:[['Google Cloud credentials','https://console.cloud.google.com/apis/credentials'],['Turn on the Maps Embed API','https://console.cloud.google.com/apis/library/maps-embed-backend.googleapis.com'],['Turn on Places API (New) for address suggestions','https://console.cloud.google.com/apis/library/places.googleapis.com']]},
   {id:'qbo', name:'QuickBooks Online', icon:'invoices', what:'Sends invoices to QuickBooks when you click Send to QuickBooks, and keeps payments in step both ways.',
     keys:[['QBO_CLIENT_ID','Client ID',false,'From Intuit: Keys & credentials → Production'],['QBO_CLIENT_SECRET','Client Secret',true,'From Intuit: Keys & credentials → Production']],
     links:[['Intuit Developer portal','https://developer.intuit.com/app/developer/myapps']]},
@@ -2232,7 +2385,7 @@ const DRAWERS = {
         <div class="field"><label for="c-company">Company</label><input type="text" id="c-company" name="company" value="${esc(c.company)}" placeholder="For commercial accounts"></div>
         <div class="field"><label for="c-phone">Mobile phone</label><input type="tel" id="c-phone" name="phone" value="${esc(c.phone)}" placeholder="(908) 555-0142"></div>
         <div class="field full"><label for="c-email">Email</label><input type="email" id="c-email" name="email" value="${esc(c.email)}"></div>
-        <div class="field full"><label for="c-street">Street address</label><input type="text" id="c-street" name="street" value="${esc(c.street)}"></div>
+        <div class="field full"><label for="c-street">Street address</label><input type="text" id="c-street" name="street" value="${esc(c.street)}" data-addr="c" autocomplete="off" placeholder="Start typing an address…"></div>
         <div class="field"><label for="c-city">City</label><input type="text" id="c-city" name="city" value="${esc(c.city)}"></div>
         <div class="fgrid" style="grid-template-columns:1fr 1fr;gap:12px"><div class="field"><label for="c-state">State</label><input type="text" id="c-state" name="state" value="${esc(c.state)}" maxlength="2" style="text-transform:uppercase"></div><div class="field"><label for="c-zip">ZIP</label><input type="text" id="c-zip" name="zip" value="${esc(c.zip)}" inputmode="numeric"></div></div>
         <div class="field full billbox">
@@ -2244,7 +2397,7 @@ const DRAWERS = {
               <div class="field"><label for="c-bcompany">Billing company</label><input type="text" id="c-bcompany" name="bCompany" value="${esc(c.billing&&c.billing.company)}" placeholder="ABC Property Management"></div>
               <div class="field"><label for="c-bemail">Billing email</label><input type="email" id="c-bemail" name="bEmail" value="${esc(c.billing&&c.billing.email)}" placeholder="Invoices are emailed here"></div>
               <div class="field"><label for="c-bphone">Billing phone</label><input type="tel" id="c-bphone" name="bPhone" value="${esc(c.billing&&c.billing.phone)}"></div>
-              <div class="field full"><label for="c-bstreet">Billing street address</label><input type="text" id="c-bstreet" name="bStreet" value="${esc(c.billing&&c.billing.street)}"></div>
+              <div class="field full"><label for="c-bstreet">Billing street address</label><input type="text" id="c-bstreet" name="bStreet" value="${esc(c.billing&&c.billing.street)}" data-addr="cb" autocomplete="off" placeholder="Start typing an address…"></div>
               <div class="field"><label for="c-bcity">City</label><input type="text" id="c-bcity" name="bCity" value="${esc(c.billing&&c.billing.city)}"></div>
               <div class="fgrid" style="grid-template-columns:1fr 1fr;gap:12px"><div class="field"><label for="c-bstate">State</label><input type="text" id="c-bstate" name="bState" value="${esc(c.billing&&c.billing.state)}" maxlength="2" style="text-transform:uppercase"></div><div class="field"><label for="c-bzip">ZIP</label><input type="text" id="c-bzip" name="bZip" value="${esc(c.billing&&c.billing.zip)}" inputmode="numeric"></div></div>
             </div>
@@ -2275,6 +2428,7 @@ const DRAWERS = {
     const upl = kind => S.assetsOn ? `<label class="upl btn ${kind==='after'?'primary':''}" for="up-${kind}">${I.camera} Add ${kind}<input type="file" id="up-${kind}" accept="image/*" multiple data-upload="${kind}" data-job="${id}"></label>` : '';
     return {detail:true, back:stack.length>0, title:`${esc(custName(j.customerId))}`, body:`
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${pill(j.status)}<span class="muted">${j.date?esc(fmtDay(j.date))+(j.time?' · '+esc(fmtTime(j.time)):''):'Date TBD'}</span>${j.crew?`<span class="pill">Crew: ${esc(j.crew)}</span>`:''}</div>
+      ${(()=>{ const cf=['Scheduled','In progress','Quoted'].includes(j.status)?offConflicts(j.date,j.crew,j.time,j.hours):[]; const w=wxDay(j.date); return (cf.length?`<div class="notice bad">⛔ ${esc(offText(cf))}.</div>`:'')+(w&&wxWet(w)&&['Scheduled','Quoted'].includes(j.status)?`<div class="notice info">🌧️ ${esc(w.short||'Rain')} forecast · ${w.workPop!=null?w.workPop:w.pop}% chance of rain during work hours.</div>`:''); })()}
       <div class="btnrow">
         ${j.status==='Quoted'?`${j.date?`<button class="btn primary" data-act="jobStatus" data-id="${id}" data-s="Scheduled">Book job for ${esc(fmtDate(j.date))}</button>`:`<button class="btn primary" data-act="bookQuote" data-id="${id}">Pick a date & book</button>`}<button class="btn" data-act="compose" data-cid="${j.customerId}" data-job="${id}" data-tpl="Quote follow-up">${I.messages} Follow up</button>`:''}
         ${j.status==='Scheduled'?`<button class="btn" data-act="jobStatus" data-id="${id}" data-s="In progress">Start job</button>`:''}
@@ -2321,10 +2475,12 @@ const DRAWERS = {
           ${book&&!j.date?'<span class="hint">This quote has no date yet. Pick the visit date to book it.</span>':''}</div>
         <div class="field"><label for="j-time">Arrival time</label><input type="time" id="j-time" name="time" value="${esc(j.time)}"></div>
         <div class="field"><label for="j-status">Status</label><select id="j-status" name="status">${JOB_STATUS.map(s=>`<option ${j.status===s?'selected':''}>${s}</option>`).join('')}</select></div>
-        <div class="field"><label for="j-crew">Crew</label><input type="text" id="j-crew" name="crew" value="${esc(j.crew)}" placeholder="Mike & Dan"></div>
+        <div class="field"><label for="j-crew">Crew</label><input type="text" id="j-crew" name="crew" value="${esc(j.crew)}" placeholder="Mike & Dan" list="team-names" autocomplete="off"><datalist id="team-names">${teamNames().map(n=>`<option value="${esc(n)}">`).join('')}</datalist></div>
+        <div class="field full" id="j-offwarn" aria-live="polite">${jobFormWarn(j.date, j.crew, j.time, j.hours)}</div>
         <div class="field"><label for="j-hours">Estimated hours</label><input type="number" id="j-hours" name="hours" min="0" step="0.25" inputmode="decimal" value="${esc(j.hours??'')}" placeholder="2.5"><span class="hint">Fills the day's capacity bar on the calendar.</span></div>
       </div>
       ${itemsEditor(j.items)}
+      ${discFields(j)}
       ${(()=>{ const ex = j.id ? (j.taxExempt!=null ? !!j.taxExempt : custExempt(j.customerId)) : custExempt(j.customerId); return `<label class="chk-row" for="j-taxex" style="font-weight:500"><input type="checkbox" id="j-taxex" name="taxExempt" data-auto="${j.id?'0':'1'}" ${ex?'checked':''}> Tax exempt (no sales tax on this ${j.status==='Quoted'?'quote':'job'})</label>`; })()}
       <div class="field"><label for="j-notes">Job notes</label><textarea id="j-notes" name="notes" placeholder="Bring 28' ladder, skip back sunroom…">${esc(j.notes)}</textarea></div>
       ${!quote && !book && j.status!=='Quoted' && !j.seriesId ? repeatFields(j, cid) : ''}
@@ -2376,7 +2532,7 @@ const DRAWERS = {
         </div>
         ${(()=>{ const b=billTo(c); return `<div><div class="lbl">Bill to</div><div style="font-weight:650">${esc(c?(b.name||b.company||'—'):'—')}</div>${b.company&&b.name?`<div>${esc(b.company)}</div>`:''}<div class="muted" style="font-size:.86rem">${esc(billAddress(b))}${b.email?`<br>${esc(b.email)}`:''}</div>${b.different?`<div class="hint">Service address: ${esc(fullAddress(c))}</div>`:''}</div>`; })()}
         ${linesTable(v.items)}
-        <div class="totals"><span>Subtotal</span><span class="n">${money(t.sub)}</span>${+v.taxRate?`<span>Sales tax (${esc(fmtRate(v.taxRate))})</span><span class="n">${money(t.tax)}</span>`:v.taxExempt?'<span>Sales tax</span><span class="n muted">Exempt</span>':''}<span class="big">Total</span><span class="n big">${money(t.total)}</span>${t.paid?`<span>Paid</span><span class="n">−${money(t.paid)}</span><span class="big">Balance due</span><span class="n big">${money(t.balance)}</span>`:''}</div>
+        <div class="totals"><span>Subtotal</span><span class="n">${money(t.sub)}</span>${t.disc?`<span>${esc(t.discLabel)}</span><span class="n">−${money(t.disc)}</span>`:''}${+v.taxRate?`<span>Sales tax (${esc(fmtRate(v.taxRate))})</span><span class="n">${money(t.tax)}</span>`:v.taxExempt?'<span>Sales tax</span><span class="n muted">Exempt</span>':''}<span class="big">Total</span><span class="n big">${money(t.total)}</span>${t.paid?`<span>Paid</span><span class="n">−${money(t.paid)}</span><span class="big">Balance due</span><span class="n big">${money(t.balance)}</span>`:''}</div>
         ${v.notes?`<p class="muted" style="font-size:.86rem;white-space:pre-wrap">${esc(v.notes)}</p>`:''}
       </section>
       ${(v.payments||[]).length?`<section class="panel"><div class="panel-head"><h3>Payments</h3></div><div class="list">${v.payments.map((p,i)=>`<div class="row" style="cursor:default"><span class="t">${money(p.amount)} · ${esc(p.method||'')}</span><span class="s">${esc(fmtDate(p.date))}${p.ref?' · '+esc(p.ref):''}</span><span class="r"><button class="btn sm danger" data-act="rmPayment" data-id="${id}" data-i="${i}">Remove</button></span></div>`).join('')}</div></section>`:''}
@@ -2387,7 +2543,7 @@ const DRAWERS = {
     const s=settings(); const t=todayISO();
     let v;
     if(id) v=inv(id);
-    else { const j=jobId?job(jobId):null; v={customerId:j?j.customerId:(cid||''), jobId:jobId||'', date:t, dueDate:addDays(t,+s.termsDays||0), items:j?(j.items||[]).map(x=>({...x})):[{}], taxRate:j?jobRate(j):(custExempt(cid)?0:(+s.taxRate||0)), taxExempt:j?jobRate(j)===0&&(!!j.taxExempt||custExempt(j.customerId)):custExempt(cid), notes:s.invoiceNote, status:'Draft', payments:[]}; }
+    else { const j=jobId?job(jobId):null; v={customerId:j?j.customerId:(cid||''), jobId:jobId||'', date:t, dueDate:addDays(t,+s.termsDays||0), items:j?(j.items||[]).map(x=>({...x})):[{}], taxRate:j?jobRate(j):(custExempt(cid)?0:(+s.taxRate||0)), taxExempt:j?jobRate(j)===0&&(!!j.taxExempt||custExempt(j.customerId)):custExempt(cid), discType:j?j.discType||'':'', discValue:j?+j.discValue||0:0, discNote:j?j.discNote||'':'', notes:s.invoiceNote, status:'Draft', payments:[]}; }
     if(!v) return null;
     if(!v.items||!v.items.length) v.items=[{}];
     return {back:stack.length>0, title:id?`Edit invoice #${esc(v.number)}`:'New invoice', body:`
@@ -2396,6 +2552,7 @@ const DRAWERS = {
       <div class="fgrid">
         <div class="field"><label for="i-date">Invoice date</label><input type="date" id="i-date" name="date" value="${esc(v.date)}" required></div>
         <div class="field"><label for="i-due">Due date</label><input type="date" id="i-due" name="dueDate" value="${esc(v.dueDate)}"></div>
+        ${discFields(v)}
         <div class="field"><label for="i-tax">Sales tax rate (%)</label><input type="number" step="0.001" min="0" id="i-tax" name="taxRate" value="${esc(v.taxExempt?settings().taxRate:v.taxRate)}" ${v.taxExempt?'disabled':''}>
           <label class="chk-row" for="i-taxex" style="font-weight:500;margin-top:4px"><input type="checkbox" id="i-taxex" name="taxExempt" data-auto="${id?'0':'1'}" ${v.taxExempt?'checked':''}> Tax exempt</label></div>
         <div class="field"><label for="i-status">Status</label><select id="i-status" name="status">${['Draft','Sent','Void'].map(x=>`<option ${v.status===x?'selected':''}>${x}</option>`).join('')}</select></div>
@@ -2464,6 +2621,27 @@ const DRAWERS = {
   bulk(a){ return bulkDrawer(a); },
   vehicle(a){ return vehicleDrawer(a); },
   vehicleForm(a){ return vehicleFormDrawer(a); },
+  timeoffForm({id, date}){
+    const o = id ? STORE.timeoff.get(id) : {member:'', from:date||todayISO(), to:date||todayISO(), allDay:true, start:'08:00', end:'12:00', type:'Vacation', note:''};
+    if(!o) return null; const names=teamNames(); const known=!o.member || names.includes(o.member);
+    return {back:stack.length>0, title:id?'Edit time off':'Block out time off', body:`
+      <form data-form="timeoff" data-id="${id||''}" style="display:flex;flex-direction:column;gap:14px">
+        <div class="field"><label for="to-member">Team member</label>
+          <select id="to-member" name="member">${names.map(n=>`<option ${o.member===n?'selected':''}>${esc(n)}</option>`).join('')}<option value="__other" ${!known?'selected':''}>Someone else…</option></select>
+          <input type="text" id="to-other" name="other" value="${esc(known?'':o.member)}" placeholder="Name" ${known&&names.length?'hidden':''} style="margin-top:6px"></div>
+        <div class="fgrid" style="grid-template-columns:1fr 1fr;gap:12px">
+          <div class="field"><label for="to-from">From</label><input type="date" id="to-from" name="from" value="${esc(o.from)}" required></div>
+          <div class="field"><label for="to-to">Through</label><input type="date" id="to-to" name="to" value="${esc(o.to||o.from)}" required></div></div>
+        <label class="chk-row" for="to-all" style="font-weight:500"><input type="checkbox" id="to-all" name="allDay" ${o.allDay!==false?'checked':''}> All day</label>
+        <div class="fgrid" id="to-hours" style="grid-template-columns:1fr 1fr;gap:12px" ${o.allDay!==false?'hidden':''}>
+          <div class="field"><label for="to-start">Unavailable from</label><input type="time" id="to-start" name="start" value="${esc(o.start||'08:00')}"></div>
+          <div class="field"><label for="to-end">Until</label><input type="time" id="to-end" name="end" value="${esc(o.end||'12:00')}"></div></div>
+        <div class="field"><label for="to-type">Reason</label><select id="to-type" name="type">${OFF_TYPES.map(x=>`<option ${o.type===x?'selected':''}>${x}</option>`).join('')}</select></div>
+        <div class="field"><label for="to-note">Note (optional)</label><input type="text" id="to-note" name="note" value="${esc(o.note||'')}" placeholder="Doctor appointment, family trip…"></div>
+        <div class="btnrow"><button class="btn primary" type="submit">${id?'Save':'Block out'}</button><button class="btn" type="button" data-act="back">Cancel</button>${id?`<button class="btn danger" type="button" data-act="delTimeoff" data-id="${id}" style="margin-left:auto">Remove</button>`:''}</div>
+        <p class="hint">Shows on the calendar with ⛔. You'll get a warning when you book this person on a day they're off.</p>
+      </form>`};
+  },
   vehLog(a){ return vehLogDrawer(a); },
   exportCust(){
     const total=S.customers.length; const shown=(S._custShown||[]).length; const filtered = S.view==='customers' && shown!==total;
@@ -2639,10 +2817,20 @@ function recalcItems(){
   rows.forEach(r=>{ const a=(+r.querySelector('.it-qty').value||0)*(+r.querySelector('.it-rate').value||0); t+=a; r.querySelector('.it-amt').textContent=money(a); });
   const el=$('#items-total'); if(el) el.textContent=money(t);
   const sum=$('#items-sum'); if(!sum) return;
-  const rate=formTaxRate(); const sub=Math.round(t*100)/100; const tax=Math.round(sub*rate)/100;
+  const rate=formTaxRate(); const sub=Math.round(t*100)/100; const disc=formDisc(sub); const net=Math.round((sub-disc)*100)/100; const tax=Math.round(net*rate)/100;
   let tx=$('#items-taxline'); if(!tx){ tx=document.createElement('span'); tx.id='items-taxline'; tx.className='muted'; tx.style.fontSize='.88rem'; sum.after(tx); }
-  tx.textContent = rate>0 ? `+ tax (${fmtRate(rate)}) ${money(tax)} = ${money(sub+tax)}` : (formTaxExempt() ? 'Tax exempt' : '');
+  const parts=[]; if(disc) parts.push(`− discount ${money(disc)}`); if(rate>0) parts.push(`+ tax (${fmtRate(rate)}) ${money(tax)}`); else if(formTaxExempt()) parts.push('tax exempt');
+  tx.textContent = parts.length ? `${parts.join(' ')} = ${money(net+tax)}` : '';
 }
+function discFields(d){
+  return `<div class="field full disc-row"><label for="disc-type">Discount</label>
+    <div class="disc-grid"><select id="disc-type" name="discType" aria-label="Discount type"><option value="" ${!d.discType?'selected':''}>No discount</option><option value="pct" ${d.discType==='pct'?'selected':''}>Percent off (%)</option><option value="amt" ${d.discType==='amt'?'selected':''}>Dollars off ($)</option></select>
+    <input type="number" id="disc-val" name="discValue" min="0" step="0.01" inputmode="decimal" value="${esc(d.discType?d.discValue:'')}" placeholder="0" aria-label="Discount amount" ${d.discType?'':'disabled'}>
+    <input type="text" id="disc-note" name="discNote" value="${esc(d.discNote||'')}" placeholder="Reason (optional): senior, promo, repeat customer…" aria-label="Discount reason" ${d.discType?'':'disabled'}></div>
+    <span class="hint">Comes off the subtotal before sales tax.</span></div>`;
+}
+function readDisc(fd){ const t=fd.discType==='pct'||fd.discType==='amt'?fd.discType:''; const v=+fd.discValue||0; return t&&v>0 ? {discType:t, discValue:t==='pct'?Math.min(v,100):v, discNote:(fd.discNote||'').trim()} : {discType:'', discValue:0, discNote:''}; }
+function formDisc(sub){ const t=($('#disc-type')||{}).value; if(!t) return 0; return discOf({discType:t, discValue:+($('#disc-val')||{}).value||0}, sub); }
 function formTaxExempt(){ const c=$('#j-taxex')||$('#i-taxex'); return !!(c && c.checked); }
 function formTaxRate(){
   if($('#i-taxex')){ if($('#i-taxex').checked) return 0; return +($('#i-tax')||{}).value||0; }
@@ -2792,6 +2980,7 @@ const A = {
     const r=await callFn('integrations',body);
     S.api.busy[i]=false;
     if(!r.ok){ toast(r.error,'bad'); refreshApis(); return; }
+    if(i==='maps' && r.result){ const c=await placesCheck(); if(c){ r.result.checks.push(c); if(c.ok===false) r.result.ok=false; } }
     if(S.api.data){ S.api.data.tests=S.api.data.tests||{}; S.api.data.tests[i]=r.result; }
     if(i==='sms'){ const l=await callFn('integrations',{action:'list'}); if(l.ok) S.api.data=l; }
     refreshApis();
@@ -2860,6 +3049,9 @@ const A = {
   calSel(d){ S.cal.sel = S.cal.sel===d.d && window.matchMedia('(min-width:760px)').matches ? null : d.d; render(); },
   calWeek(d){ S.cal.mode='week'; S.cal.anchor=d.d; S.cal.sel=d.d; render(); },
   calNew(d){ go('jobForm',{date:d.d, quote:!!d.quote}); },
+  newTimeoff(d){ stack.length=0; openDrawer('timeoffForm',{date:d.d||S.cal.sel||todayISO()}); },
+  editTimeoff(d){ const o=STORE.timeoff.get(d.id); if(!o) return; if(S.role==='crew'){ toast(`${o.member}: ${o.type||'Time off'}, ${o.from===o.to?fmtDate(o.from):fmtDate(o.from)+' – '+fmtDate(o.to)}, ${offTime(o)}${o.note?'. '+o.note:''}`); return; } stack.length=0; openDrawer('timeoffForm',{id:d.id}); },
+  async delTimeoff(d){ if(await write(()=>delDocSB('timeoff', d.id), 'Time off removed')) closeDrawer(); },
   calBookCust(d){ go('jobForm',{cid:d.id, date:S.cal.sel||todayISO()}); },
   calBookQuote(d){ go('jobForm',{id:d.id, book:true, date:S.cal.sel||undefined}); },
   emailCompose(d){ go('email',{cid:d.cid||'', jobId:d.job, invId:d.inv, tpl:d.tpl}); },
@@ -3014,7 +3206,7 @@ async function invoicePdf(v){
     lines.forEach((l,k)=>{ if(y+LH>LIMIT){ brk(); set('times','italic',10); } tx(l, C[0]+5, y); if(k<lines.length-1) y+=LH; });
     y+=LH+9;
   }
-  const rows=[['SUBTOTAL', money(t.sub)], [+v.taxRate?`SALES TAX (${fmtRate(v.taxRate)})`:'SALES TAX', +v.taxRate?money(t.tax):(v.taxExempt?'Exempt':money(0))]];
+  const rows=[['SUBTOTAL', money(t.sub)], ...(t.disc?[[v.discType==='pct'?`DISCOUNT (${+(+v.discValue).toFixed(2)}%)`:'DISCOUNT', '-'+money(t.disc)]]:[]), [+v.taxRate?`SALES TAX (${fmtRate(v.taxRate)})`:'SALES TAX', +v.taxRate?money(t.tax):(v.taxExempt?'Exempt':money(0))]];
   const paidRows = t.paid ? [['PAID', '-'+money(t.paid)], ['BALANCE DUE', money(t.balance)]] : [];
   const totH = rows.length*20 + 30 + paidRows.length*20;
   let bodyEnd=Math.max(y, top+200);
@@ -3025,7 +3217,7 @@ async function invoicePdf(v){
   doc.rect(M, ty, C[2]-M, totH);
   set('times','normal',7.5); tx('Note:', M+5, ty+11);
   let ny=ty+24; set('times','italic',9.5);
-  wrap(v.notes||'', C[2]-M-14).slice(0, Math.max(0, Math.floor((totH-40)/11))).forEach(l=>{ tx(l, M+7, ny); ny+=11; });
+  wrap([v.discNote&&t.disc?`Discount: ${v.discNote}`:'', v.notes||''].filter(Boolean).join('\n'), C[2]-M-14).slice(0, Math.max(0, Math.floor((totH-40)/11))).forEach(l=>{ tx(l, M+7, ny); ny+=11; });
   if(s.invoiceThanks){ set('times','normal',10.5); tx(s.invoiceThanks, (M+C[2])/2, ty+totH-18, {align:'center', maxWidth:C[2]-M-16}); }
   let ry=ty;
   const row=(l,val,h,opt={})=>{ if(opt.fill){ doc.setFillColor(...CYAN); doc.rect(C[2],ry,R-C[2],h,'F'); } pen(); doc.rect(C[2],ry,C[3]-C[2],h); doc.rect(C[3],ry,R-C[3],h);
@@ -3091,7 +3283,7 @@ function invoiceHTML(v){
   ${(()=>{ const b=billTo(c); return `<p style="margin-top:20px"><span class="muted">Bill to</span><br><strong>${e(b.name||b.company||'')}</strong>${b.company&&b.name?'<br>'+e(b.company):''}<br>${e(billAddress(b))}</p>${b.different&&fullAddress(c)?`<p class="muted" style="margin-top:-6px">Service address: ${e(fullAddress(c))}</p>`:''}`; })()}
   <table><thead><tr><th>Service</th><th class="n">Qty</th><th class="n">Rate</th><th class="n">Amount</th></tr></thead><tbody>
   ${(v.items||[]).map(i=>`<tr><td>${e(i.desc)}${i.details?`<div style="white-space:pre-wrap;color:#566974;font-size:13px">${e(i.details)}</div>`:''}</td><td class="n">${e(i.qty)}</td><td class="n">${money(i.rate)}</td><td class="n">${money((+i.qty||0)*(+i.rate||0))}</td></tr>`).join('')}</tbody></table>
-  <div class="tot"><div><span>Subtotal</span><span>${money(t.sub)}</span></div>${+v.taxRate?`<div><span>Sales tax (${e(fmtRate(v.taxRate))})</span><span>${money(t.tax)}</span></div>`:v.taxExempt?'<div><span>Sales tax</span><span>Exempt</span></div>':''}<div class="big"><span>Total</span><span>${money(t.total)}</span></div>
+  <div class="tot"><div><span>Subtotal</span><span>${money(t.sub)}</span></div>${t.disc?`<div><span>${e(t.discLabel)}</span><span>-${money(t.disc)}</span></div>`:''}${+v.taxRate?`<div><span>Sales tax (${e(fmtRate(v.taxRate))})</span><span>${money(t.tax)}</span></div>`:v.taxExempt?'<div><span>Sales tax</span><span>Exempt</span></div>':''}<div class="big"><span>Total</span><span>${money(t.total)}</span></div>
   ${t.paid?`<div><span>Paid</span><span>-${money(t.paid)}</span></div><div class="big"><span>Balance due</span><span>${money(t.balance)}</span></div>`:''}</div>
   ${v.notes?`<div class="note">${e(v.notes)}</div>`:''}</body></html>`;
 }
@@ -3133,6 +3325,7 @@ const F = {
     fd.date = fd.status==='Quoted' && fd.dateTbd ? '' : (fd.date||'');
     if(!fd.date && fd.status!=='Quoted'){ toast('Pick a date. Only quotes can have the date TBD.','bad'); return; }
     const data = {...prev, customerId:fd.customerId, date:fd.date, time:fd.time, status:fd.status, crew:fd.crew.trim(), hours:fd.hours!==''&&fd.hours!=null?+fd.hours:'', notes:fd.notes, items:readItems(f), updatedAt:Date.now()};
+    Object.assign(data, readDisc(fd));
     data.taxExempt = !!fd.taxExempt; data.taxRate = data.taxExempt ? 0 : (prev.taxRate!=null && prev.taxRate!=='' && +prev.taxRate>0 ? +prev.taxRate : (+settings().taxRate||0));
     if(fd.status==='Completed' && !prev.completedAt) data.completedAt=Date.now();
     if(fd.status==='Quoted' && !prev.quotedAt) data.quotedAt=prev.createdAt||Date.now();
@@ -3172,7 +3365,7 @@ const F = {
     if(!fd.customerId){ toast('Choose a customer.','bad'); return; }
     const items=readItems(f); if(!items.length){ toast('Add at least one service line.','bad'); return; }
     const prev = id ? inv(id) : {createdAt:Date.now(), payments:[], number:nextInvoiceNumber(), jobId:f.dataset.job||''};
-    const data = {...prev, customerId:fd.customerId, date:fd.date, dueDate:fd.dueDate||fd.date, taxRate:fd.taxExempt?0:(+fd.taxRate||0), taxExempt:!!fd.taxExempt, status:fd.status, items, notes:fd.notes, updatedAt:Date.now()};
+    const data = {...prev, customerId:fd.customerId, date:fd.date, dueDate:fd.dueDate||fd.date, taxRate:fd.taxExempt?0:(+fd.taxRate||0), taxExempt:!!fd.taxExempt, status:fd.status, items, notes:fd.notes, ...readDisc(fd), updatedAt:Date.now()};
     const docId = id || newId('invoices');
     if(!await write(()=>saveDoc('invoices',docId,data), id?'Invoice saved':`Invoice #${data.number} created`)) return;
     if(!id && data.jobId){ const j=job(data.jobId); if(j) await write(()=>saveDoc('jobs',j.id,{...j, invoiceId:docId})); }
@@ -3214,6 +3407,22 @@ const F = {
     const r=await callFn('integrations',{action:'set', key, value});
     if(!r.ok) return toast(r.error,'bad');
     S.api.data=r; inp.value=''; await refreshInteg(); refreshApis(); if(r.warning) toast(r.warning,'bad'); else toast('Saved. Click Test connection to check it.');
+  },
+  async timeoff(f){
+    const fd=Object.fromEntries(new FormData(f)); const id=f.dataset.id;
+    const member=(fd.member==='__other' || !fd.member ? (fd.other||'') : fd.member).trim();
+    if(!member) return toast('Choose who is off.','bad');
+    if(!fd.from) return toast('Pick the first day.','bad');
+    const to=fd.to && fd.to>=fd.from ? fd.to : fd.from;
+    const allDay=!!fd.allDay;
+    if(!allDay && (!fd.start || !fd.end || fd.end<=fd.start)) return toast('The end time has to be after the start time.','bad');
+    const data={member, from:fd.from, to, allDay, start:allDay?'':fd.start, end:allDay?'':fd.end, type:fd.type||'Other', note:(fd.note||'').trim(), updatedAt:Date.now(), ...(id?{}:{createdAt:Date.now()})};
+    const prev=id?STORE.timeoff.get(id):null;
+    if(await write(()=>saveDoc('timeoff', id||newId('timeoff'), {...(prev||{}), ...data}), id?'Time off saved':`${member} blocked out`)){
+      const clash=S.jobs.filter(j=>['Scheduled','In progress'].includes(j.status) && j.date>=data.from && j.date<=data.to && memberMatches(member, j.crew) && overlaps(data, j.time, j.hours));
+      if(clash.length) toast(`Heads up: ${member} is already on ${clash.length} booked job${clash.length===1?'':'s'} in that time. Check the calendar.`,'bad');
+      back();
+    }
   },
   async vehicle(f){
     const fd=Object.fromEntries(new FormData(f)); const id=f.dataset.id;
@@ -3261,7 +3470,7 @@ const F = {
         const s=settings(); const ok=items.filter(j=>j.status==='Completed' && !(j.invoiceId && inv(j.invoiceId)));
         let done=0, failed=0;
         for(const j of ok){ const t=todayISO(); const id=newId('invoices'); const num=nextInvoiceNumber();
-          try{ await saveDoc('invoices', id, {customerId:j.customerId, jobId:j.id, number:num, date:t, dueDate:addDays(t,+s.termsDays||0), items:(j.items||[]).map(x=>({...x})), taxRate:jobRate(j), taxExempt:jobRate(j)===0&&(!!j.taxExempt||custExempt(j.customerId)), notes:s.invoiceNote, status:'Draft', payments:[], createdAt:now, updatedAt:now});
+          try{ await saveDoc('invoices', id, {customerId:j.customerId, jobId:j.id, number:num, date:t, dueDate:addDays(t,+s.termsDays||0), items:(j.items||[]).map(x=>({...x})), taxRate:jobRate(j), taxExempt:jobRate(j)===0&&(!!j.taxExempt||custExempt(j.customerId)), discType:j.discType||'', discValue:+j.discValue||0, discNote:j.discNote||'', notes:s.invoiceNote, status:'Draft', payments:[], createdAt:now, updatedAt:now});
             await saveDoc('jobs', j.id, {...j, invoiceId:id, updatedAt:now}); done++; }catch(e){ failed++; }
           const el=$('#bulk-prog'); if(el) el.textContent=`${done+failed} of ${ok.length} created…`; }
         r={done, failed, skipped:items.length-ok.length};
@@ -3307,6 +3516,7 @@ const F = {
     const emailTemplates=[...f.querySelectorAll('.etpl')].map(r=>({name:r.querySelector('.et-name').value.trim(), subject:r.querySelector('.et-subj').value.trim(), body:r.querySelector('.et-body').value})).filter(x=>x.name&&(x.subject||x.body.trim()));
     const serviceDescriptions={}; f.querySelectorAll('.svc-desc').forEach(t=>{ if(t.value.trim()) serviceDescriptions[t.dataset.name]=t.value.replace(/\s+$/,''); });
     const data={...(S.settingsDoc||{}), logo:fd.logo||'', website:(fd.website||'').trim(), invoiceThanks:(fd.invoiceThanks||'').trim(), invoiceFooter:(fd.invoiceFooter||'').trim(), invoicePage2On:!!fd.invoicePage2On, invoicePage2Title:(fd.invoicePage2Title||'').trim(), invoicePage2:fd.invoicePage2||'', serviceDescriptions,
+      ...(()=>{ const m=String(fd.weatherLoc||'').match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/); return m&&Math.abs(+m[1])<=90&&Math.abs(+m[2])<=180?{weatherLat:+m[1], weatherLon:+m[2]}:{weatherLat:null, weatherLon:null}; })(),
       businessName:fd.businessName.trim()||'Your Window Co.', phone:fd.phone.trim(), email:fd.email.trim(), address:fd.address.trim(), taxRate:+fd.taxRate||0, termsDays:+fd.termsDays||0, dayCapacity:+fd.dayCapacity||0, invoiceStart:Math.max(1,parseInt(fd.invoiceStart,10)||1001), invoiceNote:fd.invoiceNote, services, templates, emailTemplates, updatedAt:Date.now()};
     if(await write(()=>db.doc('settings/app').set(data),'Settings saved')){ S.settingsDirty=false; render(); }
   },
@@ -3896,11 +4106,13 @@ document.addEventListener('input', e=>{
   else if(t.id==='cust-q'){ S.custQuery=t.value; render(); }
   else if(t.id==='photo-q'){ S.photoQuery=t.value; render(); }
   else if(t.id==='job-q'){ S.jobQuery=t.value; render(); }
-  else if(t.closest && t.closest('form[data-form=job]') && ['j-date','rep-count','rep-until'].includes(t.id)) updateRepPreview();
+  else if(t.dataset && t.dataset.addr && e.isTrusted!==false) acInput(t);
+  else if(t.closest && t.closest('form[data-form=job]') && ['j-date','rep-count','rep-until'].includes(t.id)){ updateRepPreview(); refreshJobWarn(); }
+  else if(['j-crew','j-time','j-hours'].includes(t.id)) refreshJobWarn();
   else if(t.id==='inv-q'){ S.invQuery=t.value; render(); }
   else if(t.id==='msg-q'){ S.msgQuery=t.value; render(); }
   else if(t.closest && t.closest('#items')) recalcItems();
-  else if(t.id==='i-tax') recalcItems();
+  else if(t.id==='i-tax'||t.id==='disc-val') recalcItems();
   else if(t.id==='e-to'||t.id==='e-subj'||t.id==='e-body') updateMailto();
   else if(t.id==='wipe-typed'){ const was=S.wipe.typed==='DELETE'; S.wipe.typed=t.value; const now=t.value==='DELETE'; const b=document.querySelector('[data-act="wipeRun"]'); if(b) b.disabled=!now||S.wipe.busy; if(was!==now || (t.value && !now)){ const pos=t.selectionStart; refreshWipe(); const i=document.getElementById('wipe-typed'); if(i){ i.focus(); try{ i.setSelectionRange(pos,pos); }catch(_){} } } }
   else if(t.id==='tr-body'){ const tc=$('#tr-count'); if(tc) tc.textContent = t.value.length ? `${t.value.length} characters${t.value.length>160?' (sends as more than one text)':''}` : ''; }
@@ -3920,8 +4132,12 @@ document.addEventListener('change', e=>{
   else if(t.id==='wipe-messages'){ S.wipe.messages=t.checked; }
   else if(t.id==='bk-usedate'){ const w=$('#bk-date-wrap'); if(w) w.hidden=!t.checked; }
   else if(t.id==='c-billsame'){ const b=$('#c-billing'); if(b){ b.hidden=t.checked; if(!t.checked){ const f=$('#c-bname'); if(f) f.focus(); } } }
-  else if(t.closest && t.closest('form[data-form=job]') && (['j-repeat','j-status','j-date','j-tbd','rep-until','rep-count'].includes(t.id) || t.name==='repEnd')){ syncTbd(); updateRepPreview(); }
+  else if(t.closest && t.closest('form[data-form=job]') && (['j-repeat','j-status','j-date','j-tbd','rep-until','rep-count'].includes(t.id) || t.name==='repEnd')){ syncTbd(); updateRepPreview(); refreshJobWarn(); }
   else if(t.id==='s-logo-file' && t.files && t.files[0]){ logoUpload(t.files[0]); t.value=''; }
+  else if(t.id==='to-all'){ const h=$('#to-hours'); if(h) h.hidden=t.checked; }
+  else if(t.id==='to-member'){ const o=$('#to-other'); if(o){ o.hidden=t.value!=='__other'; if(t.value==='__other') o.focus(); } }
+  else if(t.id==='to-from'){ const e=$('#to-to'); if(e && (!e.value || e.value<t.value)) e.value=t.value; }
+  else if(t.id==='disc-type'){ const on=!!t.value; ['disc-val','disc-note'].forEach(id=>{ const el=$('#'+id); if(el){ el.disabled=!on; if(!on) el.value=''; } }); if(on) $('#disc-val').focus(); recalcItems(); }
   else if(t.id==='j-taxex'||t.id==='i-taxex'){ t.dataset.auto='0'; if(t.id==='i-taxex') syncInvTax(); recalcItems(); }
   else if(t.id==='j-cust'||t.id==='i-cust'){ syncTaxFromCustomer(t.id==='j-cust'?'j-taxex':'i-taxex', t.value); if(t.id==='j-cust') updateRepPreview(); }
   else if(t.id==='rep-pick'){ S.rep.id=t.value; render(); }
@@ -4057,7 +4273,7 @@ async function loadTeam(){ const {data}=await sb.from('profiles').select('*'); S
 async function loadAll(){
   S.dbState='connecting'; render();
   try{
-    const tabs=['customers','jobs','invoices','photos','messages','vehicles','vehicle_logs'].concat(S.role==='crew'?[]:['voicemails']);
+    const tabs=['customers','jobs','invoices','photos','messages','vehicles','vehicle_logs','timeoff'].concat(S.role==='crew'?[]:['voicemails']);
     const res=await Promise.all(tabs.map(t=>loadTable(t).catch(()=>[])));
     tabs.forEach((t,i)=>{ STORE[t]=new Map(res[i].map(r=>[r.id,{id:r.id, ...(r.data||{})}])); S[t]=[...STORE[t].values()]; });
     const st=await sb.from('settings').select('data').eq('id','app').maybeSingle(); S.settingsDoc = st.data ? st.data.data : null;
@@ -4079,7 +4295,7 @@ function applyChange(t, p){
 }
 function subscribe(){
   const ch=sb.channel('purewash-live');
-  ['customers','jobs','invoices','photos','messages','voicemails','vehicles','vehicle_logs','settings','profiles'].forEach(t=>ch.on('postgres_changes',{event:'*', schema:'public', table:t}, p=>applyChange(t,p)));
+  ['customers','jobs','invoices','photos','messages','voicemails','vehicles','vehicle_logs','timeoff','settings','profiles'].forEach(t=>ch.on('postgres_changes',{event:'*', schema:'public', table:t}, p=>applyChange(t,p)));
   ch.subscribe(status=>{ if(status==='CHANNEL_ERROR' || status==='TIMED_OUT'){ setTimeout(()=>{ sb.removeChannel(ch); subscribe(); loadAll(); }, 5000); } });
 }
 async function importOldPhotos(){
