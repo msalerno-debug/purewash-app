@@ -1810,15 +1810,16 @@ function viewSettings(){
       <div class="field full"><span class="lbl">Logo</span>
         <div class="logo-pick"><div class="logo-prev" id="s-logo-prev"><img src="${esc(s.logo||DEFAULT_LOGO)}" alt="Business logo"></div>
           ${ro?'':`<div class="btnrow"><label class="btn sm" for="s-logo-file">Upload a different logo</label><input type="file" id="s-logo-file" accept="image/png,image/jpeg,image/webp" hidden>${s.logo&&s.logo!==DEFAULT_LOGO?'<button type="button" class="btn sm ghost" data-act="logoRemove">Use the PureWash logo</button>':''}</div>`}</div>
-        <input type="hidden" name="logo" id="s-logo" value="${esc(s.logo||'')}"><span class="hint">Used in the app's menu and sign-in screen, on invoices (both pages) and on the customer quote page. A PNG with a transparent background looks best. Click <strong>Save settings</strong> after uploading.</span></div>
+        <input type="hidden" name="logo" id="s-logo" value="${esc(s.logo||'')}"><span class="hint">Used in the app's menu and sign-in screen, on invoices, the quote instructions PDF and the customer quote page. A PNG with a transparent background looks best. Click <strong>Save settings</strong> after uploading.</span></div>
       <div class="field"><label for="s-web">Website</label><input type="text" id="s-web" name="website" value="${esc(s.website||'')}" placeholder="www.purewash.net" ${ro?'disabled':''}></div>
       <div class="field"><label for="s-thanks">Thank-you line</label><input type="text" id="s-thanks" name="invoiceThanks" value="${esc(s.invoiceThanks||'')}" ${ro?'disabled':''}></div>
       <div class="field full"><label for="s-foot">Fine print at the bottom</label><textarea id="s-foot" name="invoiceFooter" style="min-height:60px" ${ro?'disabled':''}>${esc(s.invoiceFooter||'')}</textarea></div>
-      <div class="field full"><label class="chk-row" for="s-p2on" style="font-weight:600"><input type="checkbox" id="s-p2on" name="invoicePage2On" ${s.invoicePage2On!==false?'checked':''} ${ro?'disabled':''}> Attach the instructions page (page 2) to every invoice</label></div>
-      <div class="field full"><label for="s-p2t">Page 2 title</label><input type="text" id="s-p2t" name="invoicePage2Title" value="${esc(s.invoicePage2Title||'')}" ${ro?'disabled':''}></div>
-      <div class="field full"><label for="s-p2">Page 2 text</label><textarea id="s-p2" name="invoicePage2" style="min-height:320px;font-size:.88rem" ${ro?'disabled':''}>${esc(s.invoicePage2||'')}</textarea>
+      <div class="field full"><h2 style="margin:12px 0 0">Quote appointment instructions</h2></div>
+      <div class="field full"><label class="chk-row" for="s-p2on" style="font-weight:600"><input type="checkbox" id="s-p2on" name="invoicePage2On" ${s.invoicePage2On!==false?'checked':''} ${ro?'disabled':''}> Attach these appointment instructions (as a PDF) to every quote email</label><span class="hint">Invoices no longer include this page.</span></div>
+      <div class="field full"><label for="s-p2t">Instructions title</label><input type="text" id="s-p2t" name="invoicePage2Title" value="${esc(s.invoicePage2Title||'')}" ${ro?'disabled':''}></div>
+      <div class="field full"><label for="s-p2">Instructions text</label><textarea id="s-p2" name="invoicePage2" style="min-height:320px;font-size:.88rem" ${ro?'disabled':''}>${esc(s.invoicePage2||'')}</textarea>
         <span class="hint">Start a line with <strong>#</strong> to make it a blue section heading (for example <em># STORM WINDOWS</em>). Leave a blank line between paragraphs.</span></div>
-      <div class="field full"><div class="btnrow"><button type="button" class="btn" data-act="viewInvoicePdf" data-id="sample">Preview invoice PDF</button><span class="hint">Shows your most recent invoice with the saved settings. Save first to see changes.</span></div></div>
+      <div class="field full"><div class="btnrow"><button type="button" class="btn" data-act="viewInvoicePdf" data-id="sample">Preview invoice PDF</button><button type="button" class="btn" data-act="viewPrepPdf">Preview quote instructions PDF</button><span class="hint">Previews use the saved settings. Save first to see changes.</span></div></div>
     </div>
     </section>
     <section class="panel set-panel" id="sp-services" role="tabpanel" aria-labelledby="st-services" data-tabpanel="services" ${hid('services')}>
@@ -2602,7 +2603,8 @@ const DRAWERS = {
       <div class="field"><label for="e-subj">Subject</label><input type="text" id="e-subj" name="subject" value="${esc(subj)}"></div>
       <div class="field"><label for="e-body">Message</label><textarea id="e-body" name="body" style="min-height:260px">${esc(body)}</textarea>${/\[[a-z ]+\]/.test(subj+body)?'<span class="hint" id="e-gaps" style="color:var(--warn)">Fill in the parts in [brackets] before sending.</span>':'<span class="hint" id="e-gaps"></span>'}</div>
       ${v&&!S.integ.email?`<div class="notice info" style="align-items:center;flex-wrap:wrap">Attach invoice #${esc(v.number)}: download it, then add the file to your email.<button class="btn sm" type="button" data-act="downloadInvoice" data-id="${v.id}" style="margin-left:auto" ${S.downloadsOn?'':'disabled'}>${I.download} Download invoice</button></div>`:''}
-      ${S.integ.email?`<div class="btnrow"><button class="btn primary" type="button" data-act="sendEmail">Send email</button><button class="btn" type="button" data-act="copyEmail">Copy</button></div><p class="hint">Sends from your business address${v?` with invoice #${esc(v.number)} attached`:''}. Customer replies go to the business email in Settings.${quoteOpen(job(jobId))?' The customer gets <strong>Accept</strong> and <strong>Decline</strong> buttons, and you\'re notified when they answer.':''}</p>`
+      ${!v&&!S.integ.email&&quoteOpen(job(jobId))&&prepOn()?`<div class="notice info" style="align-items:center;flex-wrap:wrap">Attach the appointment instructions: download the PDF, then add it to your email.<button class="btn sm" type="button" data-act="downloadPrepPdf" style="margin-left:auto" ${S.downloadsOn?'':'disabled'}>${I.download} Download PDF</button></div>`:''}
+      ${S.integ.email?`<div class="btnrow"><button class="btn primary" type="button" data-act="sendEmail">Send email</button><button class="btn" type="button" data-act="copyEmail">Copy</button></div><p class="hint">Sends from your business address${v?` with invoice #${esc(v.number)} attached`:quoteOpen(job(jobId))&&prepOn()?' with the <strong>Preparing for your appointment</strong> PDF attached':''}. Customer replies go to the business email in Settings.${quoteOpen(job(jobId))?' The customer gets <strong>Accept</strong> and <strong>Decline</strong> buttons, and you\'re notified when they answer.':''}</p>`
       :`<div class="btnrow"><button class="btn primary" type="button" data-act="copyEmail">Copy email</button><span id="e-mailto"></span><button class="btn" type="submit">Log as sent</button></div><p class="hint">Paste into your email, send, then log it here so it's saved on the customer's file.</p>`}
     </form>`, after(){ updateMailto(); }};
   },
@@ -2960,10 +2962,13 @@ const A = {
     if(jid && quoteOpen(job(jid)) && body.includes(quoteLink(jid))){ if(!await commitQuoteToken(jid, true)) return toast('Couldn\'t prepare the quote link. Try again.','bad'); quoteLinkSent=quoteLink(jid); }
     let attachments = [];
     if(v){ try{ attachments=[{filename:`Invoice-${v.number}.pdf`, content:await invoicePdfBase64(v)}]; }catch(e){ attachments=[{filename:`Invoice-${v.number}.html`, content:btoa(unescape(encodeURIComponent(invoiceHTML(v))))}]; } }
+    let prepFailed=false;
+    if(!v && jid && quoteOpen(job(jid)) && prepOn()){ try{ attachments=[{filename:PREP_FILE, content:await prepPdfBase64()}]; }catch(e){ prepFailed=true; } }
     el.disabled=true; el.textContent='Sending…';
     const r=await callFn('messaging',{action:'email', to, subject, text:body, replyTo:s.email||'', attachments, quoteLink:quoteLinkSent});
     if(!r.ok){ el.disabled=false; el.textContent='Send email'; return toast(r.error,'bad'); }
-    await write(()=>saveDoc('messages',newId('messages'),{customerId:cid, to, subject, body, channel:'email', sent:true, jobId:f.dataset.job||'', invoiceId:f.dataset.inv||'', createdAt:Date.now(), by:S.uid||''}),'Email sent');
+    await write(()=>saveDoc('messages',newId('messages'),{customerId:cid, to, subject, body, channel:'email', sent:true, jobId:f.dataset.job||'', invoiceId:f.dataset.inv||'', createdAt:Date.now(), by:S.uid||''}),prepFailed?null:'Email sent');
+    if(prepFailed) toast('Email sent, but the appointment instructions PDF couldn\'t be made, so it wasn\'t attached.','bad');
     const c=cust(cid); if(c && !c.email && !v) await write(()=>saveDoc('customers',c.id,{...c,email:to,updatedAt:Date.now()}));
     if(v && v.status==='Draft') await write(()=>saveDoc('invoices',v.id,{...v,status:'Sent',updatedAt:Date.now()}));
     back();
@@ -3104,6 +3109,8 @@ const A = {
     await saveFile(`quickbooks-customers-${todayISO()}.csv`, toCSV(rows));
   },
   logoRemove(){ $('#s-logo').value=DEFAULT_LOGO; $('#s-logo-prev').innerHTML=`<img src="${DEFAULT_LOGO}" alt="Business logo">`; S.settingsDirty=true; toast('Switched back to the PureWash logo. Click Save settings to keep it.'); },
+  async viewPrepPdf(){ const w=window.open('','_blank'); try{ const blob=(await prepPdf()).output('blob'); const url=URL.createObjectURL(blob); if(w) w.location.href=url; else location.href=url; setTimeout(()=>URL.revokeObjectURL(url), 120000); }catch(e){ if(w) w.close(); toast(e.message||'Couldn\'t make the PDF.','bad'); } },
+  async downloadPrepPdf(d,el){ if(el) el.disabled=true; try{ await saveFile(PREP_FILE, (await prepPdf()).output('blob')); }catch(e){ toast(e.message||'Couldn\'t make the PDF.','bad'); } finally{ if(el&&el.isConnected) el.disabled=false; } },
   async downloadInvoice(d,el){ const v=inv(d.id); if(!v) return; if(el){ el.disabled=true; } try{ const blob=await invoicePdfBlob(v); await saveFile(`Invoice-${v.number}.pdf`, blob); }catch(e){ toast(e.message||'Couldn\'t make the PDF.','bad'); } finally{ if(el&&el.isConnected) el.disabled=false; } },
   async viewInvoicePdf(d){ const v=d.id==='sample'?sampleInvoice():inv(d.id); if(!v) return; const w=window.open('','_blank'); try{ const blob=await invoicePdfBlob(v); const url=URL.createObjectURL(blob); if(w) w.location.href=url; else location.href=url; setTimeout(()=>URL.revokeObjectURL(url), 120000); }catch(e){ if(w) w.close(); toast(e.message||'Couldn\'t make the PDF.','bad'); } },
   setTheme(d){ try{ if(d.t==='system') localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY,d.t); }catch(e){ toast('This browser won\'t save the choice, so it resets next visit.','bad'); } if(d.t!=='system'){ document.documentElement.setAttribute('data-theme',d.t); } else applyTheme(); render(); },
@@ -3226,14 +3233,12 @@ async function invoicePdf(v){
   row('TOTAL', money(t.total), 30, {fill:true, big:true});
   paidRows.forEach(([l,v2],i)=>row(l,v2,20,{}));
   footer();
-  // page 2: instructions
-  if(s.invoicePage2On!==false && String(s.invoicePage2||'').trim()) invoicePage2(doc, s, {W,H,set,tx,wrap});
   return doc;
 }
-function invoicePage2(doc, s, {W,H,set,tx,wrap}){
+function invoicePage2(doc, s, {W,H,set,tx,wrap}, first=false){
   const BLUE=[46,116,181], M=50;
   const frame=()=>{ doc.setDrawColor(74,134,197); doc.setLineWidth(1.6); doc.rect(20,20,W-40,H-40); doc.setLineWidth(0.6); doc.rect(25,25,W-50,H-50); };
-  doc.addPage(); frame();
+  if(!first) doc.addPage(); frame();
   let y=40;
   if(s.logo){ try{ const ip=doc.getImageProperties(s.logo); let w=280, h=w*ip.height/ip.width; if(h>115){ h=115; w=h*ip.width/ip.height; } doc.addImage(s.logo, ip.fileType||'JPEG', (W-w)/2, y, w, h); y+=h+28; }catch(e){ y+=10; } }
   set('helvetica','bolditalic',17); tx(s.invoicePage2Title||'', W/2, y, {align:'center'}); y+=24;
@@ -3266,6 +3271,19 @@ async function logoUpload(file){
     $('#s-logo').value=data; $('#s-logo-prev').innerHTML=`<img src="${data}" alt="Business logo">`; S.settingsDirty=true; toast('Logo ready. Click Save settings to keep it.');
   }catch(e){ toast('Couldn\'t read that image. Try a PNG or JPG.','bad'); }
 }
+const prepOn = () => { const s=settings(); return s.invoicePage2On!==false && !!String(s.invoicePage2||'').trim(); };
+const PREP_FILE = 'Preparing-for-your-appointment.pdf';
+async function prepPdf(){
+  const {jsPDF}=await loadJsPDF();
+  const s={...settings()}; s.logo=await logoData(!s.logo || s.logo===DEFAULT_LOGO ? '/purewash-logo-invoice.jpg' : s.logo);
+  if(!String(s.invoicePage2||'').trim()) throw new Error('The appointment instructions are empty. Add them in Settings → Quote appointment instructions.');
+  const doc=new jsPDF({unit:'pt', format:'letter', compress:true});
+  const set=(font,style,size,color=[20,24,32])=>{ doc.setFont(font,style); doc.setFontSize(size); doc.setTextColor(...color); };
+  invoicePage2(doc, s, {W:612, H:792, set, tx:(str,x,y,o)=>doc.text(pdfSafe(str),x,y,o), wrap:(str,w)=>doc.splitTextToSize(pdfSafe(str),w)}, true);
+  doc.setProperties({title: s.invoicePage2Title||'Preparing for your appointment'});
+  return doc;
+}
+async function prepPdfBase64(){ const d=await prepPdf(); return d.output('datauristring').split(',')[1]; }
 async function invoicePdfBlob(v){ const d=await invoicePdf(v); return d.output('blob'); }
 async function invoicePdfBase64(v){ const d=await invoicePdf(v); return d.output('datauristring').split(',')[1]; }
 
