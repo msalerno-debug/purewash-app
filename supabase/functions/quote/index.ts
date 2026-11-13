@@ -57,7 +57,20 @@ Deno.serve(async (req) => {
       subtotal: sub, discount: disc, discountLabel: discLabel, taxRate: rate, tax: taxAmt, taxExempt: exempt, total: grand, date: String(j.date || ""), response: resp ? { decision: resp.decision, at: resp.at } : null,
     });
 
-    if (body.action === "get") return json(view());
+    const logEvent = async (kind: string, extra: Rec = {}) => {
+      if (!j.customerId) return;
+      try { await admin.from("customer_events").insert({ id: "ev-" + crypto.randomUUID(), data: { kind, customerId: String(j.customerId), jobId: row.id, number: String(j.quoteNumber || ""), amount: grand, at: Date.now(), ...extra } }); } catch (_) { /* activity is best effort */ }
+    };
+
+    if (body.action === "get") {
+      // count a view at most once every 30 minutes, and only while the link is live
+      if (state === "open" || resp) {
+        const since = Date.now() - 30 * 60000;
+        const { data: recent } = await admin.from("customer_events").select("id,data").eq("data->>jobId", row.id).eq("data->>kind", "quote_viewed").order("created_at", { ascending: false }).limit(1);
+        if (!recent?.length || Number((recent[0].data as Rec).at) < since) await logEvent("quote_viewed");
+      }
+      return json(view());
+    }
 
     if (body.action === "respond") {
       const decision = body.decision === "accept" ? "accepted" : body.decision === "decline" ? "declined" : "";
@@ -72,6 +85,7 @@ Deno.serve(async (req) => {
       // only change it if it is still an unanswered quote (guards against a double click)
       const { data: done } = await admin.from("jobs").update({ data: upd }).eq("id", row.id).eq("data->>status", "Quoted").is("data->quoteResponse", null).select("id");
       if (!done || !done.length) return json({ ...view(), error: "You already answered this quote." }, 409);
+      await logEvent(decision === "accepted" ? "quote_accepted" : "quote_declined", note ? { note } : {});
       if (decision === "accepted" && c && (c.status === "Lead" || c.status === "Quoted")) await admin.from("customers").update({ data: { ...c, status: "Active", updatedAt: now } }).eq("id", cr!.id);
 
       // notify the business by email

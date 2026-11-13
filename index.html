@@ -162,6 +162,16 @@ button,input,select,textarea{font:inherit;color:inherit}
 .list > .row:first-child{border-top:0}
 .row:hover{background:var(--surface-2)}
 .row .t{font-weight:650;min-width:0;overflow-wrap:anywhere}
+.act-list{display:flex;flex-direction:column}
+.act-row{display:flex;gap:12px;align-items:flex-start;padding:10px 2px;border:0;border-top:1px solid var(--line);background:none;text-align:left;width:100%;font:inherit;color:inherit}
+.act-list .act-row:first-child{border-top:0}
+button.act-row{cursor:pointer} button.act-row:hover .t{text-decoration:underline}
+.act-ic{flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:.86rem;font-weight:700;background:var(--surface-2,#eef2f8);color:var(--muted)}
+.act-ic.cust{background:#E3F6FD;color:#0A6E93} .act-ic.good{background:#E3F3EA;color:#1F7A4D} .act-ic.bad{background:#FBE9E7;color:#B3261E}
+.act-tx{display:flex;flex-direction:column;gap:2px;min-width:0}
+.act-tx .t{font-weight:600;overflow-wrap:anywhere} .act-tx .s{font-size:.8rem;color:var(--muted)}
+.act-note{font-size:.86rem;font-style:italic;overflow-wrap:anywhere}
+.seg{display:inline-flex;gap:4px} .seg .btn.on{background:var(--accent-soft,#E6EDF8);color:var(--accent);font-weight:700}
 .row .s{grid-column:1;font-size:.84rem;color:var(--muted);min-width:0;overflow-wrap:anywhere}
 .row .r{grid-row:1 / span 2;grid-column:2;display:flex;flex-direction:column;align-items:flex-end;gap:5px;text-align:right}
 .jobrow{display:grid;grid-template-columns:64px 1fr;gap:12px;padding:12px 4px;border-top:1px solid var(--line)}
@@ -682,7 +692,7 @@ const SOURCES = ['Referral','Google','Facebook','Nextdoor','Yard sign','Door han
 const PAY_METHODS = ['Card','Check','Cash','Zelle','Venmo','ACH','Other'];
 
 /* ---------- state ---------- */
-const S = {qbo:null, timeoff:[], wx:null, customers:[], jobs:[], invoices:[], photos:[], messages:[], voicemails:[], vmFilter:'all', vmLimit:50, vmConfirm:null, vmBusy:new Set(), vehicles:[], vehicle_logs:[], settingsDoc:null, view:'today',
+const S = {qbo:null, timeoff:[], customer_events:[], actFilter:'all', actOpen:null, wx:null, customers:[], jobs:[], invoices:[], photos:[], messages:[], voicemails:[], vmFilter:'all', vmLimit:50, vmConfirm:null, vmBusy:new Set(), vehicles:[], vehicle_logs:[], settingsDoc:null, view:'today',
   jobFilter:'upcoming', jobQuery:'', custQuery:'', custStatus:'All', photoQuery:'', invFilter:'Open', invQuery:'', msgQuery:'', msgChan:'all', msgTab:'conv', rep:{id:'summary', period:'ytd', from:'', to:''}, cal:{mode:'month', anchor:'', sel:null, showQuotes:true}, settingsDirty:false, dbState:'connecting',
   canWrite:null, canAdmin:false, uid:null, assetsOn:true, downloadsOn:true, role:null, profile:null, team:[], activity:null, integ:{email:false, sms:false}, sel:{jobs:new Set(), invoices:new Set()}, _visible:{jobs:[], invoices:[]}, setTab:'general', wipe:{open:false, typed:'', photos:false, messages:false, busy:false, result:null}, api:{loaded:false, loading:false, data:null, busy:{}, err:null}, mapsKey:null};
 // data, photo storage and downloads are defined in the Supabase data layer below
@@ -724,8 +734,60 @@ const QUOTE_LINE = 'Review your quote and accept or decline it online:';
 function withQuoteLink(body, jid){ const j=job(jid); if(!quoteOpen(j)) return body; const L=quoteLink(jid); return body.includes(L) ? body : `${body.replace(/\s+$/,'')}\n\n${QUOTE_LINE}\n${L}`; }
 async function commitQuoteToken(jid, sent){ const j=job(jid); if(!quoteOpen(j)) return true; const t=quoteToken(jid); if(j.quoteToken===t && !sent) return true;
   try{ await saveDoc('jobs', j.id, {...j, quoteToken:t, ...(sent?{quoteSentAt:Date.now()}:{})}); delete QT[jid]; return true; }catch(e){ return false; } }
+/* ---------- customer activity ---------- */
+const randHex = n => [...crypto.getRandomValues(new Uint8Array(n))].map(b=>b.toString(16).padStart(2,'0')).join('');
+function docName(e){ const j=e.jobId?job(e.jobId):null, v=e.invoiceId?inv(e.invoiceId):null;
+  if(e.doc==='quote' || (e.kind||'').startsWith('quote_')) return `quote${(e.number||(j&&j.quoteNumber))?' #'+(e.number||j.quoteNumber):''}`;
+  if(e.doc==='invoice' || (v && e.doc!=='')) return `invoice${(e.number||(v&&v.number))?' #'+(e.number||v.number):''}`; return ''; }
+function actText(e){
+  const d=docName(e), amt=+e.amount>0?` (${money(+e.amount)})`:'';
+  switch(e.kind){
+    case 'email_sent': return {who:'us', icon:'✉', text: d?`You emailed ${d}${amt}`:`You emailed: ${e.subject||'(no subject)'}`, toast:''};
+    case 'email_opened': return {who:'cust', icon:'👁', text: d?`Opened the ${d} email`:`Opened your email: ${e.subject||'(no subject)'}`, toast: d?`opened the ${d} email`:'opened your email'};
+    case 'quote_viewed': return {who:'cust', icon:'👁', text:`Viewed ${d} online`, toast:`is looking at ${d} online`};
+    case 'quote_accepted': return {who:'cust', icon:'✓', text:`Accepted ${d}${amt}`, note:e.note, good:true};
+    case 'quote_declined': return {who:'cust', icon:'✕', text:`Declined ${d}${amt}`, note:e.note, bad:true};
+  } return null; }
+function custActivity(id){
+  const out=[]; const add=(at,a,extra={})=>{ if(a && at) out.push({at:+at, ...a, ...extra}); };
+  const evs=S.customer_events.filter(e=>e.customerId===id);
+  const responded=new Set(evs.filter(e=>e.kind==='quote_accepted'||e.kind==='quote_declined').map(e=>e.jobId));
+  evs.forEach(e=>add(e.at, actText(e), {jobId:e.jobId||'', invoiceId:e.invoiceId||''}));
+  // answers given before the activity log existed
+  S.jobs.filter(j=>j.customerId===id && j.quoteResponse && !responded.has(j.id)).forEach(j=>{ const r=j.quoteResponse; add(r.at, actText({kind:r.decision==='accepted'?'quote_accepted':'quote_declined', jobId:j.id, number:j.quoteNumber, amount:jobTotal(j), note:r.note}), {jobId:j.id}); });
+  S.messages.filter(m=>msgCustomerId(m)===id && !(m.channel==='email' && m.trackToken)).forEach(m=>{
+    const txt=String(m.body||'').replace(/\s+/g,' ').trim(); const short=txt.length>90?txt.slice(0,88)+'…':txt;
+    if(m.direction==='in') add(m.createdAt,{who:'cust', icon:'💬', text:`Texted you: “${short}”`});
+    else if(m.channel==='email') add(m.createdAt,{who:'us', icon:'✉', text:`Email logged: ${m.subject||short||'(no subject)'}`},{jobId:m.jobId||'', invoiceId:m.invoiceId||''});
+    else add(m.createdAt,{who:'us', icon:'💬', text:`You texted: “${short}”`},{jobId:m.jobId||'', invoiceId:m.invoiceId||''});
+  });
+  const c=cust(id); const p=d10(c&&c.phone);
+  S.voicemails.filter(v=>!v.deleted && (v.customerId===id || (p.length===10 && v.number===p))).forEach(v=>add(v.createdAt,{who:'cust', icon:'☎', text:`Left a voicemail${v.duration?` (${Math.floor(v.duration/60)}:${String(v.duration%60).padStart(2,'0')})`:''}`}));
+  S.invoices.filter(v=>v.customerId===id).forEach(v=>(v.payments||[]).forEach(pm=>{ if(!(+pm.amount>0)) return; const at=pm.at || (pm.date?parseISO(pm.date).getTime()+12*3600e3:0);
+    add(at,{who:'cust', icon:'$', good:true, text:`Paid ${money(+pm.amount)} on invoice #${v.number}${pm.method?` (${pm.method})`:''}`, dateOnly:!pm.at},{invoiceId:v.id}); }));
+  return out.sort((a,b)=>b.at-a.at);
+}
+function custActivityHtml(id){
+  if(S.role==='crew') return '';
+  const all=custActivity(id); const f=S.actFilter||'all'; const list=f==='cust'?all.filter(a=>a.who==='cust'):all;
+  const open=S.actOpen===id; const shown=open?list:list.slice(0,8);
+  const row=a=>{ const go=a.jobId&&job(a.jobId)?`data-act="openJob" data-id="${esc(a.jobId)}" data-stack="1"`:a.invoiceId&&inv(a.invoiceId)?`data-act="openInvoice" data-id="${esc(a.invoiceId)}" data-stack="1"`:'';
+    const inner=`<span class="act-ic ${a.who}${a.good?' good':''}${a.bad?' bad':''}" aria-hidden="true">${a.icon}</span><span class="act-tx"><span class="t">${esc(a.text)}</span>${a.note?`<span class="act-note">“${esc(a.note)}”</span>`:''}<span class="s">${a.who==='cust'?'Customer · ':''}${esc(a.dateOnly?fmtDate(new Date(a.at).toISOString().slice(0,10)):fmtStamp(a.at))}</span></span>`;
+    return go?`<button class="act-row" ${go}>${inner}</button>`:`<div class="act-row">${inner}</div>`; };
+  return `<section class="panel office-only"><div class="panel-head"><h3>Activity</h3><span class="seg" role="group" aria-label="Show"><button class="btn ghost sm ${f==='all'?'on':''}" data-act="actFilter" data-f="all" aria-pressed="${f==='all'}">All</button><button class="btn ghost sm ${f==='cust'?'on':''}" data-act="actFilter" data-f="cust" aria-pressed="${f==='cust'}">Customer actions</button></span></div>
+    ${shown.length?`<div class="act-list">${shown.map(row).join('')}</div>`:`<p class="muted">${f==='cust'?'Nothing from this customer yet. Opens, quote views, answers, payments, texts and voicemails show here.':'No activity yet.'}</p>`}
+    ${list.length>8?`<button class="btn ghost sm" data-act="actMore" data-id="${esc(id)}">${open?'Show less':`Show all ${list.length}`}</button>`:''}
+    <p class="hint" style="margin:6px 0 0">Email opens are recorded when the customer's email app loads images. Some apps load them automatically, and some block them, so treat opens as a good sign rather than proof.</p></section>`;
+}
+function seenHtml(filter, what, sent){
+  if(S.role==='crew') return '';
+  const evs=S.customer_events.filter(filter).sort((a,b)=>b.at-a.at); if(!evs.length) return sent?`<p class="hint">The ${what} email hasn't been opened yet.</p>`:'';
+  const opened=evs.filter(e=>e.kind==='email_opened'), viewed=evs.filter(e=>e.kind==='quote_viewed');
+  const bits=[viewed.length?`viewed it online ${viewed.length===1?'once':viewed.length+' times'} (last ${fmtStamp(viewed[0].at)})`:'', opened.length?`opened the email ${opened.length===1?'once':opened.length+' times'} (last ${fmtStamp(opened[0].at)})`:''].filter(Boolean);
+  return bits.length?`<p class="hint">👁 The customer ${esc(bits.join(' and '))}.</p>`:`<p class="hint">The ${what} email hasn't been opened yet.</p>`;
+}
 function quoteRespHtml(j){
-  const r=j.quoteResponse; if(!r) return j.status==='Quoted'&&j.quoteSentAt?`<p class="hint">Quote emailed ${esc(fmtStamp(j.quoteSentAt))}. The customer can accept or decline it from the email.</p>`:'';
+  const r=j.quoteResponse; if(!r) return j.status==='Quoted'?`${j.quoteSentAt?`<p class="hint">Quote emailed ${esc(fmtStamp(j.quoteSentAt))}. The customer can accept or decline it from the email.</p>`:''}${seenHtml(e=>e.jobId===j.id&&(e.kind==='quote_viewed'||(e.kind==='email_opened'&&e.doc==='quote')),'quote',S.customer_events.some(e=>e.jobId===j.id&&e.kind==='email_sent'))}`:'';
   const acc=r.decision==='accepted';
   return `<div class="notice ${acc?'good':'bad'}" style="flex-direction:column;align-items:flex-start;gap:6px"><strong>${acc?'✓ Accepted online':'✕ Declined online'} ${esc(fmtStamp(r.at))}</strong>
     <span>${acc?(j.status==='Quoted'?'The date is TBD. Pick one to book the job.':r.booked?`Booked automatically for ${esc(fmtDate(j.date))}.`:''):'The quote was marked lost.'}</span>
@@ -870,7 +932,7 @@ function svButtons(c, small){
 const SB_URL='https://quthcaplccvgpvlietyo.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1dGhjYXBsY2N2Z3B2bGlldHlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3MTM4ODMsImV4cCI6MjEwODI4OTg4M30.C4vsmsN7LhahIbwiCGdAy3Cwbl7FVbXV3mMZaS5fN5A';
 let sb=null;
-const STORE={customers:new Map(), jobs:new Map(), invoices:new Map(), photos:new Map(), messages:new Map(), voicemails:new Map(), vehicles:new Map(), vehicle_logs:new Map(), timeoff:new Map()};
+const STORE={customers:new Map(), jobs:new Map(), invoices:new Map(), photos:new Map(), messages:new Map(), voicemails:new Map(), vehicles:new Map(), vehicle_logs:new Map(), timeoff:new Map(), customer_events:new Map()};
 const genId = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random()).replace(/[^a-z0-9]/gi,'').slice(0,20);
 function pgErr(error){ const m=String(error&&error.message||''); if(error&&(error.code==='42501'||/row-level security|permission/i.test(m))) return {code:'invalid_argument', message:m}; if(/fetch|network/i.test(m)) return {code:'unavailable', message:m}; return {code:'unavailable', message:m}; }
 function applyLocal(col, id, body){ const m=STORE[col]; if(!m) return; if(body===null) m.delete(id); else m.set(id,{id,...body}); S[col]=[...m.values()]; scheduleRender(); }
@@ -2363,6 +2425,7 @@ const DRAWERS = {
         <div class="fact office-only"><div class="k">Balance</div><div class="v num" style="font-size:.95rem;${bal>0?'color:var(--bad)':''}">${money(bal)}</div></div>
       </div>
       ${c.notes?`<section class="panel"><div class="lbl" style="margin-bottom:6px">Notes</div><p style="white-space:pre-wrap">${esc(c.notes)}</p></section>`:''}
+      ${custActivityHtml(id)}
       <section class="panel"><div class="panel-head"><h3>Service history</h3><span class="muted" style="font-size:.8rem">${jobs.length} job${jobs.length===1?'':'s'}</span></div>
         ${jobs.length?`<div class="list">${jobs.map(j=>`<button class="row" data-act="openJob" data-id="${j.id}" data-stack="1"><span class="t">${j.date?esc(fmtDate(j.date))+(j.time?` · ${esc(fmtTime(j.time))}`:''):'Date TBD'}</span><span class="s">${esc(itemsSummary(j.items)||'No services listed')}${j.notes?` — ${esc(j.notes.slice(0,80))}`:''}</span><span class="r">${pill(j.status)}<span class="num" style="font-size:.84rem">${money(jobTotal(j))}</span></span></button>`).join('')}</div>`:'<p class="muted">No jobs yet.</p>'}
       </section>
@@ -2533,6 +2596,7 @@ const DRAWERS = {
         <button class="btn" data-act="downloadInvoice" data-id="${id}" ${S.downloadsOn?'':'disabled'}>${I.download} Download PDF</button>
         <button class="btn" data-act="editInvoice" data-id="${id}">Edit</button>
       </div>
+      ${seenHtml(e=>e.invoiceId===id&&e.kind==='email_opened','invoice',S.customer_events.some(e=>e.invoiceId===id&&e.kind==='email_sent'))}
       <section class="panel" style="display:flex;flex-direction:column;gap:14px">
         <div style="display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap">
           <div><div style="font-family:var(--f-display);font-weight:780;font-size:1.1rem">${esc(s.businessName)}</div><div class="muted" style="font-size:.84rem">${esc(s.address)}${s.phone?'<br>'+esc(s.phone):''}${s.email?'<br>'+esc(s.email):''}</div></div>
@@ -2978,9 +3042,11 @@ const A = {
       if(prepOn()){ try{ attachments.push({filename:PREP_FILE, content:await prepPdfBase64()}); }catch(e){ prepFailed=true; } }
     }
     el.disabled=true; el.textContent='Sending…';
-    const r=await callFn('messaging',{action:'email', to, subject, text:body, replyTo:s.email||'', attachments, quoteLink:quoteLinkSent, quoteCard});
+    const trackToken=randHex(16); const vt=v?totals(v):null;
+    const invoiceCard=v?{number:String(v.number||''), total:Math.round(vt.balance*100)/100, due:v.dueDate||''}:null;
+    const r=await callFn('messaging',{action:'email', to, subject, text:body, replyTo:s.email||'', attachments, quoteLink:quoteLinkSent, quoteCard, invoiceCard, appOrigin:location.origin, track:{token:trackToken, customerId:cid, jobId:jid, invoiceId:v?v.id:''}});
     if(!r.ok){ el.disabled=false; el.textContent='Send email'; return toast(r.error,'bad'); }
-    await write(()=>saveDoc('messages',newId('messages'),{customerId:cid, to, subject, body, channel:'email', sent:true, jobId:f.dataset.job||'', invoiceId:f.dataset.inv||'', createdAt:Date.now(), by:S.uid||''}),prepFailed?null:'Email sent');
+    await write(()=>saveDoc('messages',newId('messages'),{customerId:cid, to, subject, body, channel:'email', sent:true, trackToken, jobId:f.dataset.job||'', invoiceId:f.dataset.inv||'', createdAt:Date.now(), by:S.uid||''}),prepFailed?null:'Email sent');
     if(prepFailed) toast('Email sent, but a PDF couldn\'t be made, so it wasn\'t attached. Check your connection.','bad');
     const c=cust(cid); if(c && !c.email && !v) await write(()=>saveDoc('customers',c.id,{...c,email:to,updatedAt:Date.now()}));
     if(v && v.status==='Draft') await write(()=>saveDoc('invoices',v.id,{...v,status:'Sent',updatedAt:Date.now()}));
@@ -3122,6 +3188,8 @@ const A = {
     await saveFile(`quickbooks-customers-${todayISO()}.csv`, toCSV(rows));
   },
   logoRemove(){ $('#s-logo').value=DEFAULT_LOGO; $('#s-logo-prev').innerHTML=`<img src="${DEFAULT_LOGO}" alt="Business logo">`; S.settingsDirty=true; toast('Switched back to the PureWash logo. Click Save settings to keep it.'); },
+  actFilter(d){ S.actFilter=d.f; rerender(); },
+  actMore(d){ S.actOpen=S.actOpen===d.id?null:d.id; rerender(); },
   async viewQuotePdf(d){ const j=job(d.id); if(!j) return; const w=window.open('','_blank'); try{ const url=URL.createObjectURL((await quotePdf(j)).output('blob')); if(w) w.location.href=url; else location.href=url; setTimeout(()=>URL.revokeObjectURL(url), 120000); }catch(e){ if(w) w.close(); toast(e.message||'Couldn\'t make the PDF.','bad'); } },
   async downloadQuotePdf(d,el){ const j=job(d.id); if(!j) return; if(el) el.disabled=true; try{ await ensureQuoteNumber(j.id); const jj=job(j.id); await saveFile(quoteFile(jj), (await quotePdf(jj)).output('blob')); }catch(e){ toast(e.message||'Couldn\'t make the PDF.','bad'); } finally{ if(el&&el.isConnected) el.disabled=false; } },
   async viewPrepPdf(){ const w=window.open('','_blank'); try{ const blob=(await prepPdf()).output('blob'); const url=URL.createObjectURL(blob); if(w) w.location.href=url; else location.href=url; setTimeout(()=>URL.revokeObjectURL(url), 120000); }catch(e){ if(w) w.close(); toast(e.message||'Couldn\'t make the PDF.','bad'); } },
@@ -4306,7 +4374,7 @@ async function loadTeam(){ const {data}=await sb.from('profiles').select('*'); S
 async function loadAll(){
   S.dbState='connecting'; render();
   try{
-    const tabs=['customers','jobs','invoices','photos','messages','vehicles','vehicle_logs','timeoff'].concat(S.role==='crew'?[]:['voicemails']);
+    const tabs=['customers','jobs','invoices','photos','messages','vehicles','vehicle_logs','timeoff'].concat(S.role==='crew'?[]:['voicemails','customer_events']);
     const res=await Promise.all(tabs.map(t=>loadTable(t).catch(()=>[])));
     tabs.forEach((t,i)=>{ STORE[t]=new Map(res[i].map(r=>[r.id,{id:r.id, ...(r.data||{})}])); S[t]=[...STORE[t].values()]; });
     const st=await sb.from('settings').select('data').eq('id','app').maybeSingle(); S.settingsDoc = st.data ? st.data.data : null;
@@ -4322,13 +4390,14 @@ function applyChange(t, p){
   if(t==='messages' && p.eventType==='INSERT' && p.new && p.new.data && p.new.data.direction==='in' && !p.new.data.read){ const d=p.new.data; const c=msgCustomerId(d); toast(`New text from ${c?custLabel(cust(c)):fmtNum(d.number)}`); }
   if(t==='jobs' && p.new && p.new.data && p.new.data.quoteResponse && S.role!=='crew'){ const was=m.get(p.new.id); if(!was || !was.quoteResponse){ const d=p.new.data; toast(`${custName(d.customerId)} ${d.quoteResponse.decision} your quote${d.quoteResponse.decision==='accepted'?(d.status==='Scheduled'?` · booked ${fmtDate(d.date)}`:' · pick a date'):''}`); } }
   if(t==='invoices' && p.new && p.new.data && S.role!=='crew'){ const was=m.get(p.new.id); const seen=new Set(((was&&was.payments)||[]).map(x=>x.qboId).filter(Boolean)); const fresh=(p.new.data.payments||[]).filter(x=>x.source==='quickbooks' && x.qboId && !seen.has(x.qboId)); if(was && fresh.length) toast(`QuickBooks payment: ${money(fresh.reduce((a,x)=>a+(+x.amount||0),0))} on invoice #${p.new.data.number}`); }
+  if(t==='customer_events' && p.eventType==='INSERT' && p.new && p.new.data && S.role!=='crew'){ const e=p.new.data; if(e.kind==='quote_viewed'||e.kind==='email_opened'){ const a=actText({id:p.new.id,...e}); if(a) toast(`${custName(e.customerId)} ${a.toast}`); } }
   if(t==='voicemails' && p.eventType==='INSERT' && p.new && p.new.data && !p.new.data.heard && !p.new.data.deleted) toast(`New voicemail from ${vmWho(p.new.data)}`);
   if(p.eventType==='DELETE'){ if(p.old && p.old.id) m.delete(p.old.id); } else if(p.new){ m.set(p.new.id, {id:p.new.id, ...(p.new.data||{})}); }
   S[t]=[...m.values()]; scheduleRender();
 }
 function subscribe(){
   const ch=sb.channel('purewash-live');
-  ['customers','jobs','invoices','photos','messages','voicemails','vehicles','vehicle_logs','timeoff','settings','profiles'].forEach(t=>ch.on('postgres_changes',{event:'*', schema:'public', table:t}, p=>applyChange(t,p)));
+  ['customers','jobs','invoices','photos','messages','voicemails','vehicles','vehicle_logs','timeoff','settings','profiles'].concat(S.role==='crew'?[]:['customer_events']).forEach(t=>ch.on('postgres_changes',{event:'*', schema:'public', table:t}, p=>applyChange(t,p)));
   ch.subscribe(status=>{ if(status==='CHANNEL_ERROR' || status==='TIMED_OUT'){ setTimeout(()=>{ sb.removeChannel(ch); subscribe(); loadAll(); }, 5000); } });
 }
 async function importOldPhotos(){

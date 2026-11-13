@@ -14,49 +14,63 @@ const money = (n: number) => "$" + (Math.round(n * 100) / 100).toLocaleString("e
 const longDate = (iso: string) => { if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return ""; const [y, m, d] = iso.split("-").map(Number); return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC" }); };
 const QUOTE_LINE = "Review your quote and accept or decline it online:";
 
-// Branded quote email: logo, a tinted band with the total and Accept/Decline buttons, the message, then business details.
-// Colors follow the PureWash logo: navy #1E3A6E / #2B5190 and cyan #00B4EE.
-function quoteEmailHtml(text: string, link: string, card: Rec, s: Rec): string {
+// Branded email, used for everything sent from the app. Colors follow the PureWash logo: navy #1E3A6E / #2B5190 and cyan #00B4EE.
+//  quote:   band with the proposed date, total and Accept/Decline buttons
+//  invoice: band with the amount due and due date
+//  other:   plain branded letter
+// A 1x1 image at the end lets the app see when the customer opens it.
+function brandedEmailHtml(text: string, o: { link?: string; quote?: Rec; invoice?: Rec; pixel?: string; origin: string }, s: Rec): string {
   const NAVY = "#1E3A6E", BLUE = "#2B5190", CYAN = "#00B4EE", TINT = "#E8F7FD", INK = "#24324A", MUTED = "#5F6B7E", FONT = "Arial,Helvetica,sans-serif";
-  const origin = new URL(link).origin;
   const name = String(s.businessName || "").trim();
   const rawLogo = String(s.logo || "/purewash-logo.png");
-  const logo = rawLogo.startsWith("/") ? origin + rawLogo : /^https:\/\//.test(rawLogo) ? rawLogo : "";
+  const logo = rawLogo.startsWith("/") ? o.origin + rawLogo : /^https:\/\//.test(rawLogo) ? rawLogo : "";
+  const card = (o.quote || o.invoice || {}) as Rec;
   const num = String(card.number || "").trim();
-  const total = Number(card.total);
-  const date = longDate(String(card.date || ""));
-  const msg = text.split(link).join("").replace(QUOTE_LINE, "").replace(/\n{3,}/g, "\n\n").trim();
+  const total = card.total == null || card.total === "" ? NaN : Number(card.total);
+  let msg = text;
+  if (o.link) msg = msg.split(o.link).join("").replace(QUOTE_LINE, "");
+  msg = msg.replace(/\n{3,}/g, "\n\n").trim();
   const paras = msg.split(/\n\s*\n/).map((p) => `<p style="margin:0 0 14px">${esc(p).replace(/\n/g, "<br>")}</p>`).join("");
   const site = String(s.website || "").trim();
   const siteHref = site ? (/^https?:\/\//.test(site) ? site : "https://" + site) : "";
   const nw = (h: string) => `<span style="white-space:nowrap">${h}</span>`;
   const contact = [s.phone ? nw(esc(s.phone)) : "", s.email ? nw(`<a href="mailto:${esc(s.email)}" style="color:${MUTED};text-decoration:none">${esc(s.email)}</a>`) : "", site ? nw(`<a href="${esc(siteHref)}" style="color:${MUTED};text-decoration:none">${esc(site)}</a>`) : ""].filter(Boolean).join(` &nbsp;&middot;&nbsp; `);
   const btn = (href: string, label: string) => `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto"><tr><td bgcolor="${BLUE}" style="border-radius:6px;background:${BLUE}"><a href="${esc(href)}" style="display:inline-block;padding:14px 44px;font-family:${FONT};font-size:17px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:6px">${label}</a></td></tr></table>`;
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(name || "Your quote")}</title></head>
+  const big = (label: string) => Number.isFinite(total) ? `<div style="font-size:46px;line-height:1.1;font-weight:bold;color:${NAVY};padding:10px 0 4px">${esc(money(total))}</div><div style="font-size:13px;color:${MUTED};padding-bottom:${o.quote ? 18 : 2}px">${label}${num ? ` &middot; #${esc(num)}` : ""}</div>` : `<div style="height:${o.quote ? 16 : 4}px"></div>`;
+  let kindLabel = "", band = "", note = "";
+  if (o.quote && o.link) {
+    const date = longDate(String(card.date || ""));
+    kindLabel = `Quote${num ? " " + esc(num) : ""}`;
+    band = `<div style="font-size:15px;font-weight:bold;color:${NAVY}">${date ? `Proposed service date: ${esc(date)}` : "Service date: to be scheduled together"}</div>${big("Quote total")}
+      ${btn(o.link + "&d=accept", "Review and accept")}
+      <div style="padding-top:14px;font-size:14px"><a href="${esc(o.link + "&d=decline")}" style="color:${BLUE};text-decoration:underline">Decline this quote</a></div>`;
+    note = "Your quote is attached as a PDF.";
+  } else if (o.invoice) {
+    const due = longDate(String(card.due || ""));
+    const paid = Number.isFinite(total) && total <= 0;
+    kindLabel = `Invoice${num ? " " + esc(num) : ""}`;
+    band = `<div style="font-size:15px;font-weight:bold;color:${NAVY}">${paid ? "Paid in full. Thank you!" : due ? `Due ${esc(due)}` : "Due on receipt"}</div>${big(paid ? "Balance" : "Amount due")}`;
+    note = "Your invoice is attached as a PDF.";
+  }
+  const preview = o.quote ? `Your quote${num ? " #" + num : ""}${Number.isFinite(total) ? " for " + money(total) : ""} from ${name || "us"}` : o.invoice ? `Invoice${num ? " #" + num : ""}${Number.isFinite(total) ? ": " + money(total) + " due" : ""} from ${name || "us"}` : msg.slice(0, 120);
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(name || "Message")}</title></head>
 <body style="margin:0;padding:0;background:#F1F5FA">
-<div style="display:none;max-height:0;overflow:hidden">${esc(`Your quote${num ? " #" + num : ""}${Number.isFinite(total) ? " for " + money(total) : ""} from ${name || "us"}`)}</div>
+<div style="display:none;max-height:0;overflow:hidden">${esc(preview)}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F1F5FA"><tr><td align="center" style="padding:28px 12px">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background:#ffffff;border-radius:10px;overflow:hidden;font-family:${FONT};color:${INK}">
   <tr><td style="height:6px;background:${CYAN};font-size:0;line-height:0">&nbsp;</td></tr>
-  <tr><td align="center" style="padding:22px 24px 0;font-size:12px;letter-spacing:2px;color:${MUTED};text-transform:uppercase">Quote${num ? " " + esc(num) : ""}</td></tr>
-  <tr><td align="center" style="padding:14px 24px 0">${logo ? `<img src="${esc(logo)}" alt="${esc(name)}" width="260" style="display:block;width:260px;max-width:80%;height:auto;border:0">` : ""}</td></tr>
+  ${kindLabel ? `<tr><td align="center" style="padding:22px 24px 0;font-size:12px;letter-spacing:2px;color:${MUTED};text-transform:uppercase">${kindLabel}</td></tr>` : ""}
+  <tr><td align="center" style="padding:${kindLabel ? 14 : 24}px 24px 0">${logo ? `<img src="${esc(logo)}" alt="${esc(name)}" width="${band ? 260 : 220}" style="display:block;width:${band ? 260 : 220}px;max-width:80%;height:auto;border:0">` : ""}</td></tr>
   ${name && !logo ? `<tr><td align="center" style="padding:6px 24px 0;font-size:24px;font-weight:bold;color:${NAVY}">${esc(name)}</td></tr>` : ""}
-  <tr><td style="padding:24px 0 0">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${TINT}"><tr><td align="center" style="padding:28px 24px 24px">
-      <div style="font-size:15px;font-weight:bold;color:${NAVY}">${date ? `Proposed service date: ${esc(date)}` : "Service date: to be scheduled together"}</div>
-      ${Number.isFinite(total) ? `<div style="font-size:46px;line-height:1.1;font-weight:bold;color:${NAVY};padding:10px 0 4px">${esc(money(total))}</div><div style="font-size:13px;color:${MUTED};padding-bottom:18px">Quote total${num ? ` &middot; #${esc(num)}` : ""}</div>` : `<div style="height:16px"></div>`}
-      ${btn(link + "&d=accept", "Review and accept")}
-      <div style="padding-top:14px;font-size:14px"><a href="${esc(link + "&d=decline")}" style="color:${BLUE};text-decoration:underline">Decline this quote</a></div>
-    </td></tr></table>
-  </td></tr>
-  <tr><td style="padding:26px 32px 8px;font-size:16px;line-height:1.55;color:${INK}">${paras}<p style="margin:0 0 14px;font-size:14px;color:${MUTED}">Your quote is attached as a PDF.</p></td></tr>
+  ${band ? `<tr><td style="padding:24px 0 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${TINT}"><tr><td align="center" style="padding:28px 24px 24px">${band}</td></tr></table></td></tr>` : ""}
+  <tr><td style="padding:26px 32px 8px;font-size:16px;line-height:1.55;color:${INK}">${paras}${note ? `<p style="margin:0 0 14px;font-size:14px;color:${MUTED}">${note}</p>` : ""}</td></tr>
   <tr><td style="padding:0 32px"><div style="border-top:1px dotted #B9C3D1;font-size:0;line-height:0">&nbsp;</div></td></tr>
   <tr><td align="center" style="padding:18px 32px 26px;font-size:14px;line-height:1.7;color:${MUTED}">
     ${name ? `<div style="font-weight:bold;color:${NAVY}">${esc(name)}</div>` : ""}${s.address ? `<div>${esc(s.address)}</div>` : ""}${contact ? `<div>${contact}</div>` : ""}
   </td></tr>
   <tr><td style="height:6px;background:${NAVY};font-size:0;line-height:0">&nbsp;</td></tr>
 </table>
-</td></tr></table>
+</td></tr></table>${o.pixel ? `<img src="${esc(o.pixel)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0">` : ""}
 </body></html>`;
 }
 
@@ -101,16 +115,28 @@ Deno.serve(async (req) => {
       const payload: Record<string, unknown> = { from, to: [to], subject: String(body.subject || "").slice(0, 300), text: String(body.text || "") };
       if (body.replyTo && /^\S+@\S+\.\S+$/.test(body.replyTo)) payload.reply_to = body.replyTo;
       const link = String(body.quoteLink || "");
-      if (/^https:\/\/[^\s"<>]+\/quote\?t=[a-f0-9]{32,64}$/.test(link) && String(payload.text).includes(link)) {
-        const { data: st } = await admin.from("settings").select("data").eq("id", "app").maybeSingle();
-        payload.html = quoteEmailHtml(String(payload.text), link, (body.quoteCard || {}) as Rec, (st?.data || {}) as Rec);
-      }
+      const isQuote = /^https:\/\/[^\s"<>]+\/quote\?t=[a-f0-9]{32,64}$/.test(link) && String(payload.text).includes(link);
+      const track = (body.track || {}) as Rec;
+      const token = /^[a-f0-9]{32}$/.test(String(track.token || "")) && track.customerId ? String(track.token) : "";
+      const origin = /^https:\/\/[a-z0-9.-]+$/i.test(String(body.appOrigin || "")) ? String(body.appOrigin) : isQuote ? new URL(link).origin : "https://purewash-app.vercel.app";
+      const { data: st } = await admin.from("settings").select("data").eq("id", "app").maybeSingle();
+      payload.html = brandedEmailHtml(String(payload.text), {
+        link: isQuote ? link : undefined, quote: isQuote ? (body.quoteCard || {}) as Rec : undefined, invoice: !isQuote && body.invoiceCard ? body.invoiceCard as Rec : undefined,
+        pixel: token ? `${env("SUPABASE_URL")}/functions/v1/track?t=${token}` : "", origin,
+      }, (st?.data || {}) as Rec);
       if (Array.isArray(body.attachments) && body.attachments.length) {
         payload.attachments = body.attachments.slice(0, 3).map((a: { filename: string; content: string }) => ({ filename: String(a.filename).slice(0, 120), content: String(a.content) }));
       }
       const r = await fetch("https://api.resend.com/emails", { method: "POST", headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const out = await r.json().catch(() => ({}));
       if (!r.ok) return json({ error: `The email service refused the message: ${out?.message || r.status}. The owner can test the connection in Settings → APIs.` }, 502);
+      if (token) {
+        const doc = isQuote ? "quote" : body.invoiceCard ? "invoice" : "";
+        const card = (isQuote ? body.quoteCard : body.invoiceCard) as Rec | undefined;
+        try { await admin.from("customer_events").insert({ id: "ev-" + crypto.randomUUID(), data: {
+          kind: "email_sent", token, customerId: String(track.customerId), jobId: String(track.jobId || ""), invoiceId: String(track.invoiceId || ""), doc, number: String(card?.number || ""),
+          amount: card?.total ?? null, subject: String(payload.subject || "").slice(0, 200), to, by: user.id, at: Date.now() } }); } catch (_) { /* activity is best effort */ }
+      }
       return json({ ok: true, id: out?.id || null });
     }
 
