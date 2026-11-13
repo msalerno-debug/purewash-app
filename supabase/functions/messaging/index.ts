@@ -8,6 +8,58 @@ const cors = {
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 const env = (k: string) => (Deno.env.get(k) || "").trim();
 
+type Rec = Record<string, unknown>;
+const esc = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]!));
+const money = (n: number) => "$" + (Math.round(n * 100) / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const longDate = (iso: string) => { if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return ""; const [y, m, d] = iso.split("-").map(Number); return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC" }); };
+const QUOTE_LINE = "Review your quote and accept or decline it online:";
+
+// Branded quote email: logo, a tinted band with the total and Accept/Decline buttons, the message, then business details.
+// Colors follow the PureWash logo: navy #1E3A6E / #2B5190 and cyan #00B4EE.
+function quoteEmailHtml(text: string, link: string, card: Rec, s: Rec): string {
+  const NAVY = "#1E3A6E", BLUE = "#2B5190", CYAN = "#00B4EE", TINT = "#E8F7FD", INK = "#24324A", MUTED = "#5F6B7E", FONT = "Arial,Helvetica,sans-serif";
+  const origin = new URL(link).origin;
+  const name = String(s.businessName || "").trim();
+  const rawLogo = String(s.logo || "/purewash-logo.png");
+  const logo = rawLogo.startsWith("/") ? origin + rawLogo : /^https:\/\//.test(rawLogo) ? rawLogo : "";
+  const num = String(card.number || "").trim();
+  const total = Number(card.total);
+  const date = longDate(String(card.date || ""));
+  const msg = text.split(link).join("").replace(QUOTE_LINE, "").replace(/\n{3,}/g, "\n\n").trim();
+  const paras = msg.split(/\n\s*\n/).map((p) => `<p style="margin:0 0 14px">${esc(p).replace(/\n/g, "<br>")}</p>`).join("");
+  const site = String(s.website || "").trim();
+  const siteHref = site ? (/^https?:\/\//.test(site) ? site : "https://" + site) : "";
+  const nw = (h: string) => `<span style="white-space:nowrap">${h}</span>`;
+  const contact = [s.phone ? nw(esc(s.phone)) : "", s.email ? nw(`<a href="mailto:${esc(s.email)}" style="color:${MUTED};text-decoration:none">${esc(s.email)}</a>`) : "", site ? nw(`<a href="${esc(siteHref)}" style="color:${MUTED};text-decoration:none">${esc(site)}</a>`) : ""].filter(Boolean).join(` &nbsp;&middot;&nbsp; `);
+  const btn = (href: string, label: string) => `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto"><tr><td bgcolor="${BLUE}" style="border-radius:6px;background:${BLUE}"><a href="${esc(href)}" style="display:inline-block;padding:14px 44px;font-family:${FONT};font-size:17px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:6px">${label}</a></td></tr></table>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(name || "Your quote")}</title></head>
+<body style="margin:0;padding:0;background:#F1F5FA">
+<div style="display:none;max-height:0;overflow:hidden">${esc(`Your quote${num ? " #" + num : ""}${Number.isFinite(total) ? " for " + money(total) : ""} from ${name || "us"}`)}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F1F5FA"><tr><td align="center" style="padding:28px 12px">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background:#ffffff;border-radius:10px;overflow:hidden;font-family:${FONT};color:${INK}">
+  <tr><td style="height:6px;background:${CYAN};font-size:0;line-height:0">&nbsp;</td></tr>
+  <tr><td align="center" style="padding:22px 24px 0;font-size:12px;letter-spacing:2px;color:${MUTED};text-transform:uppercase">Quote${num ? " " + esc(num) : ""}</td></tr>
+  <tr><td align="center" style="padding:14px 24px 0">${logo ? `<img src="${esc(logo)}" alt="${esc(name)}" width="260" style="display:block;width:260px;max-width:80%;height:auto;border:0">` : ""}</td></tr>
+  ${name && !logo ? `<tr><td align="center" style="padding:6px 24px 0;font-size:24px;font-weight:bold;color:${NAVY}">${esc(name)}</td></tr>` : ""}
+  <tr><td style="padding:24px 0 0">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${TINT}"><tr><td align="center" style="padding:28px 24px 24px">
+      <div style="font-size:15px;font-weight:bold;color:${NAVY}">${date ? `Proposed service date: ${esc(date)}` : "Service date: to be scheduled together"}</div>
+      ${Number.isFinite(total) ? `<div style="font-size:46px;line-height:1.1;font-weight:bold;color:${NAVY};padding:10px 0 4px">${esc(money(total))}</div><div style="font-size:13px;color:${MUTED};padding-bottom:18px">Quote total${num ? ` &middot; #${esc(num)}` : ""}</div>` : `<div style="height:16px"></div>`}
+      ${btn(link + "&d=accept", "Review and accept")}
+      <div style="padding-top:14px;font-size:14px"><a href="${esc(link + "&d=decline")}" style="color:${BLUE};text-decoration:underline">Decline this quote</a></div>
+    </td></tr></table>
+  </td></tr>
+  <tr><td style="padding:26px 32px 8px;font-size:16px;line-height:1.55;color:${INK}">${paras}<p style="margin:0 0 14px;font-size:14px;color:${MUTED}">Your quote is attached as a PDF.</p></td></tr>
+  <tr><td style="padding:0 32px"><div style="border-top:1px dotted #B9C3D1;font-size:0;line-height:0">&nbsp;</div></td></tr>
+  <tr><td align="center" style="padding:18px 32px 26px;font-size:14px;line-height:1.7;color:${MUTED}">
+    ${name ? `<div style="font-weight:bold;color:${NAVY}">${esc(name)}</div>` : ""}${s.address ? `<div>${esc(s.address)}</div>` : ""}${contact ? `<div>${contact}</div>` : ""}
+  </td></tr>
+  <tr><td style="height:6px;background:${NAVY};font-size:0;line-height:0">&nbsp;</td></tr>
+</table>
+</td></tr></table>
+</body></html>`;
+}
+
 function e164(p: string): string | null {
   const d = String(p || "").replace(/\D/g, "");
   if (d.length === 10) return "+1" + d;
@@ -50,11 +102,8 @@ Deno.serve(async (req) => {
       if (body.replyTo && /^\S+@\S+\.\S+$/.test(body.replyTo)) payload.reply_to = body.replyTo;
       const link = String(body.quoteLink || "");
       if (/^https:\/\/[^\s"<>]+\/quote\?t=[a-f0-9]{32,64}$/.test(link) && String(payload.text).includes(link)) {
-        const esc = (s: string) => s.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]!));
-        const btn = (href: string, label: string, bg: string, fg: string, border: string) => `<a href="${esc(href)}" style="display:inline-block;padding:12px 22px;margin:4px 8px 4px 0;border-radius:8px;background:${bg};color:${fg};border:1px solid ${border};text-decoration:none;font-weight:bold;font-size:15px">${label}</a>`;
-        const buttons = `<div style="margin:14px 0">${btn(link + "&d=accept", "Accept quote", "#2B5190", "#ffffff", "#2B5190")}${btn(link + "&d=decline", "Decline", "#ffffff", "#2B5190", "#c5d2e6")}</div>`;
-        const parts = String(payload.text).split(link).map((p) => esc(p).replace(/\n/g, "<br>"));
-        payload.html = `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.55;color:#13233f">${parts.join(buttons)}</div>`;
+        const { data: st } = await admin.from("settings").select("data").eq("id", "app").maybeSingle();
+        payload.html = quoteEmailHtml(String(payload.text), link, (body.quoteCard || {}) as Rec, (st?.data || {}) as Rec);
       }
       if (Array.isArray(body.attachments) && body.attachments.length) {
         payload.attachments = body.attachments.slice(0, 3).map((a: { filename: string; content: string }) => ({ filename: String(a.filename).slice(0, 120), content: String(a.content) }));

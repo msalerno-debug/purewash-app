@@ -713,6 +713,13 @@ const QT={};
 function quoteToken(jid){ const j=job(jid); if(!j) return ''; if(j.quoteToken) return j.quoteToken; if(!QT[jid]){ const a=new Uint8Array(20); crypto.getRandomValues(a); QT[jid]=[...a].map(b=>b.toString(16).padStart(2,'0')).join(''); } return QT[jid]; }
 const quoteOpen = j => !!j && j.status==='Quoted' && !j.quoteResponse;
 const quoteLink = jid => `${location.origin}/quote?t=${quoteToken(jid)}`;
+const nextQuoteNumber = () => String(Math.max(1000, ...S.jobs.map(j=>+j.quoteNumber||0)) + 1);
+const quoteNo = j => (j && j.quoteNumber) || nextQuoteNumber();
+async function ensureQuoteNumber(jid){ const j=job(jid); if(!j || j.quoteNumber) return true; try{ await saveDoc('jobs', j.id, {...j, quoteNumber:nextQuoteNumber()}); return true; }catch(e){ return false; } }
+function quoteAsDoc(j){ const rate=jobRate(j); return {number:quoteNo(j), date:j.quoteSentAt?new Date(j.quoteSentAt).toISOString().slice(0,10):todayISO(), serviceDate:j.date||'', customerId:j.customerId,
+  items:j.items||[], taxRate:rate, taxExempt:!rate&&(!!j.taxExempt||custExempt(j.customerId)), discType:j.discType, discValue:j.discValue, discNote:j.discNote, notes:j.quoteNote||'', payments:[]}; }
+async function quotePdf(j){ return invoicePdf(quoteAsDoc(j), {quote:true}); }
+const quoteFile = j => `Quote-${quoteNo(j)}.pdf`;
 const QUOTE_LINE = 'Review your quote and accept or decline it online:';
 function withQuoteLink(body, jid){ const j=job(jid); if(!quoteOpen(j)) return body; const L=quoteLink(jid); return body.includes(L) ? body : `${body.replace(/\s+$/,'')}\n\n${QUOTE_LINE}\n${L}`; }
 async function commitQuoteToken(jid, sent){ const j=job(jid); if(!quoteOpen(j)) return true; const t=quoteToken(jid); if(j.quoteToken===t && !sent) return true;
@@ -2442,7 +2449,7 @@ const DRAWERS = {
       </div>
       ${c?`<section class="panel" style="display:flex;flex-direction:column;gap:10px"><div><div style="font-weight:650">${esc(fullAddress(c)||'No address')}</div>${c.gate?`<div style="margin-top:4px"><strong>Access:</strong> ${esc(c.gate)}</div>`:''}<div class="muted" style="font-size:.86rem;margin-top:4px">${c.panes?esc(c.panes)+' panes · ':''}${c.stories?esc(c.stories)+' stor'+(c.stories==1?'y':'ies'):''}${c.phone?' · '+esc(c.phone):''}</div></div><div class="sv-links">${svButtons(c)}<button class="btn" data-act="openCustomer" data-id="${c.id}" data-stack="1">Customer file</button></div></section>`:''}
       ${S.role!=='crew'?quoteRespHtml(j):''}
-      ${quoteOpen(j)?`<div class="btnrow office-only"><button class="btn sm" data-act="copyQuoteLink" data-id="${id}">Copy accept/decline link</button></div>`:''}
+      ${quoteOpen(j)?`<div class="btnrow office-only"><button class="btn sm" data-act="viewQuotePdf" data-id="${id}">View quote PDF</button><button class="btn sm" data-act="copyQuoteLink" data-id="${id}">Copy accept/decline link</button></div>`:''}
       ${j.seriesId?(()=>{ const L=seriesJobs(j.seriesId); const i=L.findIndex(x=>x.id===id); const nxt=L.slice(i+1).find(x=>x.status==='Scheduled'); const later=L.slice(i+1).filter(x=>x.status==='Scheduled').length;
         return `<section class="panel" style="display:flex;flex-direction:column;gap:10px"><div class="panel-head"><h3>↻ Recurring series</h3><span class="muted" style="font-size:.84rem">Visit ${i+1} of ${L.length}</span></div>
           <p class="muted" style="font-size:.9rem">${esc(repeatLabel(j.seriesRule))}${nxt?` · next visit ${esc(fmtDate(nxt.date))}`:' · this is the last scheduled visit'}</p>
@@ -2603,8 +2610,8 @@ const DRAWERS = {
       <div class="field"><label for="e-subj">Subject</label><input type="text" id="e-subj" name="subject" value="${esc(subj)}"></div>
       <div class="field"><label for="e-body">Message</label><textarea id="e-body" name="body" style="min-height:260px">${esc(body)}</textarea>${/\[[a-z ]+\]/.test(subj+body)?'<span class="hint" id="e-gaps" style="color:var(--warn)">Fill in the parts in [brackets] before sending.</span>':'<span class="hint" id="e-gaps"></span>'}</div>
       ${v&&!S.integ.email?`<div class="notice info" style="align-items:center;flex-wrap:wrap">Attach invoice #${esc(v.number)}: download it, then add the file to your email.<button class="btn sm" type="button" data-act="downloadInvoice" data-id="${v.id}" style="margin-left:auto" ${S.downloadsOn?'':'disabled'}>${I.download} Download invoice</button></div>`:''}
-      ${!v&&!S.integ.email&&quoteOpen(job(jobId))&&prepOn()?`<div class="notice info" style="align-items:center;flex-wrap:wrap">Attach the appointment instructions: download the PDF, then add it to your email.<button class="btn sm" type="button" data-act="downloadPrepPdf" style="margin-left:auto" ${S.downloadsOn?'':'disabled'}>${I.download} Download PDF</button></div>`:''}
-      ${S.integ.email?`<div class="btnrow"><button class="btn primary" type="button" data-act="sendEmail">Send email</button><button class="btn" type="button" data-act="copyEmail">Copy</button></div><p class="hint">Sends from your business address${v?` with invoice #${esc(v.number)} attached`:quoteOpen(job(jobId))&&prepOn()?' with the <strong>Preparing for your appointment</strong> PDF attached':''}. Customer replies go to the business email in Settings.${quoteOpen(job(jobId))?' The customer gets <strong>Accept</strong> and <strong>Decline</strong> buttons, and you\'re notified when they answer.':''}</p>`
+      ${!v&&!S.integ.email&&quoteOpen(job(jobId))?`<div class="notice info" style="align-items:center;flex-wrap:wrap">Attach the quote${prepOn()?' and appointment instructions':''}: download the PDF${prepOn()?'s':''}, then add ${prepOn()?'them':'it'} to your email.<span class="btnrow" style="margin-left:auto"><button class="btn sm" type="button" data-act="downloadQuotePdf" data-id="${esc(jobId)}" ${S.downloadsOn?'':'disabled'}>${I.download} Quote</button>${prepOn()?`<button class="btn sm" type="button" data-act="downloadPrepPdf" ${S.downloadsOn?'':'disabled'}>${I.download} Instructions</button>`:''}</span></div>`:''}
+      ${S.integ.email?`<div class="btnrow"><button class="btn primary" type="button" data-act="sendEmail">Send email</button><button class="btn" type="button" data-act="copyEmail">Copy</button></div><p class="hint">Sends from your business address${v?` with invoice #${esc(v.number)} attached`:quoteOpen(job(jobId))?` with quote #${esc(quoteNo(job(jobId)))}${prepOn()?' and the <strong>Preparing for your appointment</strong> instructions':''} attached as PDF${prepOn()?'s':''}`:''}. Customer replies go to the business email in Settings.${quoteOpen(job(jobId))?' The customer gets <strong>Accept</strong> and <strong>Decline</strong> buttons, and you\'re notified when they answer.':''}</p>`
       :`<div class="btnrow"><button class="btn primary" type="button" data-act="copyEmail">Copy email</button><span id="e-mailto"></span><button class="btn" type="submit">Log as sent</button></div><p class="hint">Paste into your email, send, then log it here so it's saved on the customer's file.</p>`}
     </form>`, after(){ updateMailto(); }};
   },
@@ -2962,13 +2969,19 @@ const A = {
     if(jid && quoteOpen(job(jid)) && body.includes(quoteLink(jid))){ if(!await commitQuoteToken(jid, true)) return toast('Couldn\'t prepare the quote link. Try again.','bad'); quoteLinkSent=quoteLink(jid); }
     let attachments = [];
     if(v){ try{ attachments=[{filename:`Invoice-${v.number}.pdf`, content:await invoicePdfBase64(v)}]; }catch(e){ attachments=[{filename:`Invoice-${v.number}.html`, content:btoa(unescape(encodeURIComponent(invoiceHTML(v))))}]; } }
-    let prepFailed=false;
-    if(!v && jid && quoteOpen(job(jid)) && prepOn()){ try{ attachments=[{filename:PREP_FILE, content:await prepPdfBase64()}]; }catch(e){ prepFailed=true; } }
+    let prepFailed=false, quoteCard=null;
+    if(!v && jid && quoteOpen(job(jid))){
+      if(!await ensureQuoteNumber(jid)) return toast('Couldn\'t save the quote number. Try again.','bad');
+      const qj=job(jid), qt=jobTotals(qj);
+      quoteCard={number:quoteNo(qj), total:qt.total, date:qj.date||''};
+      try{ attachments.push({filename:quoteFile(qj), content:(await quotePdf(qj)).output('datauristring').split(',')[1]}); }catch(e){ prepFailed=true; }
+      if(prepOn()){ try{ attachments.push({filename:PREP_FILE, content:await prepPdfBase64()}); }catch(e){ prepFailed=true; } }
+    }
     el.disabled=true; el.textContent='Sending…';
-    const r=await callFn('messaging',{action:'email', to, subject, text:body, replyTo:s.email||'', attachments, quoteLink:quoteLinkSent});
+    const r=await callFn('messaging',{action:'email', to, subject, text:body, replyTo:s.email||'', attachments, quoteLink:quoteLinkSent, quoteCard});
     if(!r.ok){ el.disabled=false; el.textContent='Send email'; return toast(r.error,'bad'); }
     await write(()=>saveDoc('messages',newId('messages'),{customerId:cid, to, subject, body, channel:'email', sent:true, jobId:f.dataset.job||'', invoiceId:f.dataset.inv||'', createdAt:Date.now(), by:S.uid||''}),prepFailed?null:'Email sent');
-    if(prepFailed) toast('Email sent, but the appointment instructions PDF couldn\'t be made, so it wasn\'t attached.','bad');
+    if(prepFailed) toast('Email sent, but a PDF couldn\'t be made, so it wasn\'t attached. Check your connection.','bad');
     const c=cust(cid); if(c && !c.email && !v) await write(()=>saveDoc('customers',c.id,{...c,email:to,updatedAt:Date.now()}));
     if(v && v.status==='Draft') await write(()=>saveDoc('invoices',v.id,{...v,status:'Sent',updatedAt:Date.now()}));
     back();
@@ -3109,6 +3122,8 @@ const A = {
     await saveFile(`quickbooks-customers-${todayISO()}.csv`, toCSV(rows));
   },
   logoRemove(){ $('#s-logo').value=DEFAULT_LOGO; $('#s-logo-prev').innerHTML=`<img src="${DEFAULT_LOGO}" alt="Business logo">`; S.settingsDirty=true; toast('Switched back to the PureWash logo. Click Save settings to keep it.'); },
+  async viewQuotePdf(d){ const j=job(d.id); if(!j) return; const w=window.open('','_blank'); try{ const url=URL.createObjectURL((await quotePdf(j)).output('blob')); if(w) w.location.href=url; else location.href=url; setTimeout(()=>URL.revokeObjectURL(url), 120000); }catch(e){ if(w) w.close(); toast(e.message||'Couldn\'t make the PDF.','bad'); } },
+  async downloadQuotePdf(d,el){ const j=job(d.id); if(!j) return; if(el) el.disabled=true; try{ await ensureQuoteNumber(j.id); const jj=job(j.id); await saveFile(quoteFile(jj), (await quotePdf(jj)).output('blob')); }catch(e){ toast(e.message||'Couldn\'t make the PDF.','bad'); } finally{ if(el&&el.isConnected) el.disabled=false; } },
   async viewPrepPdf(){ const w=window.open('','_blank'); try{ const blob=(await prepPdf()).output('blob'); const url=URL.createObjectURL(blob); if(w) w.location.href=url; else location.href=url; setTimeout(()=>URL.revokeObjectURL(url), 120000); }catch(e){ if(w) w.close(); toast(e.message||'Couldn\'t make the PDF.','bad'); } },
   async downloadPrepPdf(d,el){ if(el) el.disabled=true; try{ await saveFile(PREP_FILE, (await prepPdf()).output('blob')); }catch(e){ toast(e.message||'Couldn\'t make the PDF.','bad'); } finally{ if(el&&el.isConnected) el.disabled=false; } },
   async downloadInvoice(d,el){ const v=inv(d.id); if(!v) return; if(el){ el.disabled=true; } try{ const blob=await invoicePdfBlob(v); await saveFile(`Invoice-${v.number}.pdf`, blob); }catch(e){ toast(e.message||'Couldn\'t make the PDF.','bad'); } finally{ if(el&&el.isConnected) el.disabled=false; } },
@@ -3165,7 +3180,7 @@ async function logoData(src){
   if(LOGO_DATA[src]) return LOGO_DATA[src];
   try{ const r=await fetch(src); if(!r.ok) return ''; const type=(r.headers.get('content-type')||'image/jpeg').split(';')[0]; const u8=new Uint8Array(await r.arrayBuffer()); let bin=''; for(let i=0;i<u8.length;i+=0x8000) bin+=String.fromCharCode.apply(null, u8.subarray(i,i+0x8000)); return LOGO_DATA[src]=`data:${type};base64,${btoa(bin)}`; }catch(e){ return ''; }
 }
-async function invoicePdf(v){
+async function invoicePdf(v, opt={}){
   const {jsPDF}=await loadJsPDF();
   const s={...settings()}; s.logo=await logoData(!s.logo || s.logo===DEFAULT_LOGO ? '/purewash-logo-invoice.jpg' : s.logo); const c=cust(v.customerId)||{}; const t=totals(v); const b=billTo(c);
   const doc=new jsPDF({unit:'pt', format:'letter', compress:true});
@@ -3181,11 +3196,11 @@ async function invoicePdf(v){
   if(s.logo){ try{ const ip=doc.getImageProperties(s.logo); let w=210, h=w*ip.height/ip.width; if(h>88){ h=88; w=h*ip.width/ip.height; } doc.addImage(s.logo, ip.fileType||'JPEG', M, 26, w, h); logoBottom=26+h; }catch(e){ logoBottom=58; set('times','bold',20); tx(s.businessName, M, 52); } }
   else { set('times','bold',20); tx(s.businessName, M, 52); }
   // INVOICE + header table
-  set('times','bold',18); tx('INVOICE', R, 40, {align:'right'});
+  set('times','bold',18); tx(opt.quote?'QUOTE':'INVOICE', R, 40, {align:'right'});
   const hx=306, hw=R-hx, cw=hw/3, hy=50; pen();
   doc.rect(hx,hy,hw,46); doc.line(hx,hy+21,R,hy+21); doc.line(hx+cw,hy,hx+cw,hy+46); doc.line(hx+2*cw,hy,hx+2*cw,hy+46);
-  set('times','bold',9.5); ['DATE','INVOICE #','TERMS'].forEach((h,i)=>tx(h, hx+cw*i+cw/2, hy+14, {align:'center'}));
-  [ordDate(v.date), String(v.number||''), invTerms(v)].forEach((x,i)=>{ set('times','normal',10); if(doc.getTextWidth(pdfSafe(x))>cw-8) doc.setFontSize(10*(cw-8)/doc.getTextWidth(pdfSafe(x))); tx(x, hx+cw*i+cw/2, hy+37, {align:'center'}); });
+  set('times','bold',9.5); (opt.quote?['DATE','QUOTE #','SERVICE DATE']:['DATE','INVOICE #','TERMS']).forEach((h,i)=>tx(h, hx+cw*i+cw/2, hy+14, {align:'center'}));
+  (opt.quote?[ordDate(v.date), String(v.number||''), v.serviceDate?ordDate(v.serviceDate):'To be scheduled']:[ordDate(v.date), String(v.number||''), invTerms(v)]).forEach((x,i)=>{ set('times','normal',10); if(doc.getTextWidth(pdfSafe(x))>cw-8) doc.setFontSize(10*(cw-8)/doc.getTextWidth(pdfSafe(x))); tx(x, hx+cw*i+cw/2, hy+37, {align:'center'}); });
   // business details
   let y=Math.max(logoBottom+18, 118); set('times','normal',10);
   [...addrLines(s.address), s.phone, s.email, s.website].filter(Boolean).forEach(l=>{ tx(l, M, y); y+=13; });
@@ -3214,7 +3229,7 @@ async function invoicePdf(v){
     y+=LH+9;
   }
   const rows=[['SUBTOTAL', money(t.sub)], ...(t.disc?[[v.discType==='pct'?`DISCOUNT (${+(+v.discValue).toFixed(2)}%)`:'DISCOUNT', '-'+money(t.disc)]]:[]), [+v.taxRate?`SALES TAX (${fmtRate(v.taxRate)})`:'SALES TAX', +v.taxRate?money(t.tax):(v.taxExempt?'Exempt':money(0))]];
-  const paidRows = t.paid ? [['PAID', '-'+money(t.paid)], ['BALANCE DUE', money(t.balance)]] : [];
+  const paidRows = !opt.quote && t.paid ? [['PAID', '-'+money(t.paid)], ['BALANCE DUE', money(t.balance)]] : [];
   const totH = rows.length*20 + 30 + paidRows.length*20;
   let bodyEnd=Math.max(y, top+200);
   if(bodyEnd+totH>LIMIT){ bodyEnd=Math.max(y, top+30); close(bodyEnd); footer(); doc.addPage(); bodyEnd=40; }
