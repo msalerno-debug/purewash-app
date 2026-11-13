@@ -524,6 +524,94 @@ td.selcol,th.selcol{width:36px;padding-right:0}
 .set-tab .nav-badge{min-width:18px;height:18px;font-size:.68rem;padding:0 5px;background:#C8372D;color:#fff;border-radius:999px;display:inline-grid;place-items:center}
 .set-panel{display:flex;flex-direction:column;gap:14px}
 .set-panel[hidden]{display:none!important}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+/* services & prices */
+.svc-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.svc-count{font-size:.82rem;font-weight:650;color:var(--muted);background:var(--surface-2,#f4f6fa);border:1px solid var(--line);border-radius:999px;padding:4px 10px;white-space:nowrap}
+.svc-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.svc-toolbar .btn svg{width:16px;height:16px}
+.svc-search{flex:1 1 220px;display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;padding:0 10px;background:var(--surface);min-height:40px}
+.svc-search:focus-within{outline:2px solid var(--accent);outline-offset:1px}
+.svc-search svg{width:17px;height:17px;color:var(--muted);flex:none}
+.svc-search input{border:0;outline:0;background:transparent;flex:1;min-width:0;font:inherit;color:inherit;padding:8px 0}
+.svc-adjust{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--surface-2,#f6f8fc);display:flex;flex-direction:column;gap:8px}
+.svc-adj-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap} .svc-adj-row label{font-weight:600;font-size:.9rem}
+.svc-adj-row select{width:auto}
+.svc-list{display:flex;flex-direction:column;gap:10px}
+.svc-card{border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:12px 12px 10px;display:flex;flex-direction:column;gap:8px;transition:border-color .15s, box-shadow .15s, opacity .15s}
+.svc-card:hover{border-color:color-mix(in srgb, var(--accent) 35%, var(--line))}
+.svc-card:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent)}
+.svc-card.off .svc-fields,.svc-card.off .svc-chips{opacity:.55}
+.svc-card.filtered{display:none}
+.svc-card.dragging{opacity:.45;border-style:dashed}
+.svc-card.fresh{animation:svcIn .5s ease}
+@keyframes svcIn{from{background:color-mix(in srgb, var(--accent) 10%, var(--surface))}}
+.svc-main{display:flex;align-items:center;gap:10px}
+.svc-handle{flex:none;width:22px;height:40px;display:grid;place-items:center;color:var(--muted);cursor:grab;border-radius:6px;align-self:flex-end}
+.svc-handle:hover{background:var(--surface-2,#f1f4f9);color:var(--ink)} .svc-handle:active{cursor:grabbing}
+.svc-handle svg{width:16px;height:16px}
+.svc-fields{flex:1;min-width:0;display:grid;grid-template-columns:minmax(0,1fr) 120px 150px;gap:10px}
+.svc-f{display:flex;flex-direction:column;gap:3px;min-width:0}
+.svc-f label{font-size:.72rem;font-weight:650;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.svc-name{font-weight:650}
+.svc-money{display:flex;align-items:center;border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden}
+.svc-money:focus-within{outline:2px solid var(--accent);outline-offset:1px}
+.svc-money span{padding:0 0 0 10px;color:var(--muted);font-weight:600}
+.svc-money.pct span{padding:0 10px 0 0}
+.svc-money input{border:0!important;outline:0!important;box-shadow:none!important;background:transparent;min-width:0;width:100%;font-variant-numeric:tabular-nums}
+.svc-money.pct{width:110px}
+.svc-money.bumped{animation:svcIn .9s ease}
+.svc-switch{flex:none;display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.82rem;font-weight:650;color:var(--muted);align-self:flex-end;min-height:40px;user-select:none}
+.svc-switch input{position:absolute;opacity:0;width:1px;height:1px}
+.svc-switch .track{width:38px;height:22px;border-radius:999px;background:var(--line);position:relative;transition:background .15s}
+.svc-switch .track::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
+.svc-switch input:checked + .track{background:var(--good,#1F7A4D)}
+.svc-switch input:checked + .track::after{transform:translateX(16px)}
+.svc-switch input:focus-visible + .track{outline:2px solid var(--accent);outline-offset:2px}
+.svc-switch .lbl-off{display:none} .svc-card.off .svc-switch .lbl-on{display:none} .svc-card.off .svc-switch .lbl-off{display:inline}
+.svc-switch .lbl-on,.svc-switch .lbl-off{width:46px}
+.svc-acts{flex:none;display:flex;gap:2px;align-self:flex-end}
+.svc-acts .icon-btn{width:34px;height:40px;display:grid;place-items:center;border-radius:8px;color:var(--muted)}
+.svc-acts .icon-btn svg{width:17px;height:17px}
+.svc-acts .icon-btn:hover{background:var(--surface-2,#f1f4f9);color:var(--ink)}
+.svc-acts .icon-btn.danger:hover{background:var(--bad-soft,#FBE9E7);color:var(--bad,#B3261E)}
+.svc-foot{display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;padding-left:32px}
+.svc-foot .svc-more{flex:1 1 240px;min-width:0} .svc-foot .svc-more[open]{flex-basis:100%}
+.svc-colhead{display:none}
+@media (min-width:721px){
+  .svc-colhead{display:flex;align-items:center;gap:10px;padding:0 13px;margin-bottom:-4px;font-size:.72rem;font-weight:650;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+  .svc-colhead .h-grip{width:22px;flex:none}
+  .svc-colhead .h-fields{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 120px 150px;gap:10px}
+  .svc-colhead .h-status{width:100px;flex:none} .svc-colhead .h-acts{width:142px;flex:none}
+  .svc-f label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+  .svc-switch{width:100px} .svc-acts{width:142px;justify-content:flex-end}
+  .svc-handle,.svc-switch,.svc-acts{align-self:center}
+  .svc-card{padding:10px 12px 8px;gap:6px}
+}
+.svc-chips{display:flex;gap:6px;flex-wrap:wrap}
+.svc-chip{font-size:.76rem;font-weight:600;color:var(--accent);background:var(--accent-soft,#E6EDF8);border-radius:999px;padding:2px 9px}
+.svc-chip.quiet{color:var(--muted);background:var(--surface-2,#f1f4f9)}
+.svc-more summary{cursor:pointer;display:flex;gap:8px;align-items:baseline;font-size:.86rem;list-style:none;padding:4px 0;min-width:0}
+.svc-more summary::-webkit-details-marker{display:none}
+.svc-more summary::before{content:"▸";color:var(--muted);transition:transform .15s;display:inline-block}
+.svc-more[open] summary::before{transform:rotate(90deg)}
+.svc-sum-l{font-weight:650;white-space:nowrap} .svc-sum-p{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.svc-more[open] .svc-sum-p{display:none}
+.svc-more textarea{margin-top:6px;font-size:.88rem;width:100%}
+.svc-gone{display:none;align-items:center;justify-content:space-between;gap:10px;font-size:.9rem;color:var(--muted)}
+.svc-card.gone{border-style:dashed;background:var(--surface-2,#f6f8fc);padding:10px 12px}
+.svc-card.gone>.svc-main,.svc-card.gone>.svc-foot{display:none}
+.svc-card.gone .svc-gone{display:flex}
+.svc-empty{text-align:center;padding:18px;border:1px dashed var(--line);border-radius:12px}
+@media (max-width:720px){
+  .svc-main{flex-wrap:wrap}
+  .svc-handle{display:none}
+  .svc-fields{grid-template-columns:1fr 1fr;flex:1 1 100%}
+  .svc-f-name{grid-column:1 / -1}
+  .svc-acts{margin-left:auto}
+  .svc-foot{padding-left:0}
+}
+@media (prefers-reduced-motion:reduce){.svc-card.fresh,.svc-money.bumped{animation:none}.svc-switch .track,.svc-switch .track::after{transition:none}}
 .set-form{display:flex;flex-direction:column;gap:14px}
 .set-savebar{position:sticky;bottom:calc(64px + env(safe-area-inset-bottom,0px));z-index:5;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px 14px;box-shadow:var(--shadow)}
 @media(min-width:900px){.set-savebar{bottom:12px}}
@@ -638,6 +726,13 @@ const I = {
   pin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>',
   person:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7.5" r="3.5"/><path d="M12 12v5M9 21l3-4 3 4M8 14.5h8"/></svg>',
   route:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-8-8 18-2-8z"/></svg>',
+  up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>',
+  down:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg>',
+  copy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="8.5" y="8.5" width="12" height="12" rx="2"/><path d="M15.5 8.5V5a1.5 1.5 0 0 0-1.5-1.5H5A1.5 1.5 0 0 0 3.5 5v9A1.5 1.5 0 0 0 5 15.5h3.5"/></svg>',
+  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12.5A1.5 1.5 0 0 0 8.5 21h7a1.5 1.5 0 0 0 1.5-1.5L18 7M9 7V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V7"/></svg>',
+  grip:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>',
+  search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg>',
+  percent:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 5 5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/></svg>',
   plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
   camera:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
   download:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>',
@@ -1787,6 +1882,80 @@ function viewMessages(){
   ${S.msgTab==='vm'?vmPanel(mq):S.msgTab==='conv'?`<section class="panel">${convHtml}</section>`:`<section class="panel">${(mq||S.msgChan!=='all')&&!list.length?`<p class="muted">No messages match.</p>`:list.length?list.map(m=>msgItem(m,{showCust:true,q:mq})).join('')
     : emptyBox('No messages logged yet','Use templates like "Appointment reminder" or "Invoice" to reach customers quickly by text or email.','compose','Write a text')}</section>`}`;
 }
+/* ---------- services & prices editor ---------- */
+const SVC_UNITS=['per window','per pane','each','per panel','per screen','per visit','per hour','per sq ft','per linear ft','flat'];
+const svcNorm = x => String(x||'').toLowerCase().replace(/\s+/g,' ').trim();
+function svcStats(){
+  const m=new Map(); const get=n=>{ const k=svcNorm(n); if(!m.has(k)) m.set(k,{jobs:0, billed:0, last:''}); return m.get(k); };
+  S.jobs.forEach(j=>{ if(j.status==='Cancelled') return; const seen=new Set(); (j.items||[]).forEach(it=>{ const k=svcNorm(it.desc); if(!k||seen.has(k)) return; seen.add(k); const st=get(it.desc); st.jobs++; if(j.date&&j.date>st.last&&j.status!=='Quoted') st.last=j.date; }); });
+  const yearAgo=new Date(Date.now()-365*864e5).toISOString().slice(0,10);
+  S.invoices.forEach(v=>{ if(v.status==='Void'||(v.date||'')<yearAgo) return; (v.items||[]).forEach(it=>{ get(it.desc).billed+=(+it.qty||0)*(+it.rate||0); }); });
+  return m;
+}
+function svcCard(x, ro, stats){
+  const d=(settings().serviceDescriptions||{})[x.name]||x.desc||''; const on=x.active!==false;
+  const st=stats&&stats.get(svcNorm(x.name)); const dis=ro?'disabled':'';
+  const uid='sv'+Math.random().toString(36).slice(2,8);
+  const chips=st&&st.jobs?`<span class="svc-chip">On ${st.jobs} job${st.jobs===1?'':'s'}</span>${st.billed?`<span class="svc-chip">${money(st.billed)} billed, last 12 mo</span>`:''}${st.last?`<span class="svc-chip">Last done ${esc(fmtDate(st.last))}</span>`:''}`:x.name?'<span class="svc-chip quiet">Not used yet</span>':'<span class="svc-chip quiet">New</span>';
+  return `<div class="svc-card${on?'':' off'}" data-svc>
+    <div class="svc-main">
+      ${ro?'':`<span class="svc-handle" draggable="true" data-svcdrag title="Drag to reorder" aria-hidden="true">${I.grip}</span>`}
+      <div class="svc-fields">
+        <div class="svc-f svc-f-name"><label for="${uid}-n">Service</label><input id="${uid}-n" type="text" class="svc-name" value="${esc(x.name||'')}" placeholder="e.g. Exterior windows" ${dis}></div>
+        <div class="svc-f svc-f-price"><label for="${uid}-p">Price</label><div class="svc-money"><span aria-hidden="true">$</span><input id="${uid}-p" type="number" class="svc-rate" min="0" step="0.01" inputmode="decimal" value="${x.price!=null&&x.price!==''?esc(Number.isInteger(+x.price)?String(+x.price):(+x.price).toFixed(2)):''}" placeholder="0.00" ${dis}></div></div>
+        <div class="svc-f svc-f-unit"><label for="${uid}-u">Unit</label><input id="${uid}-u" type="text" class="svc-unit" list="svc-units" value="${esc(x.unit||'')}" placeholder="per window" ${dis}></div>
+      </div>
+      <label class="svc-switch" title="Inactive services stay on old jobs and invoices but are hidden when adding new lines"><input type="checkbox" class="svc-on" ${on?'checked':''} ${dis}><span class="track" aria-hidden="true"></span><span class="lbl-on">Active</span><span class="lbl-off">Hidden</span></label>
+      ${ro?'':`<div class="svc-acts">
+        <button type="button" class="icon-btn" data-act="svcMove" data-dir="-1" aria-label="Move up" title="Move up">${I.up}</button>
+        <button type="button" class="icon-btn" data-act="svcMove" data-dir="1" aria-label="Move down" title="Move down">${I.down}</button>
+        <button type="button" class="icon-btn" data-act="svcDup" aria-label="Duplicate" title="Duplicate">${I.copy}</button>
+        <button type="button" class="icon-btn danger" data-act="svcDel" aria-label="Remove" title="Remove">${I.trash}</button>
+      </div>`}
+    </div>
+    <div class="svc-foot">
+      <div class="svc-chips">${chips}</div>
+      <details class="svc-more" ${d?'':''}><summary><span class="svc-sum-l">Standard description</span><span class="svc-sum-p">${d?esc(d.split('\n')[0].slice(0,70))+(d.length>70||d.includes('\n')?'…':''):'None. Add one'}</span></summary>
+        <textarea class="svc-desc" rows="4" placeholder="What's included. Fills in under this service on jobs, quotes and invoices, ready to edit." ${dis}>${esc(d)}</textarea></details>
+    </div>
+    <div class="svc-gone" role="status"><span>Removed <strong class="svc-gone-n"></strong>. It goes away when you save.</span><button type="button" class="btn sm" data-act="svcUndo">Undo</button></div>
+  </div>`;
+}
+function servicesPanel(s, ro){
+  const stats=svcStats(); const n=s.services.length, act=s.services.filter(x=>x.active!==false).length;
+  return `<div class="svc-head">
+      <div><h2 style="margin:0">Services & prices</h2><p class="hint" style="margin:4px 0 0">Pick these when adding lines to jobs, quotes and invoices. The price and description fill in, ready to edit.</p></div>
+      <div class="svc-count" id="svc-count">${act} active${n-act?` · ${n-act} hidden`:''}</div>
+    </div>
+    <div class="svc-toolbar">
+      <div class="svc-search">${I.search}<input type="search" id="svc-q" placeholder="Search services" aria-label="Search services" autocomplete="off"></div>
+      ${ro?'':`<button type="button" class="btn" data-act="svcAdjust" aria-expanded="false" id="svc-adj-btn">${I.percent} Adjust prices</button><button type="button" class="btn primary" data-act="svcAdd">${I.plus} Add service</button>`}
+    </div>
+    ${ro?'':`<div class="svc-adjust" id="svc-adjust" hidden>
+      <div class="svc-adj-row"><label for="svc-adj-pct">Change all active prices by</label><div class="svc-money pct"><input type="number" id="svc-adj-pct" step="0.5" value="5" inputmode="decimal"><span aria-hidden="true">%</span></div>
+        <label for="svc-adj-round" class="sr-only">Rounding</label><select id="svc-adj-round"><option value="0.01">Round to the cent</option><option value="0.25">Round to $0.25</option><option value="0.5">Round to $0.50</option><option value="1">Round to $1</option></select>
+        <button type="button" class="btn primary sm" data-act="svcAdjustApply">Apply</button><button type="button" class="btn ghost sm" data-act="svcAdjust">Cancel</button></div>
+      <span class="hint">Use a negative number to lower prices. Changes show right away; nothing is saved until you click Save settings. Existing jobs and invoices keep their prices.</span></div>`}
+    <div class="svc-colhead" aria-hidden="true"><span class="h-grip"></span><span class="h-fields"><span>Service</span><span>Price</span><span>Unit</span></span><span class="h-status">Status</span>${ro?'':'<span class="h-acts"></span>'}</div>
+    <div class="svc-list" id="svc-list">${s.services.map(x=>svcCard(x, ro, stats)).join('')}</div>
+    <p class="svc-empty muted" id="svc-empty" ${n?'hidden':''}>No services yet. Add your first one.</p>
+    <p class="svc-empty muted" id="svc-nomatch" hidden>No services match your search.</p>
+    <datalist id="svc-units">${SVC_UNITS.map(u=>`<option value="${esc(u)}">`).join('')}</datalist>`;
+}
+function svcRefreshCount(){ const cards=[...document.querySelectorAll('#svc-list .svc-card:not(.gone)')]; const act=cards.filter(c=>c.querySelector('.svc-on').checked).length; const el=$('#svc-count'); if(el) el.textContent=`${act} active${cards.length-act?` · ${cards.length-act} hidden`:''}`; const e=$('#svc-empty'); if(e) e.hidden=cards.length>0; }
+function svcFilter(q){ q=svcNorm(q); let shown=0; document.querySelectorAll('#svc-list .svc-card').forEach(c=>{ const hit=!q || svcNorm(c.querySelector('.svc-name').value+' '+c.querySelector('.svc-unit').value+' '+c.querySelector('.svc-desc').value).includes(q); c.classList.toggle('filtered', !hit); if(hit&&!c.classList.contains('gone')) shown++; }); const nm=$('#svc-nomatch'); if(nm) nm.hidden=!q||shown>0; }
+function readServices(f){
+  const out=[], descs={}, seen=new Map(); let err='';
+  f.querySelectorAll('#svc-list .svc-card:not(.gone)').forEach(c=>{
+    const name=c.querySelector('.svc-name').value.trim().replace(/\s+/g,' '); const raw=c.querySelector('.svc-rate').value; const unit=c.querySelector('.svc-unit').value.trim(); const desc=c.querySelector('.svc-desc').value.replace(/\s+$/,'');
+    if(!name){ if(raw||unit||desc.trim()) err=err||'A service is missing its name. Add a name or remove it.'; return; }
+    const k=svcNorm(name); if(seen.has(k)){ err=err||`"${name}" is listed twice. Rename or remove one.`; return; } seen.set(k,1);
+    const price=Math.round((+String(raw).replace(/[^\d.]/g,'')||0)*100)/100;
+    const x={name, price, unit}; if(!c.querySelector('.svc-on').checked) x.active=false; out.push(x); if(desc.trim()) descs[name]=desc;
+  });
+  return {services:out, serviceDescriptions:descs, error:err};
+}
+const activeServices = () => settings().services.map((x,i)=>({...x, i})).filter(x=>x.active!==false);
 function etplRow(t,i,ro){
   return `<div class="etpl panel" style="display:flex;flex-direction:column;gap:10px;background:var(--surface-2);box-shadow:none">
     <div class="fgrid"><div class="field"><label for="et-name-${i}">Template name</label><input type="text" class="et-name" id="et-name-${i}" value="${esc(t.name)}" ${ro?'disabled':''}></div>
@@ -1892,12 +2061,7 @@ function viewSettings(){
     </div>
     </section>
     <section class="panel set-panel" id="sp-services" role="tabpanel" aria-labelledby="st-services" data-tabpanel="services" ${hid('services')}>
-    <h2>Services & starting prices</h2>
-    <div class="field"><label for="s-svc">One per line: Service | price | unit</label><textarea id="s-svc" name="services" style="min-height:190px;font-family:var(--f-mono);font-size:.85rem" ${ro?'disabled':''}>${esc(s.services.map(x=>`${x.name} | ${x.price} | ${x.unit||''}`).join('\n'))}</textarea>
-      <span class="hint">These fill in job and invoice lines. The starting list is a placeholder; set your own prices.</span></div>
-    <h2 style="margin-top:18px">Standard descriptions</h2>
-    <p class="hint" style="margin-bottom:8px">Optional. When you pick a service on a job, quote or invoice, its standard description fills in below it, ready to edit. Save after adding services above to see them here.</p>
-    <div style="display:flex;flex-direction:column;gap:10px">${s.services.map(x=>`<div class="field"><label>${esc(x.name)}</label><textarea class="svc-desc" data-name="${esc(x.name)}" rows="3" style="font-size:.88rem" placeholder="What's included for ${esc(x.name.toLowerCase())}…" ${ro?'disabled':''}>${esc((s.serviceDescriptions||{})[x.name]||'')}</textarea></div>`).join('')}</div>
+    ${servicesPanel(s, ro)}
     </section>
     <section class="panel set-panel" id="sp-templates" role="tabpanel" aria-labelledby="st-templates" data-tabpanel="templates" ${hid('templates')}>
     <h2>Text templates</h2>
@@ -2533,7 +2697,7 @@ const DRAWERS = {
     const j = src ? {...src, items:(src.items||[]).map(x=>({...x}))} : {customerId:cid||'', date:date||(quote?'':todayISO()), time:'09:00', status:quote?'Quoted':'Scheduled', items:[], crew:'', notes:'', hours:''};
     if(book){ j.status='Scheduled'; if(date) j.date=date; }
     const tbd = j.status==='Quoted' && !j.date;
-    if(!id && cid){ const c=cust(cid); const ext=settings().services[0]; if(c&&c.panes&&ext) j.items=[{desc:ext.name, qty:+c.panes, rate:+ext.price}]; }
+    if(!id && cid){ const c=cust(cid); const ext=activeServices()[0]; if(c&&c.panes&&ext) j.items=[{desc:ext.name, qty:+c.panes, rate:+ext.price}]; }
     if(!j.items.length) j.items=[{}];
     return {back:stack.length>0, title:book?'Book this quote':id?(j.status==='Quoted'?'Edit quote':'Edit job'):(quote?'New quote':'New job'), body:`
     ${book?'<p class="muted" style="font-size:.9rem">Confirm the date and time, then save to put it on the schedule.</p>':''}
@@ -2869,7 +3033,7 @@ function cpickSettle(id){
 function itemRow(it={}){
   const svc=settings().services;
   return `<div class="item-row">
-    <select class="it-svc" aria-label="Service"><option value="">Custom line…</option>${svc.map((s,i)=>`<option value="${i}" ${s.name===it.desc?'selected':''}>${esc(s.name)}</option>`).join('')}</select>
+    <select class="it-svc" aria-label="Service"><option value="">Custom line…</option>${svc.map((s,i)=>s.active===false&&s.name!==it.desc?'':`<option value="${i}" ${s.name===it.desc?'selected':''}>${esc(s.name)}${s.unit?` · ${esc(money(+s.price||0))} ${esc(s.unit)}`:''}</option>`).join('')}</select>
     <input type="text" class="it-desc" aria-label="Description" placeholder="Description" value="${esc(it.desc||'')}">
     <input type="number" class="it-qty" aria-label="Quantity" min="0" step="any" inputmode="decimal" value="${esc(it.qty ?? 1)}">
     <input type="number" class="it-rate" aria-label="Rate" min="0" step="0.01" inputmode="decimal" placeholder="Rate" value="${esc(it.rate ?? '')}">
@@ -3141,6 +3305,15 @@ const A = {
   emailCompose(d){ go('email',{cid:d.cid||'', jobId:d.job, invId:d.inv, tpl:d.tpl}); },
   copyEmail(d,el){ const to=$('#e-to').value.trim(), sub=$('#e-subj').value, body=$('#e-body').value; const fj=el&&el.closest&&el.closest('form'); const jid=fj&&fj.dataset.job; if(jid && body.includes(quoteLink(jid))) commitQuoteToken(jid, true); copyText(`To: ${to}\nSubject: ${sub}\n\n${body}`, 'Email copied. Paste it into your email.'); },
   msgChan(d){ S.msgChan=d.c; render(); },
+  svcAdd(){ const box=$('#svc-list'); if(!box) return; const q=$('#svc-q'); if(q&&q.value){ q.value=''; svcFilter(''); } box.insertAdjacentHTML('beforeend', svcCard({name:'',price:'',unit:''}, false, null)); S.settingsDirty=true; svcRefreshCount(); const c=box.lastElementChild; c.classList.add('fresh'); c.scrollIntoView({block:'center', behavior:'smooth'}); c.querySelector('.svc-name').focus(); },
+  svcDup(d,el){ const c=el.closest('.svc-card'); const x={name:c.querySelector('.svc-name').value.trim()+' (copy)', price:c.querySelector('.svc-rate').value, unit:c.querySelector('.svc-unit').value, active:c.querySelector('.svc-on').checked}; c.insertAdjacentHTML('afterend', svcCard(x,false,null)); const n=c.nextElementSibling; n.querySelector('.svc-desc').value=c.querySelector('.svc-desc').value; n.classList.add('fresh'); S.settingsDirty=true; svcRefreshCount(); const inp=n.querySelector('.svc-name'); inp.focus(); inp.select(); },
+  svcDel(d,el){ const c=el.closest('.svc-card'); c.querySelector('.svc-gone-n').textContent=c.querySelector('.svc-name').value.trim()||'this service'; c.classList.add('gone'); S.settingsDirty=true; svcRefreshCount(); const u=c.querySelector('[data-act="svcUndo"]'); if(u) u.focus(); },
+  svcUndo(d,el){ const c=el.closest('.svc-card'); c.classList.remove('gone'); svcRefreshCount(); c.querySelector('.svc-name').focus(); },
+  svcMove(d,el){ const c=el.closest('.svc-card'); const sib=+d.dir<0?c.previousElementSibling:c.nextElementSibling; if(!sib) return; +d.dir<0?sib.before(c):sib.after(c); S.settingsDirty=true; el.focus(); c.classList.remove('fresh'); void c.offsetWidth; c.classList.add('fresh'); },
+  svcAdjust(){ const p=$('#svc-adjust'), b=$('#svc-adj-btn'); if(!p) return; p.hidden=!p.hidden; if(b) b.setAttribute('aria-expanded', String(!p.hidden)); if(!p.hidden) $('#svc-adj-pct').focus(); },
+  svcAdjustApply(){ const pct=+$('#svc-adj-pct').value; const r=+$('#svc-adj-round').value||0.01; if(!isFinite(pct)||pct===0) return toast('Enter a percentage other than 0.','bad'); if(pct<=-100) return toast('That would make prices zero or less.','bad');
+    let n=0; document.querySelectorAll('#svc-list .svc-card:not(.gone)').forEach(c=>{ if(!c.querySelector('.svc-on').checked) return; const i=c.querySelector('.svc-rate'); const v=+i.value; if(!(v>0)) return; i.value=String(Math.round(Math.round(v*(1+pct/100)/r)*r*100)/100); n++; i.closest('.svc-money').classList.remove('bumped'); void i.offsetWidth; i.closest('.svc-money').classList.add('bumped'); });
+    S.settingsDirty=true; A.svcAdjust(); toast(`${n} price${n===1?'':'s'} ${pct>0?'raised':'lowered'} ${Math.abs(pct)}%. Click Save settings to keep ${n===1?'it':'them'}.`); },
   addEtpl(){ const box=$('#etpls'); const i=box.querySelectorAll('.etpl').length; box.insertAdjacentHTML('beforeend', etplRow({name:'',subject:'',body:''}, Date.now()%100000, false)); S.settingsDirty=true; box.lastElementChild.querySelector('input').focus(); },
   rmEtpl(d,el){ el.closest('.etpl').remove(); S.settingsDirty=true; },
   copyMsg(){ copyText($('#m-body').value, 'Message copied. Paste it into phone.com.'); },
@@ -3612,10 +3785,11 @@ const F = {
   },
   async settings(f){
     const fd=Object.fromEntries(new FormData(f));
-    const services = fd.services.split('\n').map(l=>l.split('|').map(s=>s.trim())).filter(p=>p[0]).map(([name,price,unit])=>({name, price:+String(price||'0').replace(/[^\d.]/g,'')||0, unit:unit||''}));
+    const sv=readServices(f); if(sv.error){ S.setTab='services'; document.querySelectorAll('[data-tabpanel]').forEach(p=>p.hidden=p.dataset.tabpanel!=='services'); return toast(sv.error,'bad'); }
+    const services=sv.services;
     const templates = fd.templates.split('\n').map(l=>{ const i=l.indexOf('|'); return i<0?null:{name:l.slice(0,i).trim(), text:l.slice(i+1).trim()}; }).filter(x=>x&&x.name&&x.text);
     const emailTemplates=[...f.querySelectorAll('.etpl')].map(r=>({name:r.querySelector('.et-name').value.trim(), subject:r.querySelector('.et-subj').value.trim(), body:r.querySelector('.et-body').value})).filter(x=>x.name&&(x.subject||x.body.trim()));
-    const serviceDescriptions={}; f.querySelectorAll('.svc-desc').forEach(t=>{ if(t.value.trim()) serviceDescriptions[t.dataset.name]=t.value.replace(/\s+$/,''); });
+    const serviceDescriptions=sv.serviceDescriptions;
     const data={...(S.settingsDoc||{}), logo:fd.logo||'', website:(fd.website||'').trim(), invoiceThanks:(fd.invoiceThanks||'').trim(), invoiceFooter:(fd.invoiceFooter||'').trim(), invoicePage2On:!!fd.invoicePage2On, invoicePage2Title:(fd.invoicePage2Title||'').trim(), invoicePage2:fd.invoicePage2||'', serviceDescriptions,
       ...(()=>{ const m=String(fd.weatherLoc||'').match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/); return m&&Math.abs(+m[1])<=90&&Math.abs(+m[2])<=180?{weatherLat:+m[1], weatherLon:+m[2]}:{weatherLat:null, weatherLon:null}; })(),
       businessName:fd.businessName.trim()||'Your Window Co.', phone:fd.phone.trim(), email:fd.email.trim(), address:fd.address.trim(), taxRate:+fd.taxRate||0, termsDays:+fd.termsDays||0, dayCapacity:+fd.dayCapacity||0, invoiceStart:Math.max(1,parseInt(fd.invoiceStart,10)||1001), invoiceNote:fd.invoiceNote, services, templates, emailTemplates, updatedAt:Date.now()};
@@ -4217,12 +4391,14 @@ document.addEventListener('input', e=>{
   else if(t.id==='e-to'||t.id==='e-subj'||t.id==='e-body') updateMailto();
   else if(t.id==='wipe-typed'){ const was=S.wipe.typed==='DELETE'; S.wipe.typed=t.value; const now=t.value==='DELETE'; const b=document.querySelector('[data-act="wipeRun"]'); if(b) b.disabled=!now||S.wipe.busy; if(was!==now || (t.value && !now)){ const pos=t.selectionStart; refreshWipe(); const i=document.getElementById('wipe-typed'); if(i){ i.focus(); try{ i.setSelectionRange(pos,pos); }catch(_){} } } }
   else if(t.id==='tr-body'){ const tc=$('#tr-count'); if(tc) tc.textContent = t.value.length ? `${t.value.length} characters${t.value.length>160?' (sends as more than one text)':''}` : ''; }
-  else if(t.closest && t.closest('form[data-form=settings]')) S.settingsDirty=true;
+  else if(t.id==='svc-q') svcFilter(t.value);
+  else if(t.closest && t.closest('form[data-form=settings]')){ S.settingsDirty=true; if(t.classList.contains('svc-desc')){ const sp=t.closest('.svc-more').querySelector('.svc-sum-p'); const v=t.value.trim(); sp.textContent=v?v.split('\n')[0].slice(0,70)+(v.length>70||v.includes('\n')?'…':''):'None. Add one'; } }
   else if(t.id==='m-body'){ $('#m-count').textContent=t.value.length+' characters'; updateSmsLink(); }
   else if(t.dataset.cmp) updateCmp(t);
 });
 document.addEventListener('change', e=>{
   const t=e.target;
+  if(t.classList && t.classList.contains('svc-on')){ t.closest('.svc-card').classList.toggle('off', !t.checked); S.settingsDirty=true; svcRefreshCount(); return; }
   if(t.classList && t.classList.contains('sel-cb')){ const set=S.sel[t.dataset.kind]; t.checked?set.add(t.dataset.id):set.delete(t.dataset.id); render(); return; }
   if(t.classList && t.classList.contains('sel-all')){ const set=S.sel[t.dataset.kind]; const ids=S._visible[t.dataset.kind]||[]; if(t.checked) ids.forEach(i=>set.add(i)); else ids.forEach(i=>set.delete(i)); render(); return; }
   if(t.dataset.upload) uploadPhotos(t);
@@ -4302,6 +4478,12 @@ function chartTip(e){
 }
 document.addEventListener('mousemove', chartTip);
 document.addEventListener('touchstart', e=>chartTip(e.touches?{target:e.target, clientX:e.touches[0].clientX, clientY:e.touches[0].clientY}:e), {passive:true});
+/* services: drag to reorder */
+let svcDragEl=null;
+document.addEventListener('dragstart', e=>{ const h=e.target.closest && e.target.closest('[data-svcdrag]'); if(!h) return; svcDragEl=h.closest('.svc-card'); svcDragEl.classList.add('dragging'); try{ e.dataTransfer.setData('text/plain','svc'); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setDragImage(svcDragEl, 24, 24); }catch(_){} e.stopImmediatePropagation(); }, true);
+document.addEventListener('dragover', e=>{ if(!svcDragEl) return; const over=e.target.closest && e.target.closest('#svc-list .svc-card'); if(!over||over===svcDragEl) return; e.preventDefault(); const r=over.getBoundingClientRect(); (e.clientY<r.top+r.height/2)?over.before(svcDragEl):over.after(svcDragEl); }, true);
+document.addEventListener('drop', e=>{ if(!svcDragEl) return; e.preventDefault(); e.stopImmediatePropagation(); }, true);
+document.addEventListener('dragend', e=>{ if(!svcDragEl) return; svcDragEl.classList.remove('dragging'); svcDragEl=null; S.settingsDirty=true; }, true);
 /* calendar drag & drop */
 let dragPayload=null;
 document.addEventListener('dragstart', e=>{ const el=e.target.closest && e.target.closest('[data-drag]'); if(!el) return; dragPayload=el.dataset.drag; try{ e.dataTransfer.setData('text/plain', dragPayload); e.dataTransfer.effectAllowed='move'; }catch(_){} el.classList.add('dragging'); });
