@@ -4510,13 +4510,63 @@ window.addEventListener('resize', ()=>document.querySelectorAll('input[data-cmp]
 function authCard(inner){ return `<div class="auth"><div class="auth-card"><div class="auth-brand"><span class="logo-card"><img src="${esc(appLogo())}" alt="${esc(settings().businessName==='Your Window Co.'?'PureWash':settings().businessName)}"></span></div>${inner}</div></div>`; }
 const DEFAULT_LOGO='/purewash-logo.png', DARK_LOGO='/purewash-logo-dark.png';
 function appLogo(){ let l=settings().logo; if(!l){ try{ l=localStorage.getItem('pw.logo')||''; }catch(e){} } return l||DEFAULT_LOGO; }
+/* Sidebar logo on the dark menu: a logo with a transparent background goes straight on the navy.
+   Thin dark details that stand on their own (taglines, rules) turn light so they stay readable;
+   outlines around white or colored shapes and solid dark areas keep their color.
+   A logo with a solid background keeps its white card. */
+const DARK_LOGO_CACHE = new Map();
+function darkBgLogo(src){
+  if(DARK_LOGO_CACHE.has(src)) return Promise.resolve(DARK_LOGO_CACHE.get(src));
+  const key='pw.logoDark2:'+src.length+':'+src.slice(-48);
+  try{ const hit=localStorage.getItem(key); if(hit!==null){ const v=hit||null; DARK_LOGO_CACHE.set(src,v); return Promise.resolve(v); } }catch(e){}
+  if(typeof Image==='undefined' || typeof document.createElement!=='function') return Promise.resolve(null);
+  return new Promise(res=>{ const img=new Image(); img.onload=()=>{ let out=null; try{ out=lightenForDark(img); }catch(e){ out=null; }
+      DARK_LOGO_CACHE.set(src,out); try{ localStorage.setItem(key, out||''); }catch(e){} res(out); };
+    img.onerror=()=>res(null); img.src=src; });
+}
+function lightenForDark(img){
+  const sc=Math.min(1, 900/img.naturalWidth), W=Math.max(1,Math.round(img.naturalWidth*sc)), H=Math.max(1,Math.round(img.naturalHeight*sc));
+  const cv=document.createElement('canvas'); cv.width=W; cv.height=H; const cx=cv.getContext('2d',{willReadFrequently:true}); cx.drawImage(img,0,0,W,H);
+  const id=cx.getImageData(0,0,W,H), d=id.data, N=W*H;
+  const op=new Uint8Array(N), dark=new Uint8Array(N), fill=new Uint8Array(N), lum=new Float32Array(N), sat=new Uint8Array(N); let clear=0;
+  for(let i=0;i<N;i++){ const r=d[i*4],g=d[i*4+1],b=d[i*4+2],a=d[i*4+3]; const L=(r*299+g*587+b*114)/1000, S=Math.max(r,g,b)-Math.min(r,g,b); lum[i]=L; sat[i]=S;
+    if(a<16) clear++; op[i]=a>40?1:0; dark[i]=(op[i]&&L<110&&S<60)?1:0; fill[i]=(a>200&&(L>150||S>70))?1:0; }
+  if(clear/N<0.12) return null; // solid background: keep the white card
+  // box sums via an integral image: "any of these within r pixels?"
+  const near=(mask,r)=>{ const I=new Int32Array((W+1)*(H+1)); for(let y=0;y<H;y++){ let row=0; for(let x=0;x<W;x++){ row+=mask[y*W+x]; I[(y+1)*(W+1)+x+1]=I[y*(W+1)+x+1]+row; } }
+    const o=new Uint8Array(N); for(let y=0;y<H;y++){ const y0=Math.max(0,y-r), y1=Math.min(H,y+r+1); for(let x=0;x<W;x++){ const x0=Math.max(0,x-r), x1=Math.min(W,x+r+1);
+      o[y*W+x]=(I[y1*(W+1)+x1]-I[y0*(W+1)+x1]-I[y1*(W+1)+x0]+I[y0*(W+1)+x0])>0?1:0; } } return o; };
+  // labels 4-connected pieces of a mask; returns ids per pixel and, per id, whether test() held for any pixel
+  const pieces=(mask, test)=>{ const lab=new Int32Array(N), hit=[false]; const st=[]; let n=0;
+    for(let i=0;i<N;i++){ if(!mask[i]||lab[i]) continue; n++; hit[n]=false; st.push(i); lab[i]=n;
+      while(st.length){ const j=st.pop(); if(!hit[n]&&test(j)) hit[n]=true; const x=j%W, y=(j-x)/W;
+        if(x>0&&mask[j-1]&&!lab[j-1]){ lab[j-1]=n; st.push(j-1); } if(x<W-1&&mask[j+1]&&!lab[j+1]){ lab[j+1]=n; st.push(j+1); }
+        if(y>0&&mask[j-W]&&!lab[j-W]){ lab[j-W]=n; st.push(j-W); } if(y<H-1&&mask[j+W]&&!lab[j+W]){ lab[j+W]=n; st.push(j+W); } } }
+    return {lab, hit}; };
+  // large light/colored areas (lettering fills, the mascot's belly) protect the dark outlines around them
+  const fillDeep=Math.max(3,Math.round(H*0.012)), strokeMax=Math.max(3,Math.round(H*0.02));
+  const notFill=new Uint8Array(N); for(let i=0;i<N;i++) notFill[i]=fill[i]?0:1; const nearNotFill=near(notFill, fillDeep);
+  const F=pieces(fill, j=>!nearNotFill[j]); const big=new Uint8Array(N); for(let i=0;i<N;i++) if(F.lab[i]&&F.hit[F.lab[i]]) big[i]=1;
+  const nearBig=near(big, Math.max(2,Math.round(H*0.025)));
+  const cand=new Uint8Array(N); for(let i=0;i<N;i++) cand[i]=dark[i]&&!nearBig[i]?1:0;
+  // only thin pieces (text, rules) change; a piece with any pixel deep inside is a solid shape and keeps its color
+  const tr=new Uint8Array(N); for(let i=0;i<N;i++) tr[i]=op[i]?0:1; const nearClear=near(tr, strokeMax);
+  const D=pieces(cand, j=>!nearClear[j]); const keep=new Uint8Array(N); for(let i=0;i<N;i++) if(D.lab[i]&&!D.hit[D.lab[i]]) keep[i]=1;
+  const grown=near(keep,1); let changed=0;
+  for(let i=0;i<N;i++) if(grown[i]&&op[i]&&lum[i]<170&&sat[i]<60&&!big[i]){ d[i*4]=232; d[i*4+1]=240; d[i*4+2]=250; changed++; }
+  cx.putImageData(id,0,0); return cv.toDataURL('image/png');
+}
 function paintLogos(){
   const src=appLogo(), name=settings().businessName||'PureWash';
   try{ if(settings().logo) localStorage.setItem('pw.logo', settings().logo); }catch(e){}
   ['#logo1','#logo2'].forEach(id=>{ const el=$(id); if(!el) return;
     // the sidebar is dark: the PureWash logo goes straight on it (light tagline version); an uploaded logo keeps its white card
-    const onDark=id==='#logo1' && src===DEFAULT_LOGO, use=onDark?DARK_LOGO:src; el.classList.toggle('clear', onDark);
-    const img=el.querySelector('img'); if(img && img.getAttribute('src')===use) return; el.innerHTML=`<img src="${esc(use)}" alt="${esc(name)}" onerror="this.onerror=null;this.src='${DEFAULT_LOGO}'">`; });
+    const put=(use,clear)=>{ el.classList.toggle('clear', clear); el.dataset.for=src; const img=el.querySelector('img'); if(img && img.getAttribute('src')===use) return; el.innerHTML=`<img src="${esc(use)}" alt="${esc(name)}" onerror="this.onerror=null;this.src='${DEFAULT_LOGO}'">`; };
+    if(id!=='#logo1') return put(src,false);
+    if(src===DEFAULT_LOGO) return put(DARK_LOGO,true);
+    if(DARK_LOGO_CACHE.has(src)){ const v=DARK_LOGO_CACHE.get(src); return v?put(v,true):put(src,false); }
+    if(el.dataset.for!==src) put(src,false);
+    darkBgLogo(src).then(v=>{ if(appLogo()!==src) return; v?put(v,true):put(src,false); }); });
 }
 function showAuth(mode, msg){
   document.getElementById('app').hidden=true; const root=document.getElementById('auth-root'); root.hidden=false;
