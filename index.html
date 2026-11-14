@@ -69,12 +69,16 @@ button,input,select,textarea{font:inherit;color:inherit}
 /* shell */
 .app{display:grid;grid-template-columns:1fr;min-height:100%}
 .side{display:none}
-.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--surface);border-bottom:1px solid var(--line);
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--side-bg);color:var(--side-ink);border-bottom:1px solid var(--side-line);
   display:flex;align-items:center;gap:10px;padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 .brand{display:flex;align-items:center;gap:10px;min-width:0}
 .brand-name{font-family:var(--f-display);font-weight:700;font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .brand-sub{font-size:.72rem;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
 .topbar .spacer{flex:1}
+.topbar .icon-btn{color:var(--side-muted)}
+.topbar .icon-btn:hover,.topbar .icon-btn[aria-current="page"]{color:var(--side-ink);background:var(--side-hover)}
+.topbar .icon-btn:focus-visible{outline:2px solid #7AA3E6;outline-offset:1px}
+.topbar .tb-dot{box-shadow:0 0 0 2px var(--side-bg)}
 .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(6,1fr);
   padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
 .tab{background:none;border:0;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 0 7px;font-size:.68rem;color:var(--muted);cursor:pointer;font-weight:600}
@@ -110,7 +114,9 @@ button,input,select,textarea{font:inherit;color:inherit}
 .side .logo-card img{max-height:70px}
 .side .logo-card.clear{background:none;padding:2px 4px}
 .topbar .logo-card{padding:3px 8px;border:1px solid var(--line)}
+.topbar .logo-card.clear{background:none;border:0;padding:0}
 .topbar .logo-card img{height:34px;width:auto;max-width:150px}
+.topbar .logo-card.clear img{height:42px;max-width:180px}
 .auth-brand .logo-card{padding:10px 14px;border:1px solid var(--line)}
 .auth-brand .logo-card img{width:250px;max-width:100%;max-height:110px}
 .auth-brand{justify-content:center}
@@ -4562,7 +4568,6 @@ function paintLogos(){
   ['#logo1','#logo2'].forEach(id=>{ const el=$(id); if(!el) return;
     // the sidebar is dark: the PureWash logo goes straight on it (light tagline version); an uploaded logo keeps its white card
     const put=(use,clear)=>{ el.classList.toggle('clear', clear); el.dataset.for=src; const img=el.querySelector('img'); if(img && img.getAttribute('src')===use) return; el.innerHTML=`<img src="${esc(use)}" alt="${esc(name)}" onerror="this.onerror=null;this.src='${DEFAULT_LOGO}'">`; };
-    if(id!=='#logo1') return put(src,false);
     if(src===DEFAULT_LOGO) return put(DARK_LOGO,true);
     if(DARK_LOGO_CACHE.has(src)){ const v=DARK_LOGO_CACHE.get(src); return v?put(v,true):put(src,false); }
     if(el.dataset.for!==src) put(src,false);
