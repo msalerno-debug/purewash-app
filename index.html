@@ -108,6 +108,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .side .brand-img{padding:2px 4px 18px}
 .side .logo-card{width:100%;padding:8px 10px}
 .side .logo-card img{max-height:70px}
+.side .logo-card.clear{background:none;padding:2px 4px}
 .topbar .logo-card{padding:3px 8px;border:1px solid var(--line)}
 .topbar .logo-card img{height:34px;width:auto;max-width:150px}
 .auth-brand .logo-card{padding:10px 14px;border:1px solid var(--line)}
@@ -4507,12 +4508,15 @@ window.addEventListener('resize', ()=>document.querySelectorAll('input[data-cmp]
 
 /* ---------- sign-in & boot ---------- */
 function authCard(inner){ return `<div class="auth"><div class="auth-card"><div class="auth-brand"><span class="logo-card"><img src="${esc(appLogo())}" alt="${esc(settings().businessName==='Your Window Co.'?'PureWash':settings().businessName)}"></span></div>${inner}</div></div>`; }
-const DEFAULT_LOGO='/purewash-logo.png';
+const DEFAULT_LOGO='/purewash-logo.png', DARK_LOGO='/purewash-logo-dark.png';
 function appLogo(){ let l=settings().logo; if(!l){ try{ l=localStorage.getItem('pw.logo')||''; }catch(e){} } return l||DEFAULT_LOGO; }
 function paintLogos(){
   const src=appLogo(), name=settings().businessName||'PureWash';
   try{ if(settings().logo) localStorage.setItem('pw.logo', settings().logo); }catch(e){}
-  ['#logo1','#logo2'].forEach(id=>{ const el=$(id); if(!el) return; const img=el.querySelector('img'); if(img && img.getAttribute('src')===src) return; el.innerHTML=`<img src="${esc(src)}" alt="${esc(name)}" onerror="this.onerror=null;this.src='${DEFAULT_LOGO}'">`; });
+  ['#logo1','#logo2'].forEach(id=>{ const el=$(id); if(!el) return;
+    // the sidebar is dark: the PureWash logo goes straight on it (light tagline version); an uploaded logo keeps its white card
+    const onDark=id==='#logo1' && src===DEFAULT_LOGO, use=onDark?DARK_LOGO:src; el.classList.toggle('clear', onDark);
+    const img=el.querySelector('img'); if(img && img.getAttribute('src')===use) return; el.innerHTML=`<img src="${esc(use)}" alt="${esc(name)}" onerror="this.onerror=null;this.src='${DEFAULT_LOGO}'">`; });
 }
 function showAuth(mode, msg){
   document.getElementById('app').hidden=true; const root=document.getElementById('auth-root'); root.hidden=false;
