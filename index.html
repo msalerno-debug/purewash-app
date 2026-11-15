@@ -531,6 +531,103 @@ td.selcol,th.selcol{width:36px;padding-right:0}
 .set-tab .nav-badge{min-width:18px;height:18px;font-size:.68rem;padding:0 5px;background:#C8372D;color:#fff;border-radius:999px;display:inline-grid;place-items:center}
 .set-panel{display:flex;flex-direction:column;gap:14px}
 .set-panel[hidden]{display:none!important}
+/* ---------- camera ---------- */
+html.cam-lock,html.cam-lock body{overflow:hidden;overscroll-behavior:none}
+html.cam-lock .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
+.cam{position:fixed;inset:0;z-index:70;background:#000;color:#fff;display:flex;flex-direction:column;font-family:var(--f-body,inherit);touch-action:manipulation;-webkit-user-select:none;user-select:none}
+.cam-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform-origin:center;background:#000}
+.cam-shade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(to bottom,rgba(0,0,0,.45),transparent 18%,transparent 62%,rgba(0,0,0,.55))}
+.cam-flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
+.cam-flash.go{animation:camFlash .28s ease-out}
+@keyframes camFlash{0%{opacity:.85}100%{opacity:0}}
+.cam-top{position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:calc(env(safe-area-inset-top,0px) + 10px) max(14px,env(safe-area-inset-right,0px)) 6px max(14px,env(safe-area-inset-left,0px))}
+.cam-top-r{display:flex;gap:6px}
+.cam-ic{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:rgba(0,0,0,.38);color:#fff;border:0;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);cursor:pointer}
+.cam-ic svg{width:22px;height:22px} .cam-ic.sm{width:38px;height:38px;background:transparent} .cam-ic.sm svg{width:20px;height:20px}
+.cam-ic.on{background:#FFD60A;color:#111}
+.cam-ic:focus-visible,.cam button:focus-visible{outline:2px solid #7AC8FF;outline-offset:2px}
+.cam-kind{display:flex;background:rgba(0,0,0,.42);border-radius:999px;padding:3px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.cam-kind button{border:0;background:transparent;color:#fff;font:inherit;font-weight:700;font-size:.86rem;padding:8px 16px;border-radius:999px;cursor:pointer;min-height:36px}
+.cam-kind button[aria-pressed="true"]{background:#fff;color:#111}
+.cam-job{position:relative;text-align:center;font-size:.8rem;font-weight:600;opacity:.85;text-shadow:0 1px 3px rgba(0,0,0,.6);padding:0 16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cam-msg{position:absolute;left:16px;right:16px;top:38%;transform:translateY(-50%);z-index:3;background:rgba(20,24,32,.92);border-radius:16px;padding:18px;text-align:center;max-width:420px;margin:0 auto;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.cam-msg p{margin:0 0 12px;line-height:1.45} .cam-msg .btnrow{justify-content:center}
+.cam-saving{display:flex;align-items:center;justify-content:center;gap:10px;margin:0!important;font-weight:650}
+.cam-spin{width:18px;height:18px;border-radius:50%;border:2.5px solid rgba(255,255,255,.3);border-top-color:#fff;animation:camSpin .8s linear infinite}
+@keyframes camSpin{to{transform:rotate(360deg)}}
+.cam-lower{position:relative;margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:12px;padding:0 max(14px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 18px) max(14px,env(safe-area-inset-left,0px))}
+.cam-hint{display:flex;align-items:center;gap:12px;background:rgba(40,44,52,.88);border-radius:14px;padding:10px 12px 10px 14px;font-size:.86rem;max-width:360px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.cam-hint button{border:0;background:rgba(255,255,255,.18);color:#fff;font:inherit;font-weight:650;font-size:.82rem;border-radius:8px;padding:7px 12px;white-space:nowrap;cursor:pointer}
+.cam-desc{display:flex;align-items:center;gap:8px;background:#fff;color:#111;border-radius:14px;padding:6px 6px 6px 6px;width:min(420px,100%);box-shadow:0 6px 20px rgba(0,0,0,.35)}
+.cam-desc-th{flex:none;width:40px;height:40px;border-radius:8px;overflow:hidden;border:0;padding:0;cursor:pointer;background:#ddd}
+.cam-desc-th img{width:100%;height:100%;object-fit:cover;display:block}
+.cam-desc-in{flex:1;min-width:0;border:0!important;outline:0;background:#F1F3F7;border-radius:9px;padding:10px 12px;font:inherit;font-size:16px;color:#111;box-shadow:none!important}
+.cam-desc .cam-ic.sm{color:#2B5190}
+.cam-zoom{display:flex;gap:6px;background:rgba(0,0,0,.35);border-radius:999px;padding:4px;min-height:0}
+.cam-zoom:empty{display:none}
+.cam-zoom button{width:38px;height:38px;border-radius:50%;border:0;background:rgba(255,255,255,.12);color:#fff;font:inherit;font-size:.76rem;font-weight:700;cursor:pointer}
+.cam-zoom button[aria-pressed="true"]{background:#fff;color:#111;font-size:.82rem}
+.cam-bottom{width:100%;max-width:420px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center}
+.cam-left{justify-self:start;position:relative;width:52px;height:52px;border-radius:12px;border:2px solid rgba(255,255,255,.85);background:rgba(0,0,0,.35);color:#fff;display:grid;place-items:center;padding:0;cursor:pointer;overflow:visible}
+.cam-left svg{width:24px;height:24px} .cam-left img{width:100%;height:100%;object-fit:cover;border-radius:10px;display:block}
+.cam-count{position:absolute;top:-8px;right:-8px;min-width:22px;height:22px;border-radius:999px;background:#0A84FF;color:#fff;font-size:.74rem;font-weight:800;display:grid;place-items:center;padding:0 5px;border:2px solid #000}
+.cam-shutter{width:78px;height:78px;border-radius:50%;border:4px solid #fff;background:transparent;padding:4px;cursor:pointer;display:grid;place-items:center}
+.cam-shutter span{display:block;width:100%;height:100%;border-radius:50%;background:#fff;transition:transform .12s}
+.cam-shutter:active span{transform:scale(.88)}
+.cam-done{justify-self:end;border:0;background:rgba(255,255,255,.92);color:#111;font:inherit;font-weight:750;font-size:.95rem;border-radius:999px;padding:11px 20px;cursor:pointer;min-height:44px}
+.cam-tray{width:min(560px,100%);background:rgba(14,16,22,.94);border-radius:18px;padding:12px 14px 12px;box-shadow:0 10px 30px rgba(0,0,0,.4);animation:camUp .2s ease-out;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.cam-tray[hidden]{display:none}
+.cam.tray-open .cam-desc,.cam.tray-open .cam-zoom,.cam.tray-open .cam-hint{display:none}
+@keyframes camUp{from{transform:translateY(30px);opacity:.4}}
+.cam-tray-head{display:flex;align-items:center;gap:10px;margin-bottom:10px} .cam-tray-head strong{font-size:1rem}
+.cam-tray-s{font-size:.8rem;opacity:.75;flex:1}
+.cam-strip{display:flex;gap:10px;overflow-x:auto;padding:8px 2px 4px;scroll-snap-type:x proximity}
+.cam-ti{flex:none;display:flex;flex-direction:column;gap:5px;align-items:center;position:relative;scroll-snap-align:start}
+.cam-ti-img{position:relative;width:86px;height:86px;border-radius:12px;overflow:hidden;border:2px solid transparent;padding:0;background:#222;cursor:pointer}
+.cam-ti.cur .cam-ti-img{border-color:#0A84FF}
+.cam-ti-img img{width:100%;height:100%;object-fit:cover;display:block}
+.cam-ti-mk{position:absolute;left:5px;bottom:5px;background:rgba(0,0,0,.6);color:#FFE14D;border-radius:6px;font-size:.72rem;padding:1px 5px}
+.cam-ti-st{position:absolute;right:6px;bottom:6px;width:10px;height:10px;border-radius:50%;background:#34C759;box-shadow:0 0 0 2px rgba(0,0,0,.5)}
+.cam-ti-st.queued,.cam-ti-st.uploading{background:#FFD60A;animation:camPulse 1s ease-in-out infinite}
+.cam-ti-st.error{background:#FF453A}
+@keyframes camPulse{50%{opacity:.35}}
+.cam-ti-k{font-size:.72rem;opacity:.75;font-weight:600}
+.cam-ti-x{position:absolute;top:-6px;right:-6px;min-width:26px;height:26px;border-radius:999px;border:2px solid #0E1016;background:#3A3F4B;color:#fff;font:inherit;font-weight:800;font-size:.9rem;line-height:1;padding:0 6px;cursor:pointer}
+.cam-ti-x.sure{background:#FF453A;font-size:.72rem}
+.cam-tray-tip{font-size:.78rem;opacity:.65;margin:8px 0 0}
+@media (prefers-reduced-motion:reduce){.cam-flash.go,.cam-tray,.cam-ti-st.queued,.cam-ti-st.uploading{animation:none}.cam-spin{animation-duration:2s}}
+/* ---------- markup editor ---------- */
+.mk{position:fixed;inset:0;z-index:75;background:#0B0D12;color:#fff;display:flex;flex-direction:column;touch-action:none;-webkit-user-select:none;user-select:none}
+.mk-top{display:flex;align-items:center;gap:10px;padding:calc(env(safe-area-inset-top,0px) + 10px) max(12px,env(safe-area-inset-right,0px)) 8px max(12px,env(safe-area-inset-left,0px))}
+.mk-ic{width:42px;height:42px;border-radius:50%;border:0;display:grid;place-items:center;background:rgba(255,255,255,.1);color:#fff;cursor:pointer}
+.mk-ic svg{width:21px;height:21px} .mk-ic:disabled{opacity:.35;cursor:default}
+.mk-hist{display:flex;gap:2px;background:rgba(255,255,255,.1);border-radius:999px} .mk-hist .mk-ic{background:transparent}
+.mk-title{flex:1;text-align:center;font-size:.84rem;opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mk-save{border:0;background:#fff;color:#111;font:inherit;font-weight:750;border-radius:999px;padding:10px 20px;min-height:42px;cursor:pointer}
+.mk-save:disabled{opacity:.6}
+.mk-top.ask .mk-ic[data-mk="cancel"]{background:#FF453A}
+.mk-stage{position:relative;flex:1;min-height:0;display:grid;place-items:center;overflow:hidden}
+.mk-cv{display:block;touch-action:none;border-radius:4px}
+.mk-selbar{position:absolute;display:flex;gap:2px;background:rgba(20,22,28,.94);border-radius:12px;padding:4px;box-shadow:0 6px 18px rgba(0,0,0,.4)}
+.mk-selbar button{width:40px;height:40px;border:0;border-radius:9px;background:transparent;color:#fff;display:grid;place-items:center;cursor:pointer}
+.mk-selbar button:hover{background:rgba(255,255,255,.12)} .mk-selbar button svg{width:20px;height:20px} .mk-selbar button[hidden]{display:none}
+.mk-bottom{display:flex;flex-direction:column;gap:10px;padding:10px max(12px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 12px) max(12px,env(safe-area-inset-left,0px));background:#11141B}
+.mk-opts{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.mk-colors,.mk-sizes{display:flex;gap:8px;align-items:center}
+.mk-sw{width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,.35);background:var(--c);cursor:pointer;padding:0}
+.mk-sw[aria-pressed="true"]{border-color:#fff;box-shadow:0 0 0 2px #0A84FF}
+.mk-sz{width:36px;height:36px;border-radius:50%;border:0;background:rgba(255,255,255,.08);display:grid;place-items:center;cursor:pointer}
+.mk-sz span{width:var(--d);height:var(--d);border-radius:50%;background:var(--c,#fff)}
+.mk-sz[aria-pressed="true"]{background:rgba(255,255,255,.22);box-shadow:inset 0 0 0 2px #fff}
+.mk-tools{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;background:rgba(255,255,255,.06);border-radius:16px;padding:5px}
+.mk-tool{border:0;background:transparent;color:#C9D0DC;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 2px;font:inherit;font-size:.7rem;font-weight:650;cursor:pointer;min-height:48px}
+.mk-tool svg{width:22px;height:22px}
+.mk-tool[aria-pressed="true"]{background:#fff;color:#111}
+.mk-dlg{position:absolute;inset:0;z-index:3;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;padding:calc(env(safe-area-inset-top,0px) + 70px) 16px 16px}
+.mk-dlg-box{background:var(--surface,#fff);color:var(--ink,#111);border-radius:16px;padding:16px;width:min(420px,100%);display:flex;flex-direction:column;gap:10px;box-shadow:0 12px 34px rgba(0,0,0,.4);-webkit-user-select:text;user-select:text}
+.mk-dlg-l{font-weight:700;font-size:.9rem}
+.mk-dlg-box textarea{width:100%;font-size:16px;resize:none}
+@media (min-width:900px){ .mk-bottom{flex-direction:row;align-items:center;justify-content:center;gap:24px} .mk-tools{width:420px} .cam-lower{padding-bottom:28px} }
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 /* services & prices */
 .svc-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
@@ -1740,11 +1837,11 @@ function viewPhotos(){
   if(q) jobs = jobs.filter(j=>{ const c=cust(j.customerId); return c && custMatch(c,q); });
   const thumb = p => p ? `<div class="ph"><img src="${photoUrl(p.assetId)}" alt="" loading="lazy" onerror="this.style.display='none'"><span class="tag ${p.kind}">${p.kind}</span></div>` : `<div class="ph" style="display:grid;place-items:center;color:var(--muted);font-size:.78rem;cursor:default">No ${'photo'}</div>`;
   return `
-  <div class="page-head"><div><p class="eyebrow">Before & after</p><h1>Photos</h1></div><div class="actions"><button class="btn primary" data-act="pickJobForPhotos">${I.camera} Add photos</button></div></div>
+  <div class="page-head"><div><p class="eyebrow">Before & after</p><h1>Photos</h1></div><div class="actions"><button class="btn primary" data-act="pickJobForPhotos">${I.camera} Take photos</button></div></div>
   ${jobs.length||q?`<div class="search"><label class="sr" for="photo-q">Search photos by customer</label><input type="search" id="photo-q" autocomplete="off" placeholder="Type any part of a customer's name or address…" value="${esc(S.photoQuery)}"></div>`:''}
   ${jobs.length ? `<div class="cards">${jobs.map(j=>{ const ps=byJob[j.id].sort((a,b)=>a.createdAt-b.createdAt); const b=ps.filter(p=>p.kind==='before').pop(); const a=ps.filter(p=>p.kind==='after').pop();
       return `<button class="jobcard" data-act="openJob" data-id="${j.id}"><div class="pair">${thumb(b)}${thumb(a)}</div><div><div style="font-weight:680">${esc(custName(j.customerId))}</div><div class="muted" style="font-size:.82rem">${esc(fmtDate(j.date))} · ${ps.length} photo${ps.length===1?'':'s'}</div></div></button>`; }).join('')}</div>`
-   : `<section class="panel">${emptyBox(q?'No photos match':'No before & after photos yet','Open a job and tap Add before / Add after. On a phone you can take the picture right there with the camera.', q?'':'pickJobForPhotos','Add photos to a job')}</section>`}`;
+   : `<section class="panel">${emptyBox(q?'No photos match':'No before & after photos yet','Tap Take photos, pick the job, and snap as many as you need. You can add a description and draw on each one.', q?'':'pickJobForPhotos','Add photos to a job')}</section>`}`;
 }
 function viewInvoices(){
   const fl = S.invFilter;
@@ -2667,7 +2764,7 @@ const DRAWERS = {
     const ps = S.photos.filter(p=>p.jobId===id).sort((a,b)=>a.createdAt-b.createdAt);
     const b = ps.filter(p=>p.kind==='before').pop(), a = ps.filter(p=>p.kind==='after').pop();
     const linked = j.invoiceId && inv(j.invoiceId);
-    const upl = kind => S.assetsOn ? `<label class="upl btn ${kind==='after'?'primary':''}" for="up-${kind}">${I.camera} Add ${kind}<input type="file" id="up-${kind}" accept="image/*" multiple data-upload="${kind}" data-job="${id}"></label>` : '';
+    const upl = kind => S.assetsOn ? `<label class="upl btn" for="up-${kind}">${I.upload} Upload ${kind}<input type="file" id="up-${kind}" accept="image/*" multiple data-upload="${kind}" data-job="${id}"></label>` : '';
     return {detail:true, back:stack.length>0, title:`${esc(custName(j.customerId))}`, body:`
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${pill(j.status)}<span class="muted">${j.date?esc(fmtDay(j.date))+(j.time?' · '+esc(fmtTime(j.time)):''):'Date TBD'}</span>${j.crew?`<span class="pill">Crew: ${esc(j.crew)}</span>`:''}</div>
       ${(()=>{ const cf=['Scheduled','In progress','Quoted'].includes(j.status)?offConflicts(j.date,j.crew,j.time,j.hours):[]; const w=wxDay(j.date); return (cf.length?`<div class="notice bad">⛔ ${esc(offText(cf))}.</div>`:'')+(w&&wxWet(w)&&['Scheduled','Quoted'].includes(j.status)?`<div class="notice info">🌧️ ${esc(w.short||'Rain')} forecast · ${w.workPop!=null?w.workPop:w.pop}% chance of rain during work hours.</div>`:''); })()}
@@ -2692,7 +2789,7 @@ const DRAWERS = {
       <section class="panel"><div class="panel-head"><h3>Before & after</h3><span class="muted" style="font-size:.8rem">${ps.length} photo${ps.length===1?'':'s'}</span></div>
         ${b&&a?`<div class="cmp" id="cmp-${id}"><img src="${photoUrl(a.assetId)}" alt="After"><div class="before-clip" style="width:50%"><img src="${photoUrl(b.assetId)}" alt="Before" style="width:auto;min-width:100%"></div><div class="divider" style="left:50%"></div><span class="tag before">Before</span><span class="tag after">After</span><input type="range" id="rng-${id}" min="0" max="100" value="50" aria-label="Slide to compare before and after" data-cmp="cmp-${id}"></div><p class="hint" style="margin:6px 0 12px">Drag across the photo to compare.</p>`:''}
         ${ps.length?`<div class="photo-grid" style="margin-bottom:12px">${ps.map(p=>`<button class="ph" data-act="openPhoto" data-id="${p.id}" aria-label="${p.kind} photo"><img src="${photoUrl(p.assetId)}" alt="" loading="lazy" onerror="this.style.display='none'"><span class="tag ${p.kind}">${p.kind}</span></button>`).join('')}</div>`:`<p class="muted" style="margin-bottom:12px">Snap a few shots before you start and after you finish. The latest before and after pair becomes a side-by-side slider.</p>`}
-        ${S.assetsOn?`<div class="btnrow">${upl('before')}${upl('after')}</div><div id="upl-status" class="hint" style="margin-top:6px"></div>`:'<p class="hint">Adding photos needs edit access to this app.</p>'}
+        ${S.assetsOn?`<div class="btnrow"><button class="btn primary" data-act="openCamera" data-id="${id}">${I.camera} Take photos</button>${upl('before')}${upl('after')}</div><div id="upl-status" class="hint" style="margin-top:6px"></div>`:'<p class="hint">Adding photos needs edit access to this app.</p>'}
       </section>
       <section class="panel"><div class="panel-head"><h3>Services</h3>${jobRate(j)===0&&(j.taxExempt||custExempt(j.customerId))?'<span class="pill">Tax exempt</span>':''}</div>${linesTable(j.items)}<div class="totals" style="margin-top:8px">${totalsHtml(jobTotals(j), j.taxExempt||custExempt(j.customerId))}</div></section>
       ${j.notes?`<section class="panel"><div class="lbl" style="margin-bottom:6px">Job notes</div><p style="white-space:pre-wrap">${esc(j.notes)}</p></section>`:''}
@@ -2854,11 +2951,11 @@ const DRAWERS = {
     const p=S.photos.find(x=>x.id===id); if(!p) return null;
     return {detail:true, back:true, title:`${p.kind==='after'?'After':'Before'} · ${esc(custName(p.customerId))}`, body:`
       <img src="${photoUrl(p.assetId)}" alt="${p.kind} photo" style="width:100%;border-radius:var(--r);background:var(--surface-2)">
-      <div class="muted" style="font-size:.86rem">${esc(fmtStamp(p.createdAt))}</div>
+      <div class="muted" style="font-size:.86rem">${esc(fmtStamp(p.createdAt))}${p.originalAssetId?' · Drawn on. The original is kept.':''}</div>
       <form data-form="photo" data-id="${id}" style="display:flex;flex-direction:column;gap:10px">
         <div class="fgrid"><div class="field"><label for="ph-kind">Type</label><select id="ph-kind" name="kind"><option value="before" ${p.kind==='before'?'selected':''}>Before</option><option value="after" ${p.kind==='after'?'selected':''}>After</option></select></div>
         <div class="field"><label for="ph-cap">Caption</label><input type="text" id="ph-cap" name="caption" value="${esc(p.caption)}" placeholder="Front bay window"></div></div>
-        <div class="btnrow"><button class="btn primary" type="submit">Save</button><button class="btn" type="button" data-act="openJob" data-id="${p.jobId}">Open job</button><button class="btn danger" type="button" data-act="askDelete" data-col="photos" data-id="${id}">Delete photo</button></div>
+        <div class="btnrow"><button class="btn primary" type="submit">Save</button>${S.assetsOn?`<button class="btn" type="button" data-act="markupPhoto" data-id="${id}">${CAM_ICONS.draw} ${p.originalAssetId?'Edit drawing':'Draw on photo'}</button>${p.originalAssetId?`<button class="btn" type="button" data-act="unmarkPhoto" data-id="${id}">Remove drawing</button>`:''}`:''}<button class="btn" type="button" data-act="openJob" data-id="${p.jobId}">Open job</button><button class="btn danger" type="button" data-act="askDelete" data-col="photos" data-id="${id}">Delete photo</button></div>
       </form><div id="confirm-slot"></div>`};
   },
   importCust(){ return importDrawer(); },
@@ -2941,7 +3038,7 @@ const DRAWERS = {
   pickJob(){
     const t=todayISO();
     const list = S.jobs.filter(j=>j.status!=='Cancelled').sort((a,b)=>Math.abs(parseISO(a.date)-parseISO(t))-Math.abs(parseISO(b.date)-parseISO(t))).slice(0,25);
-    return {title:'Which job are these photos for?', body: list.length?`<div class="panel list">${list.map(j=>`<button class="row" data-act="openJob" data-id="${j.id}"><span class="t">${esc(custName(j.customerId))}</span><span class="s">${esc(fmtDate(j.date))} · ${esc(fullAddress(cust(j.customerId)))}</span><span class="r">${pill(j.status)}</span></button>`).join('')}</div>`
+    return {title:'Which job are these photos for?', body: list.length?`<div class="panel list">${list.map(j=>`<button class="row" data-act="cameraJob" data-id="${j.id}"><span class="t">${esc(custName(j.customerId))}</span><span class="s">${esc(fmtDate(j.date))} · ${esc(fullAddress(cust(j.customerId)))}</span><span class="r">${pill(j.status)}</span></button>`).join('')}</div>`
       : emptyBox('No jobs yet','Photos belong to a job. Schedule one first.','newJob','Schedule a job')};
   },
 };
@@ -3144,6 +3241,10 @@ const A = {
   async copyQuoteLink(d){ if(!await commitQuoteToken(d.id, false)) return toast('Couldn\'t create the link. Try again.','bad'); copyText(quoteLink(d.id), 'Link copied. Paste it into a text or email.'); },
   openInvoice(d){ d.stack ? go('invoice',{id:d.id}) : (stack.length=0, openDrawer('invoice',{id:d.id})); },
   openPhoto(d){ go('photo',{id:d.id}); },
+  openCamera(d){ openCamera(d.id); },
+  cameraJob(d){ closeDrawer(); openCamera(d.id, {returnTo:()=>{ S.view='photos'; render(); }}); },
+  markupPhoto(d){ markupSavedPhoto(d.id); },
+  async unmarkPhoto(d){ const p=S.photos.find(x=>x.id===d.id); if(!p||!p.originalAssetId) return; try{ await applyMarkupToPhoto(p, [], null, null); toast('Drawing removed. The original photo is back.'); }catch(e){ toast(errMsg(e),'bad'); } },
   pickJobForPhotos(){ openDrawer('pickJob',{}); },
   newInvoice(d){ go('invoiceForm',{cid:d.cid}); },
   editInvoice(d){ go('invoiceForm',{id:d.id}); },
@@ -3346,7 +3447,7 @@ const A = {
       return;
     }
     if(d.col==='vehicle_logs'){ const l=S.vehicle_logs.find(x=>x.id===d.id); const ok=await write(()=>db.collection('vehicle_logs').doc(d.id).delete(),'Record deleted'); if(ok){ if(l&&l.receipt&&l.receipt.path) sb.storage.from('fleet').remove([l.receipt.path]).catch(()=>{}); back(); } return; }
-    if(d.col==='photos'){ const p=S.photos.find(x=>x.id===d.id); const ok=await write(()=>db.collection('photos').doc(d.id).delete(),'Photo deleted'); if(ok&&p&&assets){ try{ await assets.delete(p.assetId); }catch(e){} } if(ok) back(); return; }
+    if(d.col==='photos'){ const p=S.photos.find(x=>x.id===d.id); const ok=await write(()=>db.collection('photos').doc(d.id).delete(),'Photo deleted'); if(ok&&p&&assets){ for(const a of [p.assetId,p.originalAssetId]) if(a){ try{ await assets.delete(a); }catch(e){} } } if(ok) back(); return; }
     if(d.col==='jobs'){ const j=job(d.id); if(j&&j.invoiceId){ /* keep invoice */ } }
     const ok = await write(()=>db.collection(d.col).doc(d.id).delete(), 'Deleted');
     if(ok) back();
@@ -3835,6 +3936,446 @@ async function uploadPhotos(input){
   }
   if(status()) status().textContent='';
   if(done) toast(`${done} ${kind} photo${done===1?'':'s'} added`);
+}
+
+/* ---------- in-app camera: several shots in a row, a description per shot, markup ---------- */
+const CAM={open:false, jobId:'', kind:'before', stream:null, track:null, facing:'environment', zoom:1, zoomMode:'digital', zooms:[1,2,3], items:[], cur:-1, tray:false, torch:false, closing:false, returnTo:null, busy:false, seq:0};
+const camEl = sel => document.querySelector('#cam-root '+sel);
+const camHas = () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+const camDefaultKind = j => { const ps=S.photos.filter(p=>p.jobId===j.id); return (j.status==='Completed'||j.status==='In progress'||ps.some(p=>p.kind==='before'))?'after':'before'; };
+const CAM_ICONS={
+  close:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  flip:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><path d="M9.5 13.5a2.8 2.8 0 0 0 5-1.5M14.5 11.5a2.8 2.8 0 0 0-5 1.5"/><path d="M14.6 9.6v2h-2M9.4 15.4v-2h2"/></svg>',
+  torch:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>',
+  library:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="9" cy="10" r="1.8"/><path d="m21 16-5-5-9 9"/></svg>',
+  draw:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c3 0 4-2 6-5s3-6 6-6 3 2 1 4-6 4-6 7c0 1 1 1 2 1"/><path d="m15 4 5 5"/></svg>',
+  chev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
+};
+
+function openCamera(jobId, opts={}){
+  const j=job(jobId); if(!j) return;
+  if(!assets || !S.assetsOn){ toast('Adding photos needs edit access to this app.','bad'); return; }
+  Object.assign(CAM,{open:true, busy:false, retried:false, jobId, kind:opts.kind||camDefaultKind(j), items:[], cur:-1, tray:false, torch:false, closing:false, zoom:1, returnTo:opts.returnTo||null});
+  let root=document.getElementById('cam-root'); if(!root){ root=document.createElement('div'); root.id='cam-root'; document.body.appendChild(root); }
+  const hintSeen=(()=>{ try{ return localStorage.getItem('pw.camHint')==='1'; }catch(e){ return true; } })();
+  root.innerHTML=`<div class="cam" role="dialog" aria-modal="true" aria-label="Camera for ${esc(custName(j.customerId))}">
+    <video class="cam-video" playsinline muted autoplay></video>
+    <div class="cam-shade" aria-hidden="true"></div><div class="cam-flash" aria-hidden="true"></div>
+    <div class="cam-top">
+      <button type="button" class="cam-ic" data-cam="done" aria-label="Close camera">${CAM_ICONS.close}</button>
+      <div class="cam-kind" role="group" aria-label="Photo type"><button type="button" data-cam="kind" data-k="before">Before</button><button type="button" data-cam="kind" data-k="after">After</button></div>
+      <div class="cam-top-r"><button type="button" class="cam-ic" data-cam="torch" aria-label="Flashlight" hidden>${CAM_ICONS.torch}</button><button type="button" class="cam-ic" data-cam="flip" aria-label="Switch camera">${CAM_ICONS.flip}</button></div>
+    </div>
+    <div class="cam-job">${esc(custName(j.customerId))}${j.date?` · ${esc(fmtDate(j.date))}`:''}</div>
+    <div class="cam-msg" role="status" hidden></div>
+    <div class="cam-lower">
+      <div class="cam-hint" ${hintSeen?'hidden':''}><span>Add a description or draw on this photo.</span><button type="button" data-cam="hintok">Got it</button></div>
+      <div class="cam-desc" hidden>
+        <button type="button" class="cam-desc-th" data-cam="edit" aria-label="Draw on this photo"><img alt=""></button>
+        <input type="text" class="cam-desc-in" placeholder="Description" aria-label="Description for this photo" enterkeyhint="done" maxlength="200">
+        <button type="button" class="cam-ic sm" data-cam="edit" aria-label="Draw on this photo">${CAM_ICONS.draw}</button>
+      </div>
+      <div class="cam-zoom" role="group" aria-label="Zoom"></div>
+      <div class="cam-tray" hidden>
+      <div class="cam-tray-head"><strong class="cam-tray-n"></strong><span class="cam-tray-s"></span><button type="button" class="cam-ic sm" data-cam="tray" aria-label="Hide photos">${CAM_ICONS.chev}</button></div>
+      <div class="cam-strip"></div>
+      <p class="cam-tray-tip">Tap a photo to draw on it. Everything saves to the job as you go.</p>
+    </div>
+      <div class="cam-bottom">
+        <button type="button" class="cam-left" data-cam="left" aria-label="Add from photo library">${CAM_ICONS.library}</button>
+        <button type="button" class="cam-shutter" data-cam="snap" aria-label="Take photo"><span></span></button>
+        <button type="button" class="cam-done" data-cam="done">Done</button>
+      </div>
+    </div>
+    <input type="file" class="cam-file" accept="image/*" multiple hidden>
+  </div>`;
+  document.documentElement.classList.add('cam-lock');
+  const r=root.querySelector('.cam');
+  r.addEventListener('click', camClick);
+  r.querySelector('.cam-file').addEventListener('change', e=>camFiles(e.target));
+  const din=r.querySelector('.cam-desc-in');
+  din.addEventListener('input', ()=>{ const it=CAM.items[CAM.cur]; if(it){ it.caption=din.value; it.capDirty=true; camRenderTray(); } });
+  din.addEventListener('change', ()=>camQueue());
+  din.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); din.blur(); } });
+  r.addEventListener('keydown', e=>{ if(e.key==='Escape' && !MK.open){ e.preventDefault(); camDone(); } });
+  camRenderKind(); camRenderLower(); camStart();
+  setTimeout(()=>{ const b=r.querySelector('.cam-shutter'); if(b) b.focus(); }, 50);
+}
+async function camStart(){
+  camStop(true);
+  const msg=camEl('.cam-msg');
+  if(!camHas()){ camShowMsg('This device or browser can\'t open the camera here. Use the photo button to add pictures from your library.'); return; }
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:false, video:{facingMode:{ideal:CAM.facing}, width:{ideal:1920}, height:{ideal:1440}}});
+    if(!CAM.open){ stream.getTracks().forEach(t=>t.stop()); return; }
+    CAM.stream=stream; CAM.track=stream.getVideoTracks()[0];
+    const v=camEl('.cam-video'); v.srcObject=stream; v.classList.toggle('mirror', CAM.facing==='user'); try{ await v.play(); }catch(e){}
+    if(msg) msg.hidden=true;
+    const caps=(CAM.track.getCapabilities&&CAM.track.getCapabilities())||{};
+    if(caps.zoom && caps.zoom.max>1){ CAM.zoomMode='native'; const lo=caps.zoom.min||1, hi=caps.zoom.max; CAM.zooms=[0.5,1,2,3,5].filter(z=>z>=lo-0.01&&z<=hi+0.01); if(!CAM.zooms.includes(1)) CAM.zooms.unshift(lo); CAM.zooms=CAM.zooms.slice(0,4); }
+    else { CAM.zoomMode='digital'; CAM.zooms=[1,2,3]; }
+    CAM.zoom=1; camApplyZoom();
+    const tb=camEl('[data-cam="torch"]'); if(tb) tb.hidden=!caps.torch; CAM.torch=false; camRenderTorch();
+  }catch(e){
+    const name=e&&e.name;
+    camShowMsg(name==='NotAllowedError'||name==='SecurityError' ? 'Camera access is off for this app. Allow the camera in your phone\'s settings (Settings → Safari → Camera, or your browser\'s site settings), or add pictures from your library.'
+      : name==='NotFoundError'||name==='OverconstrainedError' ? 'No camera found on this device. Add pictures from your library instead.'
+      : 'The camera couldn\'t start. Close other apps using the camera and try again, or add pictures from your library.');
+  }
+}
+function camShowMsg(t){ const m=camEl('.cam-msg'); if(!m) return; m.hidden=false; m.innerHTML=`<p>${esc(t)}</p><div class="btnrow"><button type="button" class="btn primary sm" data-cam="library">${CAM_ICONS.library} Choose photos</button>${camHas()?'<button type="button" class="btn sm" data-cam="retry">Try again</button>':''}</div>`; const z=camEl('.cam-zoom'); if(z) z.innerHTML=''; }
+function camStop(keepOpen){ if(CAM.stream){ CAM.stream.getTracks().forEach(t=>{ try{ t.stop(); }catch(e){} }); } CAM.stream=null; CAM.track=null; const v=camEl('.cam-video'); if(v) v.srcObject=null; if(!keepOpen) CAM.open=false; }
+function camApplyZoom(){
+  const v=camEl('.cam-video'); if(!v) return;
+  if(CAM.zoomMode==='native' && CAM.track){ try{ CAM.track.applyConstraints({advanced:[{zoom:CAM.zoom}]}); }catch(e){} v.style.transform=CAM.facing==='user'?'scaleX(-1)':''; }
+  else v.style.transform=`${CAM.facing==='user'?'scaleX(-1) ':''}scale(${CAM.zoom})`;
+  const z=camEl('.cam-zoom'); if(z) z.innerHTML=CAM.zooms.length>1?CAM.zooms.map(n=>`<button type="button" data-cam="zoom" data-z="${n}" aria-pressed="${n===CAM.zoom}">${n===CAM.zoom?(n<1?'.5':n)+'×':(n<1?'.5':n)}</button>`).join(''):'';
+}
+function camRenderTorch(){ const b=camEl('[data-cam="torch"]'); if(b){ b.setAttribute('aria-pressed', String(CAM.torch)); b.classList.toggle('on', CAM.torch); } }
+function camRenderKind(){ document.querySelectorAll('#cam-root [data-cam="kind"]').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.k===CAM.kind))); }
+function camStatusText(){ const n=CAM.items.length, saved=CAM.items.filter(i=>!camPending(i)&&!i.fail).length, err=CAM.items.filter(i=>i.fail).length;
+  return err?`${err} didn't save. Tap Done to retry.`:saved===n?'All saved to the job':`Saving ${n-saved}…`; }
+function camRenderLower(){
+  const it=CAM.items[CAM.cur]; const desc=camEl('.cam-desc'), hint=camEl('.cam-hint'), left=camEl('.cam-left');
+  if(desc){ desc.hidden=!it; if(it){ desc.querySelector('img').src=it.url; const din=desc.querySelector('.cam-desc-in'); if(document.activeElement!==din) din.value=it.caption||''; } }
+  if(hint && !it) hint.hidden=true; else if(hint){ try{ hint.hidden=localStorage.getItem('pw.camHint')==='1'; }catch(e){ hint.hidden=true; } }
+  if(left){ const last=CAM.items[CAM.items.length-1];
+    left.innerHTML=last?`<img src="${last.url}" alt=""><span class="cam-count">${CAM.items.length}</span>`:CAM_ICONS.library;
+    left.setAttribute('aria-label', last?`Show ${CAM.items.length} photo${CAM.items.length===1?'':'s'} taken`:'Add from photo library'); left.classList.toggle('has', !!last); }
+  camRenderTray();
+}
+function camRenderTray(){
+  const t=camEl('.cam-tray'); if(!t) return; t.hidden=!CAM.tray; const root=document.querySelector('#cam-root .cam'); if(root) root.classList.toggle('tray-open', CAM.tray);
+  if(!CAM.tray) return;
+  t.querySelector('.cam-tray-n').textContent=`${CAM.items.length} Photo${CAM.items.length===1?'':'s'}`;
+  t.querySelector('.cam-tray-s').textContent=CAM.items.length?camStatusText():'';
+  t.querySelector('.cam-strip').innerHTML=CAM.items.map((it,i)=>`<div class="cam-ti${i===CAM.cur?' cur':''}">
+      <button type="button" class="cam-ti-img" data-cam="pick" data-i="${i}" aria-label="Photo ${i+1}${it.caption?': '+esc(it.caption):''}. Tap to draw on it"><img src="${it.url}" alt="">${it.objs&&it.objs.length?'<span class="cam-ti-mk" aria-hidden="true">✎</span>':''}<span class="cam-ti-st ${it.fail?'error':it.status}" aria-hidden="true"></span></button>
+      <span class="cam-ti-k">${it.kind==='after'?'After':'Before'}</span>
+      <button type="button" class="cam-ti-x${it.confirmDel?' sure':''}" data-cam="del" data-i="${i}" aria-label="${it.confirmDel?'Tap again to delete':'Delete photo '+(i+1)}">${it.confirmDel?'Delete':'×'}</button>
+    </div>`).join('') || '<p class="cam-tray-tip">No photos yet.</p>';
+}
+function camClick(e){
+  const b=e.target.closest('[data-cam]'); if(!b) return;
+  const a=b.dataset.cam;
+  if(a==='snap') return camSnap();
+  if(a==='done') return camDone();
+  if(a==='kind'){ CAM.kind=b.dataset.k; camRenderKind(); return; }
+  if(a==='flip'){ CAM.facing=CAM.facing==='environment'?'user':'environment'; return camStart(); }
+  if(a==='retry') return camStart();
+  if(a==='retrysave'){ CAM.retried=false; return camDone(); }
+  if(a==='discard') return camDiscardFailed();
+  if(a==='torch'){ if(!CAM.track) return; CAM.torch=!CAM.torch; try{ CAM.track.applyConstraints({advanced:[{torch:CAM.torch}]}); }catch(err){} return camRenderTorch(); }
+  if(a==='zoom'){ CAM.zoom=+b.dataset.z; return camApplyZoom(); }
+  if(a==='library') return camEl('.cam-file').click();
+  if(a==='left'){ if(!CAM.items.length) return camEl('.cam-file').click(); CAM.tray=!CAM.tray; return camRenderTray(); }
+  if(a==='tray'){ CAM.tray=false; return camRenderTray(); }
+  if(a==='hintok'){ try{ localStorage.setItem('pw.camHint','1'); }catch(err){} const h=camEl('.cam-hint'); if(h) h.hidden=true; return; }
+  if(a==='edit'){ if(CAM.cur>=0) camEdit(CAM.cur); return; }
+  if(a==='pick'){ CAM.cur=+b.dataset.i; CAM.items.forEach(x=>x.confirmDel=false); camRenderLower(); return camEdit(CAM.cur); }
+  if(a==='del'){ const i=+b.dataset.i, it=CAM.items[i]; if(!it) return; if(!it.confirmDel){ CAM.items.forEach(x=>x.confirmDel=false); it.confirmDel=true; return camRenderTray(); } return camDelete(i); }
+}
+function camFlash(){ const f=camEl('.cam-flash'); if(!f) return; f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); try{ navigator.vibrate&&navigator.vibrate(15); }catch(e){} }
+async function camSnap(){
+  const v=camEl('.cam-video'); if(!v || !CAM.stream || !v.videoWidth) return;
+  const w=v.videoWidth, h=v.videoHeight; let sx=0, sy=0, sw=w, sh=h;
+  if(CAM.zoomMode==='digital' && CAM.zoom>1){ sw=w/CAM.zoom; sh=h/CAM.zoom; sx=(w-sw)/2; sy=(h-sh)/2; }
+  const k=Math.min(1, 1800/Math.max(sw,sh)); const cv=document.createElement('canvas'); cv.width=Math.round(sw*k); cv.height=Math.round(sh*k);
+  cv.getContext('2d').drawImage(v, sx, sy, sw, sh, 0, 0, cv.width, cv.height);
+  camFlash();
+  const blob=await new Promise(r=>cv.toBlob(r,'image/jpeg',0.86)); if(!blob) return toast('Couldn\'t take the picture. Try again.','bad');
+  camAdd(blob);
+}
+async function camFiles(input){
+  const files=[...input.files]; input.value=''; if(!files.length) return;
+  for(const f of files){ try{ camAdd(await shrink(f)); }catch(e){ toast(errMsg(e),'bad'); } }
+}
+function camAdd(blob){
+  const it={key:'c'+(++CAM.seq), blob, orig:blob, url:URL.createObjectURL(blob), origUrl:null, objs:[], caption:'', kind:CAM.kind, status:'queued', photoId:'', assetId:'', originalAssetId:'', at:Date.now()};
+  it.origUrl=it.url; CAM.items.push(it); CAM.cur=CAM.items.length-1; camRenderLower(); camQueue();
+}
+/* uploads run one at a time in the background; changes after saving (caption, markup) update the saved photo */
+const camPending = it => !it.fail && (it.status==='queued' || it.status==='uploading' || (it.status==='saved' && (it.dirty||it.capDirty)));
+async function camQueue(){
+  if(CAM.busy) return; CAM.busy=true;
+  try{
+    for(;;){
+      const it=CAM.items.find(x=>!x.fail && (x.status==='queued' || (x.status==='saved' && (x.dirty||x.capDirty)))); if(!it) break;
+      const isNew=it.status==='queued'; if(isNew) it.status='uploading'; camRenderTray();
+      try{ if(isNew) await camSaveNew(it); else await camSaveChanges(it); it.status='saved'; it.fail=''; }
+      catch(e){ it.fail=errMsg(e)||'Upload failed'; if(isNew) it.status='queued'; }
+      camRenderTray();
+    }
+  } finally { CAM.busy=false; camRenderTray(); if(CAM.closing) camDone(); }
+}
+async function camSaveNew(it){
+  const j=job(CAM.jobId); if(!j) throw new Error('This job no longer exists.');
+  const objs=it.objs, blob=it.blob, orig=it.orig, cap=(it.caption||'').trim(), objsSnap=JSON.stringify(objs);
+  let originalAssetId='';
+  if(objs.length){ originalAssetId=(await assets.upload(orig,{type:'image/jpeg'})).id; }
+  const res=await assets.upload(blob,{type:'image/jpeg'});
+  const id=it.photoId||newId('photos');
+  const doc={jobId:j.id, customerId:j.customerId, kind:it.kind, assetId:res.id, caption:cap, createdAt:it.at, by:S.uid||''};
+  if(originalAssetId){ doc.originalAssetId=originalAssetId; doc.markup=objs; }
+  await saveDoc('photos', id, doc);
+  it.photoId=id; it.assetId=res.id; it.originalAssetId=originalAssetId;
+  // anything changed while this was uploading gets saved next
+  it.dirty=JSON.stringify(it.objs)!==objsSnap; it.capDirty=(it.caption||'').trim()!==cap;
+}
+async function camSaveChanges(it){
+  const p=S.photos.find(x=>x.id===it.photoId); if(!p) throw new Error('The photo was removed.');
+  if(it.dirty){ const snap=JSON.stringify(it.objs); const upd=await applyMarkupToPhoto(p, it.objs, it.blob, it.orig); it.assetId=upd.assetId; it.originalAssetId=upd.originalAssetId||''; it.dirty=JSON.stringify(it.objs)!==snap; }
+  if(it.capDirty){ const cap=(it.caption||'').trim(); const cur=S.photos.find(x=>x.id===it.photoId)||p; await saveDoc('photos', p.id, {...cur, caption:cap}); it.capDirty=(it.caption||'').trim()!==cap; }
+}
+/* swaps a saved photo's picture for a marked-up one, keeping the original so the markup can change later */
+async function applyMarkupToPhoto(p, objs, blob, origBlob){
+  const has=objs&&objs.length; const hadOrig=!!p.originalAssetId;
+  let originalAssetId=p.originalAssetId||'', assetId=p.assetId, drop=[];
+  if(!has){
+    if(!hadOrig) return {assetId, originalAssetId:''};
+    drop.push(p.assetId); assetId=p.originalAssetId; originalAssetId='';
+  } else {
+    if(!hadOrig) originalAssetId=p.assetId; else drop.push(p.assetId);
+    assetId=(await assets.upload(blob,{type:'image/jpeg'})).id;
+  }
+  const next={...p, assetId}; if(originalAssetId){ next.originalAssetId=originalAssetId; next.markup=objs; } else { delete next.originalAssetId; delete next.markup; }
+  await saveDoc('photos', p.id, next);
+  for(const d of drop){ if(d && d!==assetId && d!==originalAssetId){ try{ await assets.delete(d); }catch(e){} } }
+  return {assetId, originalAssetId};
+}
+async function camDelete(i){
+  const it=CAM.items[i]; if(!it) return;
+  if(it.status==='uploading'){ toast('That photo is still saving. Try again in a moment.'); return; }
+  CAM.items.splice(i,1);
+  if(it.photoId){ try{ await db.collection('photos').doc(it.photoId).delete(); for(const a of [it.assetId,it.originalAssetId]) if(a){ try{ await assets.delete(a); }catch(e){} } }catch(e){ toast(errMsg(e),'bad'); } }
+  try{ URL.revokeObjectURL(it.url); if(it.origUrl!==it.url) URL.revokeObjectURL(it.origUrl); }catch(e){}
+  CAM.cur=Math.min(CAM.cur, CAM.items.length-1); camRenderLower();
+}
+function camEdit(i){
+  const it=CAM.items[i]; if(!it) return;
+  openMarkup({src:it.origUrl, objs:it.objs, title:`Photo ${i+1} of ${CAM.items.length}`, onSave:async ({blob, objs})=>{
+    try{ if(it.url!==it.origUrl) URL.revokeObjectURL(it.url); }catch(e){}
+    it.objs=objs; it.blob=objs.length?blob:it.orig; it.url=objs.length?URL.createObjectURL(blob):it.origUrl;
+    if(it.status!=='queued') it.dirty=true; camRenderLower(); camQueue();
+  }});
+}
+function camDone(){
+  if(MK.open || !CAM.open) return;
+  if(CAM.busy){ CAM.closing=true; camWaitUI(); return; }
+  const pending=CAM.items.filter(camPending), failed=CAM.items.filter(i=>i.fail);
+  if(pending.length){ CAM.closing=true; camWaitUI(); camQueue(); return; }
+  if(failed.length){
+    if(!CAM.retried){ CAM.retried=true; failed.forEach(i=>i.fail=''); CAM.closing=true; camWaitUI(); camQueue(); return; }
+    CAM.closing=false; camWaitUI(true); return;
+  }
+  const n=CAM.items.length, ret=CAM.returnTo;
+  camStop(); try{ CAM.items.forEach(i=>{ URL.revokeObjectURL(i.url); if(i.origUrl!==i.url) URL.revokeObjectURL(i.origUrl); }); }catch(e){}
+  CAM.items=[]; CAM.closing=false; CAM.retried=false; const root=document.getElementById('cam-root'); if(root) root.innerHTML='';
+  document.documentElement.classList.remove('cam-lock');
+  if(n) toast(`${n} photo${n===1?'':'s'} saved to the job`);
+  if(typeof ret==='function') ret(); else scheduleRender();
+}
+function camWaitUI(failed){
+  const m=camEl('.cam-msg'); if(!m) return; m.hidden=false;
+  if(failed){ const f=CAM.items.filter(i=>i.fail);
+    m.innerHTML=`<p>${f.length} photo${f.length===1?'':'s'} couldn't be saved${f[0]?`: ${esc(f[0].fail)}`:''}. Check your connection.</p><div class="btnrow"><button type="button" class="btn primary sm" data-cam="retrysave">Try again</button><button type="button" class="btn sm" data-cam="discard">Close without ${f.length===1?'it':'them'}</button></div>`; return; }
+  const n=CAM.items.filter(camPending).length; m.innerHTML=`<p class="cam-saving"><span class="cam-spin" aria-hidden="true"></span> Saving ${n>1?n+' photos':'photo'}…</p>`;
+}
+function camDiscardFailed(){ CAM.items=CAM.items.filter(i=>!(i.fail && i.status!=='saved')); CAM.items.forEach(i=>{ if(i.fail){ i.fail=''; i.dirty=false; i.capDirty=false; } }); CAM.retried=false; camDone(); }
+
+/* ---------- markup editor ---------- */
+const MK={open:false, img:null, objs:[], undo:[], redo:[], tool:'pen', color:'#FFE14D', size:1, sel:-1, onSave:null, view:{s:1,ox:0,oy:0}, drag:null, dirty:false};
+const MK_COLORS=[['#FFE14D','Yellow'],['#FF3B30','Red'],['#34C759','Green'],['#0A84FF','Blue'],['#FFFFFF','White'],['#111111','Black']];
+const MK_SIZES=['Thin','Medium','Thick'];
+const MK_ICONS={
+  text:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M5 6V4.5h14V6M12 4.5V20M9 20h6"/></svg>',
+  select:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M5 3l14 7-6 2-2 6z"/></svg>',
+  arrow:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19 19 5M10 5h9v9"/></svg>',
+  line:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M5 19 19 5"/></svg>',
+  pen:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c2-1 3-3 5-6s4-6 7-6c2 0 3 2 1 4s-6 4-6 7c0 1 1 1 3 1"/></svg>',
+  undo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7 4 12l5 5"/><path d="M4 12h10a6 6 0 0 1 0 12h-2" transform="translate(0 -5)"/></svg>',
+  redo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 7 5 5-5 5"/><path d="M20 12H10a6 6 0 0 0 0 12h2" transform="translate(0 -5)"/></svg>',
+  back:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg>',
+  edit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M5 6V4.5h14V6M12 4.5V20M9 20h6"/></svg>',
+  dup:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><rect x="8.5" y="8.5" width="12" height="12" rx="2"/><path d="M15.5 8.5V5A1.5 1.5 0 0 0 14 3.5H5A1.5 1.5 0 0 0 3.5 5v9A1.5 1.5 0 0 0 5 15.5h3.5"/></svg>',
+  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12.5A1.5 1.5 0 0 0 8.5 21h7a1.5 1.5 0 0 0 1.5-1.5L18 7M9 7V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V7"/></svg>',
+};
+const mkMin = () => Math.min(MK.img.naturalWidth, MK.img.naturalHeight);
+const mkW = sz => mkMin()*[0.006,0.011,0.019][sz];
+const mkFont = sz => mkMin()*[0.05,0.072,0.1][sz];
+async function openMarkup({src, objs, title, onSave}){
+  const img=new Image(); img.decoding='async';
+  const ok=await new Promise(r=>{ img.onload=()=>r(true); img.onerror=()=>r(false); img.src=src; });
+  if(!ok){ toast('Couldn\'t open that photo for drawing.','bad'); return; }
+  Object.assign(MK,{open:true, img, objs:JSON.parse(JSON.stringify(objs||[])), undo:[], redo:[], sel:-1, onSave, drag:null, dirty:false});
+  let root=document.getElementById('mk-root'); if(!root){ root=document.createElement('div'); root.id='mk-root'; document.body.appendChild(root); }
+  root.innerHTML=`<div class="mk" role="dialog" aria-modal="true" aria-label="Draw on photo">
+    <div class="mk-top"><button type="button" class="mk-ic" data-mk="cancel" aria-label="Back without saving">${MK_ICONS.back}</button>
+      <div class="mk-hist"><button type="button" class="mk-ic" data-mk="undo" aria-label="Undo">${MK_ICONS.undo}</button><button type="button" class="mk-ic" data-mk="redo" aria-label="Redo">${MK_ICONS.redo}</button></div>
+      <span class="mk-title">${esc(title||'')}</span>
+      <button type="button" class="mk-save" data-mk="save">Save</button></div>
+    <div class="mk-stage"><canvas class="mk-cv" aria-label="Photo. Draw with your finger or mouse"></canvas>
+      <div class="mk-selbar" hidden><button type="button" data-mk="seledit" aria-label="Edit text">${MK_ICONS.edit}</button><button type="button" data-mk="seldup" aria-label="Duplicate">${MK_ICONS.dup}</button><button type="button" data-mk="seldel" aria-label="Delete">${MK_ICONS.trash}</button></div></div>
+    <div class="mk-bottom">
+      <div class="mk-opts"><div class="mk-colors" role="group" aria-label="Color">${MK_COLORS.map(([c,n])=>`<button type="button" class="mk-sw" style="--c:${c}" data-mk="color" data-c="${c}" aria-label="${n}"></button>`).join('')}</div>
+        <div class="mk-sizes" role="group" aria-label="Thickness">${MK_SIZES.map((n,i)=>`<button type="button" class="mk-sz" data-mk="size" data-s="${i}" aria-label="${n}"><span style="--d:${[5,9,14][i]}px"></span></button>`).join('')}</div></div>
+      <div class="mk-tools" role="group" aria-label="Tools">${[['text','Text'],['select','Select and move'],['arrow','Arrow'],['line','Line'],['pen','Draw']].map(([t,n])=>`<button type="button" class="mk-tool" data-mk="tool" data-t="${t}" aria-label="${n}">${MK_ICONS[t]}<span>${n.split(' ')[0]}</span></button>`).join('')}</div>
+    </div>
+    <div class="mk-dlg" hidden><div class="mk-dlg-box" role="dialog" aria-label="Text"><label for="mk-text" class="mk-dlg-l">Text</label><textarea id="mk-text" rows="2" maxlength="120" placeholder="Type a label"></textarea><div class="btnrow" style="justify-content:flex-end"><button type="button" class="btn" data-mk="tcancel">Cancel</button><button type="button" class="btn primary" data-mk="tsave">Save</button></div></div></div>
+  </div>`;
+  const r=root.querySelector('.mk'); r.addEventListener('click', mkClick);
+  r.addEventListener('keydown', e=>{ if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); if(!r.querySelector('.mk-dlg').hidden) mkTextClose(); else mkCancel(); } if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'&&!e.target.closest('textarea')){ e.preventDefault(); e.shiftKey?mkRedo():mkUndo(); } if((e.key==='Delete'||e.key==='Backspace')&&MK.sel>=0&&!e.target.closest('textarea')){ e.preventDefault(); mkSelDel(); } });
+  const cv=r.querySelector('.mk-cv');
+  cv.addEventListener('pointerdown', mkDown); cv.addEventListener('pointermove', mkMove); cv.addEventListener('pointerup', mkUp); cv.addEventListener('pointercancel', mkUp);
+  MK._ro=new ResizeObserver(()=>mkLayout()); MK._ro.observe(r.querySelector('.mk-stage'));
+  mkRenderUI(); mkLayout();
+  setTimeout(()=>{ const s=r.querySelector('.mk-save'); if(s) s.focus(); }, 30);
+}
+function mkEl(sel){ return document.querySelector('#mk-root '+sel); }
+function mkLayout(){
+  const st=mkEl('.mk-stage'), cv=mkEl('.mk-cv'); if(!st||!cv||!MK.img) return;
+  const W=st.clientWidth, H=st.clientHeight, iw=MK.img.naturalWidth, ih=MK.img.naturalHeight; if(!W||!H) return;
+  const s=Math.min(W/iw, H/ih), dpr=Math.min(3, window.devicePixelRatio||1);
+  const cw=Math.round(iw*s), ch=Math.round(ih*s);
+  cv.style.width=cw+'px'; cv.style.height=ch+'px'; cv.width=Math.round(cw*dpr); cv.height=Math.round(ch*dpr);
+  MK.view={s, dpr, cw, ch}; mkDraw();
+}
+function mkDrawObjs(ctx, objs, sel){
+  objs.forEach((o,i)=>{
+    ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle=o.c; ctx.fillStyle=o.c; ctx.lineWidth=o.w||4;
+    const halo = o.c.toUpperCase()==='#111111' ? 'rgba(255,255,255,.55)' : 'rgba(0,0,0,.35)';
+    const strokePath = draw => { ctx.save(); ctx.strokeStyle=halo; ctx.lineWidth=(o.w||4)*1.6; draw(); ctx.stroke(); ctx.restore(); draw(); ctx.stroke(); };
+    if(o.t==='pen'){ strokePath(()=>{ ctx.beginPath(); const p=o.pts; ctx.moveTo(p[0][0],p[0][1]); if(p.length===1) ctx.lineTo(p[0][0]+0.01,p[0][1]); for(let k=1;k<p.length-1;k++){ const mx=(p[k][0]+p[k+1][0])/2, my=(p[k][1]+p[k+1][1])/2; ctx.quadraticCurveTo(p[k][0],p[k][1],mx,my); } if(p.length>1) ctx.lineTo(p[p.length-1][0],p[p.length-1][1]); }); }
+    else if(o.t==='line'||o.t==='arrow'){
+      const [x1,y1]=o.a, [x2,y2]=o.b; const ang=Math.atan2(y2-y1,x2-x1), hl=Math.max(12,(o.w||4)*4.2);
+      const tip = o.t==='arrow' ? [x2-Math.cos(ang)*hl*0.6, y2-Math.sin(ang)*hl*0.6] : [x2,y2];
+      strokePath(()=>{ ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(tip[0],tip[1]); });
+      if(o.t==='arrow'){ ctx.beginPath(); ctx.moveTo(x2,y2); ctx.lineTo(x2-Math.cos(ang-0.45)*hl, y2-Math.sin(ang-0.45)*hl); ctx.lineTo(x2-Math.cos(ang+0.45)*hl, y2-Math.sin(ang+0.45)*hl); ctx.closePath();
+        ctx.save(); ctx.strokeStyle=halo; ctx.lineWidth=(o.w||4)*0.6; ctx.stroke(); ctx.restore(); ctx.fill(); }
+    }
+    else if(o.t==='text'){
+      ctx.font=`800 ${o.s}px Inter, system-ui, -apple-system, Arial, sans-serif`; ctx.textBaseline='top';
+      const lines=String(o.text).split('\n'); ctx.lineWidth=Math.max(2,o.s*0.14); ctx.strokeStyle=o.c.toUpperCase()==='#111111'?'#fff':'rgba(0,0,0,.75)';
+      lines.forEach((ln,k)=>{ ctx.strokeText(ln, o.x, o.y+k*o.s*1.15); ctx.fillText(ln, o.x, o.y+k*o.s*1.15); });
+    }
+    ctx.restore();
+    if(i===sel){ const b=mkBox(ctx,o); ctx.save(); ctx.setLineDash([8,6]); ctx.lineWidth=Math.max(2, mkMin()*0.003); ctx.strokeStyle='#fff'; ctx.strokeRect(b.x-6,b.y-6,b.w+12,b.h+12); ctx.strokeStyle='#0A84FF'; ctx.lineDashOffset=7; ctx.strokeRect(b.x-6,b.y-6,b.w+12,b.h+12); ctx.restore(); }
+  });
+}
+function mkBox(ctx,o){
+  if(o.t==='text'){ ctx.save(); ctx.font=`800 ${o.s}px Inter, system-ui, -apple-system, Arial, sans-serif`; const lines=String(o.text).split('\n'); const w=Math.max(...lines.map(l=>ctx.measureText(l).width)); ctx.restore(); return {x:o.x, y:o.y, w, h:o.s*1.15*lines.length}; }
+  const pts=o.t==='pen'?o.pts:[o.a,o.b]; const xs=pts.map(p=>p[0]), ys=pts.map(p=>p[1]); const pad=(o.w||4)/2;
+  return {x:Math.min(...xs)-pad, y:Math.min(...ys)-pad, w:Math.max(...xs)-Math.min(...xs)+pad*2, h:Math.max(...ys)-Math.min(...ys)+pad*2};
+}
+function mkDraw(){
+  const cv=mkEl('.mk-cv'); if(!cv) return; const ctx=cv.getContext('2d'); const {s,dpr}=MK.view;
+  ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,cv.width,cv.height); ctx.setTransform(s*dpr,0,0,s*dpr,0,0);
+  ctx.drawImage(MK.img,0,0); mkDrawObjs(ctx, MK.objs, MK.sel); mkPlaceSelBar();
+}
+function mkPlaceSelBar(){
+  const bar=mkEl('.mk-selbar'), cv=mkEl('.mk-cv'); if(!bar||!cv) return; const o=MK.objs[MK.sel];
+  if(!o || MK.drag){ bar.hidden=true; return; }
+  const b=mkBox(cv.getContext('2d'),o); const {s}=MK.view; const cr=cv.getBoundingClientRect(), sr=mkEl('.mk-stage').getBoundingClientRect();
+  bar.hidden=false; bar.querySelector('[data-mk="seledit"]').hidden=o.t!=='text';
+  const x=cr.left-sr.left+(b.x+b.w/2)*s, yTop=cr.top-sr.top+(b.y-6)*s-50, yBot=cr.top-sr.top+(b.y+b.h+6)*s+8;
+  bar.style.left=Math.max(8, Math.min(sr.width-bar.offsetWidth-8, x-bar.offsetWidth/2))+'px'; bar.style.top=(yTop>8?yTop:Math.min(sr.height-50,yBot))+'px';
+}
+function mkRenderUI(){
+  document.querySelectorAll('#mk-root [data-mk="tool"]').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.t===MK.tool)));
+  document.querySelectorAll('#mk-root [data-mk="color"]').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.c===MK.color)));
+  document.querySelectorAll('#mk-root [data-mk="size"]').forEach(b=>{ b.setAttribute('aria-pressed', String(+b.dataset.s===MK.size)); b.style.setProperty('--c', MK.color); });
+  const u=mkEl('[data-mk="undo"]'), r=mkEl('[data-mk="redo"]'); if(u) u.disabled=!MK.undo.length; if(r) r.disabled=!MK.redo.length;
+  const cv=mkEl('.mk-cv'); if(cv) cv.style.cursor=MK.tool==='select'?'default':MK.tool==='text'?'text':'crosshair';
+}
+function mkSnap(){ MK.undo.push(JSON.stringify(MK.objs)); if(MK.undo.length>80) MK.undo.shift(); MK.redo=[]; MK.dirty=true; }
+function mkUndo(){ if(!MK.undo.length) return; MK.redo.push(JSON.stringify(MK.objs)); MK.objs=JSON.parse(MK.undo.pop()); MK.sel=-1; MK.dirty=true; mkRenderUI(); mkDraw(); }
+function mkRedo(){ if(!MK.redo.length) return; MK.undo.push(JSON.stringify(MK.objs)); MK.objs=JSON.parse(MK.redo.pop()); MK.sel=-1; MK.dirty=true; mkRenderUI(); mkDraw(); }
+function mkPt(e){ const cv=mkEl('.mk-cv'); const r=cv.getBoundingClientRect(); const {s}=MK.view; return [Math.max(0,Math.min(MK.img.naturalWidth,(e.clientX-r.left)/s)), Math.max(0,Math.min(MK.img.naturalHeight,(e.clientY-r.top)/s))]; }
+function mkSegDist(p,a,b){ const dx=b[0]-a[0], dy=b[1]-a[1]; const L=dx*dx+dy*dy; let t=L?((p[0]-a[0])*dx+(p[1]-a[1])*dy)/L:0; t=Math.max(0,Math.min(1,t)); const x=a[0]+t*dx-p[0], y=a[1]+t*dy-p[1]; return Math.sqrt(x*x+y*y); }
+function mkHit(p){
+  const tol=Math.max(14/MK.view.s, mkMin()*0.012); const ctx=mkEl('.mk-cv').getContext('2d');
+  for(let i=MK.objs.length-1;i>=0;i--){ const o=MK.objs[i];
+    if(o.t==='text'){ const b=mkBox(ctx,o); if(p[0]>=b.x-tol&&p[0]<=b.x+b.w+tol&&p[1]>=b.y-tol&&p[1]<=b.y+b.h+tol) return i; }
+    else { const pts=o.t==='pen'?o.pts:[o.a,o.b]; const lim=tol+(o.w||4)/2; if(pts.length===1&&Math.hypot(p[0]-pts[0][0],p[1]-pts[0][1])<lim) return i; for(let k=1;k<pts.length;k++) if(mkSegDist(p,pts[k-1],pts[k])<lim) return i; }
+  } return -1;
+}
+function mkDown(e){
+  if(e.button>0) return; const cv=e.currentTarget; try{ cv.setPointerCapture(e.pointerId); }catch(_){}
+  e.preventDefault(); const p=mkPt(e);
+  if(MK.tool==='select'){ const i=mkHit(p); MK.sel=i; if(i>=0){ MK.drag={mode:'move', start:p, orig:JSON.stringify(MK.objs[i]), moved:false}; } mkDraw(); return; }
+  if(MK.tool==='text'){ const i=mkHit(p); if(i>=0 && MK.objs[i].t==='text'){ MK.sel=i; mkDraw(); return mkTextOpen(i); } MK.sel=-1; return mkTextOpen(-1, p); }
+  MK.sel=-1; mkSnap();
+  const w=mkW(MK.size);
+  if(MK.tool==='pen') MK.objs.push({t:'pen', c:MK.color, w, pts:[p]});
+  else MK.objs.push({t:MK.tool, c:MK.color, w, a:p, b:p});
+  MK.drag={mode:'draw', i:MK.objs.length-1}; mkDraw();
+}
+function mkMove(e){
+  if(!MK.drag) return; e.preventDefault(); const p=mkPt(e);
+  if(MK.drag.mode==='draw'){ const o=MK.objs[MK.drag.i]; if(o.t==='pen'){ const last=o.pts[o.pts.length-1]; if(Math.hypot(p[0]-last[0],p[1]-last[1])>1.2/MK.view.s) o.pts.push(p); } else o.b=p; }
+  else if(MK.drag.mode==='move'){ const dx=p[0]-MK.drag.start[0], dy=p[1]-MK.drag.start[1]; if(!MK.drag.moved && Math.hypot(dx,dy)<3/MK.view.s) return;
+    if(!MK.drag.moved){ mkSnap(); MK.drag.moved=true; } const o0=JSON.parse(MK.drag.orig), o=MK.objs[MK.sel];
+    if(o.t==='text'){ o.x=o0.x+dx; o.y=o0.y+dy; } else if(o.t==='pen') o.pts=o0.pts.map(q=>[q[0]+dx,q[1]+dy]); else { o.a=[o0.a[0]+dx,o0.a[1]+dy]; o.b=[o0.b[0]+dx,o0.b[1]+dy]; } }
+  mkDraw();
+}
+function mkUp(e){
+  if(!MK.drag) return; const d=MK.drag; MK.drag=null;
+  if(d.mode==='draw'){ const o=MK.objs[d.i]; if((o.t==='line'||o.t==='arrow') && Math.hypot(o.b[0]-o.a[0],o.b[1]-o.a[1])<6/MK.view.s){ MK.objs.pop(); MK.undo.pop(); } }
+  mkRenderUI(); mkDraw();
+}
+function mkTextOpen(i, p){
+  const dlg=mkEl('.mk-dlg'), ta=mkEl('#mk-text'); MK.textAt={i, p}; ta.value=i>=0?MK.objs[i].text:''; dlg.hidden=false; setTimeout(()=>ta.focus(),20);
+}
+function mkTextClose(){ const dlg=mkEl('.mk-dlg'); if(dlg) dlg.hidden=true; MK.textAt=null; }
+function mkTextSave(){
+  const ta=mkEl('#mk-text'); const t=ta.value.replace(/\s+$/,''); const at=MK.textAt; if(!at) return mkTextClose();
+  if(at.i>=0){ if(!t){ mkSnap(); MK.objs.splice(at.i,1); MK.sel=-1; } else if(t!==MK.objs[at.i].text){ mkSnap(); MK.objs[at.i].text=t; } }
+  else if(t){ mkSnap(); const s=mkFont(MK.size); MK.objs.push({t:'text', c:MK.color, s, text:t, x:Math.max(0,at.p[0]-s*0.3), y:Math.max(0,at.p[1]-s*0.6)}); MK.sel=MK.objs.length-1; MK.tool='select'; }
+  mkTextClose(); mkRenderUI(); mkDraw();
+}
+function mkSelDel(){ if(MK.sel<0) return; mkSnap(); MK.objs.splice(MK.sel,1); MK.sel=-1; mkRenderUI(); mkDraw(); }
+function mkClick(e){
+  const b=e.target.closest('[data-mk]'); if(!b) return; const a=b.dataset.mk;
+  if(a==='tool'){ MK.tool=b.dataset.t; if(MK.tool!=='select') MK.sel=-1; mkRenderUI(); return mkDraw(); }
+  if(a==='color'){ MK.color=b.dataset.c; if(MK.sel>=0){ mkSnap(); MK.objs[MK.sel].c=MK.color; } mkRenderUI(); return mkDraw(); }
+  if(a==='size'){ MK.size=+b.dataset.s; const o=MK.objs[MK.sel]; if(o){ mkSnap(); if(o.t==='text') o.s=mkFont(MK.size); else o.w=mkW(MK.size); } mkRenderUI(); return mkDraw(); }
+  if(a==='undo') return mkUndo();
+  if(a==='redo') return mkRedo();
+  if(a==='seldel') return mkSelDel();
+  if(a==='seldup'){ const o=MK.objs[MK.sel]; if(!o) return; mkSnap(); const c=JSON.parse(JSON.stringify(o)); const d=mkMin()*0.03; if(c.t==='text'){ c.x+=d; c.y+=d; } else if(c.t==='pen') c.pts=c.pts.map(q=>[q[0]+d,q[1]+d]); else { c.a=[c.a[0]+d,c.a[1]+d]; c.b=[c.b[0]+d,c.b[1]+d]; } MK.objs.push(c); MK.sel=MK.objs.length-1; mkRenderUI(); return mkDraw(); }
+  if(a==='seledit'){ if(MK.sel>=0) mkTextOpen(MK.sel); return; }
+  if(a==='tcancel') return mkTextClose();
+  if(a==='tsave') return mkTextSave();
+  if(a==='cancel') return mkCancel();
+  if(a==='save') return mkSave();
+}
+function mkClose(){ if(MK._ro){ try{ MK._ro.disconnect(); }catch(e){} } MK.open=false; MK.img=null; const r=document.getElementById('mk-root'); if(r) r.innerHTML=''; const s=document.querySelector('#cam-root .cam-shutter'); if(s) s.focus(); }
+function mkCancel(){
+  if(MK.dirty){ const bar=mkEl('.mk-top'); if(bar && !bar.classList.contains('ask')){ bar.classList.add('ask'); toast('Tap back again to discard your drawing.'); setTimeout(()=>bar&&bar.classList.remove('ask'), 3500); return; } }
+  mkClose();
+}
+async function mkSave(){
+  const btn=mkEl('[data-mk="save"]'); if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
+  const objs=JSON.parse(JSON.stringify(MK.objs)); let blob=null;
+  try{
+    if(objs.length){ const cv=document.createElement('canvas'); cv.width=MK.img.naturalWidth; cv.height=MK.img.naturalHeight; const ctx=cv.getContext('2d'); ctx.drawImage(MK.img,0,0); mkDrawObjs(ctx, objs, -1);
+      blob=await new Promise(r=>cv.toBlob(r,'image/jpeg',0.88)); if(!blob) throw new Error('encode'); }
+    const fn=MK.onSave; mkClose(); if(fn) await fn({blob, objs});
+  }catch(e){ if(btn){ btn.disabled=false; btn.textContent='Save'; } toast('Couldn\'t save the drawing. Try again.','bad'); }
+}
+/* draw on a photo that's already saved (from the photo screen) */
+async function markupSavedPhoto(id){
+  const p=S.photos.find(x=>x.id===id); if(!p) return;
+  if(!assets || !S.assetsOn) return toast('Editing photos needs edit access to this app.','bad');
+  let url='';
+  try{ const {data,error}=await sb.storage.from('photos').download(p.originalAssetId||p.assetId); if(error||!data) throw error||new Error('download'); url=URL.createObjectURL(data);
+    const orig=data;
+    await openMarkup({src:url, objs:p.markup||[], title:'Draw on photo', onSave:async ({blob, objs})=>{
+      const cur=S.photos.find(x=>x.id===id); if(!cur) return;
+      try{ await applyMarkupToPhoto(cur, objs, blob, orig); toast(objs.length?'Drawing saved':'Drawing removed'); scheduleRender(); }catch(e){ toast(errMsg(e),'bad'); }
+      try{ URL.revokeObjectURL(url); }catch(_){}
+    }});
+  }catch(e){ toast('Couldn\'t load the photo. Check your connection.','bad'); }
 }
 
 /* ---------- customer import ---------- */
