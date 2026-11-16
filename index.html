@@ -2010,7 +2010,10 @@ async function sendSms(number, body, extra={}){
 }
 async function markThreadRead(key){
   const g=conversations().find(x=>x.key===key); if(!g) return;
-  for(const m of g.msgs.filter(m=>m.direction==='in' && !m.read)){ try{ await saveDoc('messages', m.id, {...m, read:true}); }catch(e){} }
+  const ids=[];
+  for(const m of g.msgs.filter(m=>m.direction==='in' && !m.read)){ try{ await saveDoc('messages', m.id, {...m, read:true, readInApp:true, readAt:Date.now()}); if(m.viaPhoneCom||m.pcId) ids.push(m.id); }catch(e){} }
+  // tell phone.com too, so the text shows as read in the phone.com app (the minute sync catches any that miss)
+  if(ids.length && S.integ.sms) callFn('messaging',{action:'markRead', ids}).catch(()=>{});
 }
 function msgItem(m, o={}){
   const isEmail = m.channel==='email';

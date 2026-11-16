@@ -1,4 +1,6 @@
-// Pulls texts from phone.com into the messages table. Called every minute by pg_cron.
+// Pulls texts from phone.com into the messages table, and keeps read/unread in step both ways. Called every minute by pg_cron.
+//  - a text read in the phone.com app is marked read here
+//  - a text opened in this app (readInApp) is marked read in phone.com
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const SYNC_TOKEN = "62121c15aea9d2371823252cf4ef07afd3500c80";
@@ -49,7 +51,7 @@ Deno.serve(async (req) => {
     }
     if (reachedOld || batch.length < 100) break;
   }
-  if (!items.length) { await saveState({ since, lastRun: Date.now(), lastError: null }); return json({ ok: true, added: 0 }); }
+  if (!items.length) { const rs = await syncRead(admin, voip, H); await saveState({ since, lastRun: Date.now(), lastError: null, ...rs.state }); return json({ ok: true, added: 0, ...rs.out }); }
 
   const { data: custs } = await admin.from("customers").select("id, data");
   const byPhone = new Map<string, string>();
@@ -75,12 +77,44 @@ Deno.serve(async (req) => {
         channel: "phone.com", direction: dir, body: text, pcId,
         customerId: byPhone.get(digits) || "",
         number: digits, to: dir === "out" ? other : "", from: dir === "in" ? other : "",
-        read: dir === "out" || firstRun, createdAt: epoch * 1000, viaPhoneCom: true,
+        read: dir === "out" || firstRun || it.is_new === false, ...(dir === "in" && it.is_new === false ? { readVia: "phone.com" } : {}), createdAt: epoch * 1000, viaPhoneCom: true,
       },
     };
     const { error } = await admin.from("messages").upsert(row, { onConflict: "id", ignoreDuplicates: true });
     if (!error) added++;
   }
-  await saveState({ since: maxEpoch, lastRun: Date.now(), lastError: null });
-  return json({ ok: true, added, linked, firstRun });
+  const rs = await syncRead(admin, voip, H);
+  await saveState({ since: maxEpoch, lastRun: Date.now(), lastError: null, ...rs.state });
+  return json({ ok: true, added, linked, firstRun, ...rs.out });
 });
+
+// Read status both ways, for the most recent 100 texts.
+async function syncRead(admin: ReturnType<typeof createClient>, voip: string, H: Record<string, string>) {
+  let markedHere = 0, markedThere = 0;
+  try {
+    const r = await fetch(`https://api.phone.com/v4/accounts/${encodeURIComponent(voip)}/messages?limit=100&sort[id]=desc`, { headers: H });
+    if (!r.ok) return { state: { readError: `phone.com returned ${r.status} for messages`, readErrorAt: Date.now() }, out: { readSync: false } };
+    const items = (((await r.json()) as Record<string, unknown>).items || []) as Record<string, unknown>[];
+    const inbound = items.filter((it) => String(it.direction) === "in");
+    if (!inbound.length) return { state: { readError: null, lastReadSync: Date.now() }, out: { readSync: true } };
+    const rowId = (it: Record<string, unknown>) => "pc-" + String(it.old_id || it.id);
+    const { data: rows } = await admin.from("messages").select("id,data").in("id", inbound.map(rowId));
+    const byId = new Map((rows || []).map((x) => [x.id, x.data as Record<string, unknown>]));
+    for (const it of inbound) {
+      const id = rowId(it), d = byId.get(id); if (!d) continue;
+      const upd: Record<string, unknown> = {};
+      if (!d.pcMsgId) upd.pcMsgId = Number(it.id);
+      const readThere = !!it.read_at;
+      if (readThere && !d.read) { upd.read = true; upd.readAt = Number(it.read_at) * 1000; upd.readVia = "phone.com"; markedHere++; }
+      else if (!readThere && d.read && d.readInApp) {
+        const p = await fetch(`https://api.phone.com/v4/accounts/${encodeURIComponent(voip)}/messages/${Number(it.id)}`, { method: "PATCH", headers: { ...H, "Content-Type": "application/json" }, body: JSON.stringify({ read: true }) });
+        if (p.ok) markedThere++;
+        else return { state: { readError: `phone.com didn't accept marking a text read (${p.status})`, readErrorAt: Date.now() }, out: { readSync: false, markedHere, markedThere } };
+      }
+      if (Object.keys(upd).length) await admin.from("messages").update({ data: { ...d, ...upd } }).eq("id", id);
+    }
+    return { state: { readError: null, lastReadSync: Date.now() }, out: { readSync: true, markedHere, markedThere } };
+  } catch (e) {
+    return { state: { readError: "Read sync failed: " + String(e).slice(0, 120), readErrorAt: Date.now() }, out: { readSync: false } };
+  }
+}

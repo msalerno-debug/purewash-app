@@ -149,6 +149,24 @@ Deno.serve(async (req) => {
       return json({ ok: true, id: out?.id || null });
     }
 
+    if (body.action === "markRead") {
+      // texts read in this app: mark them read in phone.com too
+      if (!(me.role === "owner" || me.role === "office")) return json({ error: "Not allowed." }, 403);
+      const token = get("PHONECOM_TOKEN"), voip = get("PHONECOM_VOIP_ID");
+      if (!token || !voip) return json({ ok: true, skipped: "phone.com not set up" });
+      const ids = (Array.isArray(body.ids) ? body.ids : []).map(String).filter((x: string) => /^pc-/.test(x)).slice(0, 100);
+      if (!ids.length) return json({ ok: true, marked: 0 });
+      const { data: rows } = await admin.from("messages").select("id,data").in("id", ids);
+      let marked = 0, pending = 0;
+      for (const r of rows || []) {
+        const d = r.data as Rec; const n = Number(d.pcMsgId);
+        if (!n) { pending++; continue; } // the minute sync learns phone.com's id and marks it then
+        const p = await fetch(`https://api.phone.com/v4/accounts/${encodeURIComponent(voip)}/messages/${n}`, { method: "PATCH", headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ read: true }) });
+        if (p.ok) marked++;
+      }
+      return json({ ok: true, marked, pending });
+    }
+
     if (body.action === "sms") {
       const token = get("PHONECOM_TOKEN"), voip = get("PHONECOM_VOIP_ID"), fromRaw = get("PHONECOM_FROM");
       if (!token || !voip || !fromRaw) return json({ error: "Texting through phone.com isn't set up yet. The owner can connect it in Settings → APIs.", notConfigured: true }, 503);
