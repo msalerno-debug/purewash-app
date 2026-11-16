@@ -17,9 +17,10 @@ const QUOTE_LINE = "Review your quote and accept or decline it online:";
 // Branded email, used for everything sent from the app. Colors follow the PureWash logo: navy #1E3A6E / #2B5190 and cyan #00B4EE.
 //  quote:   band with the proposed date, total and Accept/Decline buttons
 //  invoice: band with the amount due and due date
+//  photos:  band with a View your photos button
 //  other:   plain branded letter
 // A 1x1 image at the end lets the app see when the customer opens it.
-function brandedEmailHtml(text: string, o: { link?: string; quote?: Rec; invoice?: Rec; pixel?: string; origin: string }, s: Rec): string {
+function brandedEmailHtml(text: string, o: { link?: string; quote?: Rec; invoice?: Rec; photos?: Rec; pixel?: string; origin: string }, s: Rec): string {
   const NAVY = "#1E3A6E", BLUE = "#2B5190", CYAN = "#00B4EE", TINT = "#E8F7FD", INK = "#24324A", MUTED = "#5F6B7E", FONT = "Arial,Helvetica,sans-serif";
   const name = String(s.businessName || "").trim();
   const rawLogo = String(s.logo || "/purewash-logo.png");
@@ -29,6 +30,8 @@ function brandedEmailHtml(text: string, o: { link?: string; quote?: Rec; invoice
   const total = card.total == null || card.total === "" ? NaN : Number(card.total);
   let msg = text;
   if (o.link) msg = msg.split(o.link).join("").replace(QUOTE_LINE, "");
+  const plink = o.photos && typeof o.photos.link === "string" && /^https:\/\/[^\s"<>]+\/photos\?t=[a-f0-9]{32}$/.test(String(o.photos.link)) ? String(o.photos.link) : "";
+  if (plink) msg = msg.split(plink).join("").replace(/\s*(You can see (it|them all) here|See the photos):[ \t]*$/m, "");
   msg = msg.replace(/\n{3,}/g, "\n\n").trim();
   const paras = msg.split(/\n\s*\n/).map((p) => `<p style="margin:0 0 14px">${esc(p).replace(/\n/g, "<br>")}</p>`).join("");
   const site = String(s.website || "").trim();
@@ -45,6 +48,11 @@ function brandedEmailHtml(text: string, o: { link?: string; quote?: Rec; invoice
       ${btn(o.link + "&d=accept", "Review and accept")}
       <div style="padding-top:14px;font-size:14px"><a href="${esc(o.link + "&d=decline")}" style="color:${BLUE};text-decoration:underline">Decline this quote</a></div>`;
     note = "Your quote is attached as a PDF.";
+  } else if (o.photos) {
+    const n = Number(o.photos.count) || 0;
+    kindLabel = n === 1 ? "Your photo" : "Your photos";
+    band = `<div style="font-size:15px;font-weight:bold;color:${NAVY};padding-bottom:${plink ? 16 : 0}px">${n ? `${n} photo${n === 1 ? "" : "s"} from your visit` : "Photos from your visit"}</div>${plink ? btn(plink, n === 1 ? "View your photo" : "View your photos") : ""}`;
+    note = n && n <= 10 && o.photos.attached ? `The photo${n === 1 ? " is" : "s are"} also attached to this email.` : "";
   } else if (o.invoice) {
     const due = longDate(String(card.due || ""));
     const paid = Number.isFinite(total) && total <= 0;
@@ -52,7 +60,7 @@ function brandedEmailHtml(text: string, o: { link?: string; quote?: Rec; invoice
     band = `<div style="font-size:15px;font-weight:bold;color:${NAVY}">${paid ? "Paid in full. Thank you!" : due ? `Due ${esc(due)}` : "Due on receipt"}</div>${big(paid ? "Balance" : "Amount due")}`;
     note = "Your invoice is attached as a PDF.";
   }
-  const preview = o.quote ? `Your quote${num ? " #" + num : ""}${Number.isFinite(total) ? " for " + money(total) : ""} from ${name || "us"}` : o.invoice ? `Invoice${num ? " #" + num : ""}${Number.isFinite(total) ? ": " + money(total) + " due" : ""} from ${name || "us"}` : msg.slice(0, 120);
+  const preview = o.photos ? `${Number(o.photos.count) === 1 ? "A photo" : "Photos"} from ${name || "your visit"}` : o.quote ? `Your quote${num ? " #" + num : ""}${Number.isFinite(total) ? " for " + money(total) : ""} from ${name || "us"}` : o.invoice ? `Invoice${num ? " #" + num : ""}${Number.isFinite(total) ? ": " + money(total) + " due" : ""} from ${name || "us"}` : msg.slice(0, 120);
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(name || "Message")}</title></head>
 <body style="margin:0;padding:0;background:#F1F5FA">
 <div style="display:none;max-height:0;overflow:hidden">${esc(preview)}</div>
@@ -122,20 +130,21 @@ Deno.serve(async (req) => {
       const { data: st } = await admin.from("settings").select("data").eq("id", "app").maybeSingle();
       payload.html = brandedEmailHtml(String(payload.text), {
         link: isQuote ? link : undefined, quote: isQuote ? (body.quoteCard || {}) as Rec : undefined, invoice: !isQuote && body.invoiceCard ? body.invoiceCard as Rec : undefined,
+        photos: !isQuote && !body.invoiceCard && body.photosCard ? { ...(body.photosCard as Rec), attached: Array.isArray(body.attachments) && body.attachments.length > 0 } : undefined,
         pixel: token ? `${env("SUPABASE_URL")}/functions/v1/track?t=${token}` : "", origin,
       }, (st?.data || {}) as Rec);
       if (Array.isArray(body.attachments) && body.attachments.length) {
-        payload.attachments = body.attachments.slice(0, 3).map((a: { filename: string; content: string }) => ({ filename: String(a.filename).slice(0, 120), content: String(a.content) }));
+        payload.attachments = body.attachments.slice(0, 12).map((a: { filename: string; content: string }) => ({ filename: String(a.filename).slice(0, 120), content: String(a.content) }));
       }
       const r = await fetch("https://api.resend.com/emails", { method: "POST", headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const out = await r.json().catch(() => ({}));
       if (!r.ok) return json({ error: `The email service refused the message: ${out?.message || r.status}. The owner can test the connection in Settings → APIs.` }, 502);
       if (token) {
-        const doc = isQuote ? "quote" : body.invoiceCard ? "invoice" : "";
+        const doc = isQuote ? "quote" : body.invoiceCard ? "invoice" : body.photosCard ? "photos" : "";
         const card = (isQuote ? body.quoteCard : body.invoiceCard) as Rec | undefined;
         try { await admin.from("customer_events").insert({ id: "ev-" + crypto.randomUUID(), data: {
           kind: "email_sent", token, customerId: String(track.customerId), jobId: String(track.jobId || ""), invoiceId: String(track.invoiceId || ""), doc, number: String(card?.number || ""),
-          amount: card?.total ?? null, subject: String(payload.subject || "").slice(0, 200), to, by: user.id, at: Date.now() } }); } catch (_) { /* activity is best effort */ }
+          amount: card?.total ?? null, count: body.photosCard ? Number((body.photosCard as Rec).count) || 0 : undefined, subject: String(payload.subject || "").slice(0, 200), to, by: user.id, at: Date.now() } }); } catch (_) { /* activity is best effort */ }
       }
       return json({ ok: true, id: out?.id || null });
     }

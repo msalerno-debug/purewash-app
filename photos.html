@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Your photos</title><link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png"><link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F2F5FA;--surface:#FFFFFF;--ink:#13233F;--muted:#5B6B84;--line:#DDE4EF;--accent:#2B5190;--cyan:#00B4EE;--bad:#B3261E;--bad-soft:#FBE9E7}
+@media (prefers-color-scheme:dark){:root{--bg:#0B1626;--surface:#122036;--ink:#E7EEF8;--muted:#9AAAC2;--line:#24385A;--accent:#7AA3E6;--bad:#F2918A;--bad-soft:#3A1A18}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:24px 16px 48px}
+.head{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.logo{display:block;width:240px;max-width:72%;height:auto;background:#fff;border-radius:12px;padding:8px 12px}
+.brand{font-weight:800;font-size:1.3rem}
+h1{font-size:1.5rem;line-height:1.25;margin:18px 0 4px;letter-spacing:-.015em;text-align:center}
+.sub{color:var(--muted);font-size:.92rem;text-align:center;margin:0}
+.note{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:18px auto 0;max-width:640px;white-space:pre-wrap}
+h2{font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:28px 0 10px;display:flex;align-items:center;gap:10px}
+h2::after{content:"";flex:1;height:1px;background:var(--line)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+@media(min-width:700px){.grid{grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}}
+.ph{position:relative;display:block;width:100%;aspect-ratio:4/3;border:0;padding:0;border-radius:12px;overflow:hidden;background:var(--line);cursor:zoom-in}
+.ph img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .25s}
+.ph:hover img{transform:scale(1.03)}
+.ph:focus-visible{outline:3px solid var(--cyan);outline-offset:2px}
+.tag{position:absolute;left:8px;top:8px;font-size:.7rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:999px;background:rgba(255,255,255,.92);color:#13233F}
+.tag.after{background:var(--cyan);color:#fff}
+.cap{font-size:.86rem;margin:6px 2px 0;color:var(--ink)}
+.foot{color:var(--muted);font-size:.85rem;margin-top:30px;text-align:center}
+.foot a{color:inherit}
+.err{color:var(--bad);background:var(--bad-soft);padding:14px 16px;border-radius:12px;margin:24px auto;max-width:520px;text-align:center}
+.skel{aspect-ratio:4/3;border-radius:12px;background:var(--line);animation:p 1.2s ease-in-out infinite}
+@keyframes p{50%{opacity:.5}}
+/* viewer */
+.lb{position:fixed;inset:0;z-index:10;background:rgba(5,8,14,.96);display:flex;flex-direction:column;color:#fff;touch-action:pan-y}
+.lb[hidden]{display:none}
+.lb-top{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:calc(env(safe-area-inset-top,0px) + 10px) 14px 8px}
+.lb-n{font-size:.9rem;font-weight:600;opacity:.85}
+.lb-btn{width:44px;height:44px;border-radius:50%;border:0;background:rgba(255,255,255,.12);color:#fff;display:grid;place-items:center;cursor:pointer;font-size:1.3rem;text-decoration:none}
+.lb-btn:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.lb-stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;padding:0 8px}
+.lb-stage img{max-width:100%;max-height:100%;object-fit:contain;border-radius:6px;user-select:none;-webkit-user-drag:none}
+.lb-prev,.lb-next{position:absolute;top:50%;transform:translateY(-50%)}
+.lb-prev{left:10px}.lb-next{right:10px}
+.lb-cap{text-align:center;padding:10px 16px calc(env(safe-area-inset-bottom,0px) + 16px);font-size:.95rem;min-height:24px}
+.lb-cap .k{font-size:.72rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;opacity:.7;margin-right:6px}
+@media(max-width:600px){.lb-prev,.lb-next{display:none}}
+@media (prefers-reduced-motion:reduce){.ph img{transition:none}.skel{animation:none}}
+</style>
+</head>
+<body>
+<main class="wrap" id="app" aria-live="polite"><div class="grid" style="margin-top:40px"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div></main>
+<div class="lb" id="lb" hidden role="dialog" aria-modal="true" aria-label="Photo viewer">
+  <div class="lb-top"><span class="lb-n" id="lb-n"></span><span style="display:flex;gap:8px"><a class="lb-btn" id="lb-open" target="_blank" rel="noopener" aria-label="Open full size">&#8599;</a><button class="lb-btn" id="lb-x" aria-label="Close">&#10005;</button></span></div>
+  <div class="lb-stage" id="lb-stage"><button class="lb-btn lb-prev" id="lb-prev" aria-label="Previous photo">&#8249;</button><img id="lb-img" alt=""><button class="lb-btn lb-next" id="lb-next" aria-label="Next photo">&#8250;</button></div>
+  <div class="lb-cap" id="lb-cap"></div>
+</div>
+<script>
+const FN='https://quthcaplccvgpvlietyo.supabase.co/functions/v1/gallery';
+const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1dGhjYXBsY2N2Z3B2bGlldHlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3MTM4ODMsImV4cCI6MjEwODI4OTg4M30.C4vsmsN7LhahIbwiCGdAy3Cwbl7FVbXV3mMZaS5fN5A';
+const T=new URLSearchParams(location.search).get('t')||'';
+const app=document.getElementById('app');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtDate=s=>{ if(!s) return ''; const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'}); };
+let D=null, order=[], cur=0, lastFocus=null;
+function contact(b){ const bits=[b.phone?`call <a href="tel:${esc(String(b.phone).replace(/[^\d+]/g,''))}">${esc(b.phone)}</a>`:'', b.email?`email <a href="mailto:${esc(b.email)}">${esc(b.email)}</a>`:''].filter(Boolean); return bits.length?`Questions? ${bits.join(' or ')}.`:''; }
+function render(){
+  if(!D){ app.innerHTML=`<div class="err" role="alert">${esc(err||'This link may be incomplete. Please use the link we sent you, or contact us.')}</div>`; return; }
+  const b=D.business; document.title=`Photos from ${b.name||'your visit'}`;
+  const head=`<div class="head">${b.logo?`<img class="logo" src="${esc(b.logo)}" alt="${esc(b.name)}">`:`<div class="brand">${esc(b.name)}</div>`}</div>`;
+  const before=D.photos.filter(p=>p.kind==='before'), after=D.photos.filter(p=>p.kind==='after'), other=D.photos.filter(p=>p.kind!=='before'&&p.kind!=='after');
+  order=[...before,...after,...other];
+  const tile=p=>{ const i=order.indexOf(p); return `<div><button class="ph" data-i="${i}" aria-label="Open photo ${i+1}${p.caption?': '+esc(p.caption):''}"><img src="${esc(p.url)}" alt="${esc(p.caption||(p.kind?p.kind+' photo':'Photo'))}" loading="lazy">${p.kind==='before'||p.kind==='after'?`<span class="tag ${p.kind}">${p.kind}</span>`:''}</button>${p.caption?`<p class="cap">${esc(p.caption)}</p>`:''}</div>`; };
+  const section=(t,list)=>list.length?`${before.length&&after.length?`<h2>${t}</h2>`:'<div style="height:22px"></div>'}<div class="grid">${list.map(tile).join('')}</div>`:'';
+  app.innerHTML=`${head}<h1>${D.customer.first?esc(D.customer.first)+', here are your photos':'Your photos'}</h1>
+    <p class="sub">${D.photos.length} photo${D.photos.length===1?'':'s'}${D.job.date?' from '+esc(fmtDate(D.job.date)):''}</p>
+    ${D.note?`<div class="note">${esc(D.note)}</div>`:''}
+    ${D.photos.length?section('Before',before)+section('After',after)+section('Photos',other):'<div class="err">These photos are no longer available. Please contact us.</div>'}
+    <p class="foot">${contact(b)}</p>`;
+}
+let err='';
+function show(i){ cur=(i+order.length)%order.length; const p=order[cur]; const img=document.getElementById('lb-img'); img.src=p.url; img.alt=p.caption||'Photo';
+  document.getElementById('lb-n').textContent=`${cur+1} of ${order.length}`; document.getElementById('lb-open').href=p.url;
+  document.getElementById('lb-cap').innerHTML=(p.kind==='before'||p.kind==='after'?`<span class="k">${p.kind}</span>`:'')+esc(p.caption||'');
+  const one=order.length<2; document.getElementById('lb-prev').hidden=one; document.getElementById('lb-next').hidden=one; }
+function openLb(i){ lastFocus=document.activeElement; document.getElementById('lb').hidden=false; document.body.style.overflow='hidden'; show(i); document.getElementById('lb-x').focus(); }
+function closeLb(){ document.getElementById('lb').hidden=true; document.body.style.overflow=''; if(lastFocus) lastFocus.focus(); }
+app.addEventListener('click',e=>{ const b=e.target.closest('.ph'); if(b) openLb(+b.dataset.i); });
+document.getElementById('lb-x').onclick=closeLb;
+document.getElementById('lb-prev').onclick=()=>show(cur-1);
+document.getElementById('lb-next').onclick=()=>show(cur+1);
+document.getElementById('lb').addEventListener('click',e=>{ if(e.target.id==='lb-stage') closeLb(); });
+document.addEventListener('keydown',e=>{ if(document.getElementById('lb').hidden) return; if(e.key==='Escape') closeLb(); if(e.key==='ArrowLeft') show(cur-1); if(e.key==='ArrowRight') show(cur+1);
+  if(e.key==='Tab'){ const f=[...document.querySelectorAll('#lb button:not([hidden]),#lb a')]; const i=f.indexOf(document.activeElement); if(e.shiftKey&&i<=0){ e.preventDefault(); f[f.length-1].focus(); } else if(!e.shiftKey&&i===f.length-1){ e.preventDefault(); f[0].focus(); } } });
+let sx=null; const st=document.getElementById('lb-stage');
+st.addEventListener('touchstart',e=>{ sx=e.touches[0].clientX; },{passive:true});
+st.addEventListener('touchend',e=>{ if(sx==null) return; const dx=e.changedTouches[0].clientX-sx; sx=null; if(Math.abs(dx)>50) show(cur+(dx<0?1:-1)); });
+(async()=>{
+  if(!/^[a-f0-9]{32}$/.test(T)){ err='This link is incomplete. Please use the link we sent you.'; return render(); }
+  try{ const r=await fetch(FN,{method:'POST',headers:{'Content-Type':'application/json',apikey:KEY,Authorization:'Bearer '+KEY},body:JSON.stringify({t:T})}); const j=await r.json().catch(()=>({})); if(j.ok) D=j; else err=j.error; }
+  catch(e){ err='We couldn\'t load your photos. Check your connection and refresh.'; }
+  render();
+})();
+</script>
+</body>
+</html>

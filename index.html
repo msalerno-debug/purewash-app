@@ -417,6 +417,21 @@ td.n,th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabula
 
 /* photos */
 .photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
+.ph-head-r{display:flex;align-items:center;gap:8px}
+.ph-mk{position:absolute;right:5px;bottom:5px;background:rgba(0,0,0,.55);color:#FFE14D;border-radius:6px;font-size:.7rem;padding:1px 5px}
+.photo-grid.selecting .ph img{transition:transform .12s, opacity .12s}
+.ph.sel.on img{transform:scale(.9);border-radius:6px}
+.ph.sel.on{background:var(--accent-soft,#E6EDF8);box-shadow:inset 0 0 0 3px var(--accent)}
+.ph-check{position:absolute;right:6px;top:6px;width:24px;height:24px;border-radius:50%;border:2px solid #fff;background:rgba(0,0,0,.3);color:#fff;font-weight:800;font-size:.8rem;display:grid;place-items:center;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.ph.sel.on .ph-check{background:var(--accent);border-color:#fff}
+.ph-selbar{position:sticky;top:0;z-index:3;display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin-bottom:10px;box-shadow:0 4px 14px rgba(19,35,63,.08)}
+.ph-selcount{font-weight:700;font-size:.9rem;margin-right:auto}
+.ph-selacts{display:flex;flex-wrap:wrap;gap:6px}
+.ph-selacts .btn svg{width:15px;height:15px}
+.btn.danger.sure{background:var(--bad,#B3261E);color:#fff;border-color:var(--bad,#B3261E)}
+.ph-strip{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.ph-strip img{width:64px;height:48px;object-fit:cover;border-radius:6px;flex:none;background:var(--surface-2)}
+.ph-strip span{flex:none;display:grid;place-items:center;width:48px;font-weight:700;color:var(--muted)}
 .ph{position:relative;aspect-ratio:4/3;border-radius:8px;overflow:hidden;background:var(--surface-2);border:0;padding:0;cursor:pointer;max-width:100%}
 .ph img{width:100%;height:100%;object-fit:cover;display:block}
 .ph .tag,.cmp .tag{position:absolute;left:6px;top:6px;font-size:.64rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 6px;border-radius:4px;background:var(--surface);color:var(--ink)}
@@ -891,7 +906,7 @@ const SOURCES = ['Referral','Google','Facebook','Nextdoor','Yard sign','Door han
 const PAY_METHODS = ['Card','Check','Cash','Zelle','Venmo','ACH','Other'];
 
 /* ---------- state ---------- */
-const S = {qbo:null, timeoff:[], customer_events:[], actFilter:'all', actOpen:null, wx:null, customers:[], jobs:[], invoices:[], photos:[], messages:[], voicemails:[], vmFilter:'all', vmLimit:50, vmConfirm:null, vmBusy:new Set(), vehicles:[], vehicle_logs:[], settingsDoc:null, view:'today',
+const S = {phSel:{scope:null, ids:new Set(), confirm:false}, phAll:new Set(), qbo:null, timeoff:[], customer_events:[], actFilter:'all', actOpen:null, wx:null, customers:[], jobs:[], invoices:[], photos:[], messages:[], voicemails:[], vmFilter:'all', vmLimit:50, vmConfirm:null, vmBusy:new Set(), vehicles:[], vehicle_logs:[], settingsDoc:null, view:'today',
   jobFilter:'upcoming', jobQuery:'', custQuery:'', custStatus:'All', photoQuery:'', invFilter:'Open', invQuery:'', msgQuery:'', msgChan:'all', msgTab:'conv', rep:{id:'summary', period:'ytd', from:'', to:''}, cal:{mode:'month', anchor:'', sel:null, showQuotes:true}, settingsDirty:false, dbState:'connecting',
   canWrite:null, canAdmin:false, uid:null, assetsOn:true, downloadsOn:true, role:null, profile:null, team:[], activity:null, integ:{email:false, sms:false}, sel:{jobs:new Set(), invoices:new Set()}, _visible:{jobs:[], invoices:[]}, setTab:'general', wipe:{open:false, typed:'', photos:false, messages:false, busy:false, result:null}, api:{loaded:false, loading:false, data:null, busy:{}, err:null}, mapsKey:null};
 // data, photo storage and downloads are defined in the Supabase data layer below
@@ -936,6 +951,7 @@ async function commitQuoteToken(jid, sent){ const j=job(jid); if(!quoteOpen(j)) 
 /* ---------- customer activity ---------- */
 const randHex = n => [...crypto.getRandomValues(new Uint8Array(n))].map(b=>b.toString(16).padStart(2,'0')).join('');
 function docName(e){ const j=e.jobId?job(e.jobId):null, v=e.invoiceId?inv(e.invoiceId):null;
+  if(e.doc==='photos') return 'photos';
   if(e.doc==='quote' || (e.kind||'').startsWith('quote_')) return `quote${(e.number||(j&&j.quoteNumber))?' #'+(e.number||j.quoteNumber):''}`;
   if(e.doc==='invoice' || (v && e.doc!=='')) return `invoice${(e.number||(v&&v.number))?' #'+(e.number||v.number):''}`; return ''; }
 function actText(e){
@@ -944,6 +960,7 @@ function actText(e){
     case 'email_sent': return {who:'us', icon:'✉', text: d?`You emailed ${d}${amt}`:`You emailed: ${e.subject||'(no subject)'}`, toast:''};
     case 'email_opened': return {who:'cust', icon:'👁', text: d?`Opened the ${d} email`:`Opened your email: ${e.subject||'(no subject)'}`, toast: d?`opened the ${d} email`:'opened your email'};
     case 'quote_viewed': return {who:'cust', icon:'👁', text:`Viewed ${d} online`, toast:`is looking at ${d} online`};
+    case 'photos_viewed': return {who:'cust', icon:'👁', text:`Viewed the ${e.count>1?e.count+' photos':'photo'} you sent`, toast:`is looking at the photos you sent`};
     case 'quote_accepted': return {who:'cust', icon:'✓', text:`Accepted ${d}${amt}`, note:e.note, good:true};
     case 'quote_declined': return {who:'cust', icon:'✕', text:`Declined ${d}${amt}`, note:e.note, bad:true};
   } return null; }
@@ -966,6 +983,43 @@ function custActivity(id){
     add(at,{who:'cust', icon:'$', good:true, text:`Paid ${money(+pm.amount)} on invoice #${v.number}${pm.method?` (${pm.method})`:''}`, dateOnly:!pm.at},{invoiceId:v.id}); }));
   return out.sort((a,b)=>b.at-a.at);
 }
+/* ---------- photo grids: select several to delete, text or email ---------- */
+function photosForScope(scope){ const [k,id]=String(scope).split(':'); return S.photos.filter(p=>k==='job'?p.jobId===id:p.customerId===id).sort((a,b)=>k==='job'?a.createdAt-b.createdAt:b.createdAt-a.createdAt); }
+function photoGridHtml(scope, opts={}){
+  const ps=photosForScope(scope); if(!ps.length) return opts.empty||'';
+  const sel=S.phSel.scope===scope, ids=S.phSel.ids;
+  const limit=opts.limit&&!sel&&!S.phAll.has(scope)?opts.limit:Infinity; const shown=ps.slice(0,limit);
+  const office=S.role!=='crew';
+  const tile=p=>sel
+    ? `<button class="ph sel${ids.has(p.id)?' on':''}" data-act="phToggle" data-id="${p.id}" aria-pressed="${ids.has(p.id)}" aria-label="${ids.has(p.id)?'Selected: ':'Select '}${p.kind} photo${p.caption?', '+esc(p.caption):''}"><img src="${photoUrl(p.assetId)}" alt="" loading="lazy" onerror="this.style.display='none'"><span class="tag ${p.kind}">${p.kind}</span><span class="ph-check" aria-hidden="true">${ids.has(p.id)?'✓':''}</span></button>`
+    : `<button class="ph" data-act="openPhoto" data-id="${p.id}" aria-label="${p.kind} photo${p.caption?', '+esc(p.caption):''}"><img src="${photoUrl(p.assetId)}" alt="" loading="lazy" onerror="this.style.display='none'"><span class="tag ${p.kind}">${p.kind}</span>${p.originalAssetId?'<span class="ph-mk" aria-hidden="true">✎</span>':''}</button>`;
+  const n=ids.size;
+  const bar=sel?`<div class="ph-selbar" role="toolbar" aria-label="Selected photos">
+      <span class="ph-selcount" aria-live="polite">${n?`${n} selected`:'Tap photos to select'}</span>
+      <button class="btn ghost sm" data-act="phSelAll" data-scope="${scope}">${n===ps.length?'Select none':'Select all'}</button>
+      <span class="ph-selacts">
+        <button class="btn sm" data-act="phSend" data-via="text" data-scope="${scope}" ${n?'':'disabled'}>${I.messages} Text</button>
+        ${office?`<button class="btn sm" data-act="phSend" data-via="email" data-scope="${scope}" ${n?'':'disabled'}>${I.mail} Email</button>`:''}
+        ${S.assetsOn?`<button class="btn sm danger${S.phSel.confirm?' sure':''}" data-act="phDelete" data-scope="${scope}" ${n?'':'disabled'}>${I.trash} ${S.phSel.confirm?`Delete ${n}?`:'Delete'}</button>`:''}
+        <button class="btn ghost sm" data-act="phCancel">Cancel</button>
+      </span></div>`:'';
+  return `${bar}<div class="photo-grid${sel?' selecting':''}"${opts.style?` style="${opts.style}"`:''}>${shown.map(tile).join('')}</div>${ps.length>shown.length?`<button class="btn ghost sm" data-act="phMore" data-scope="${scope}" style="margin-top:8px">Show all ${ps.length} photos</button>`:''}`;
+}
+const phSelectBtn = scope => photosForScope(scope).length && S.phSel.scope!==scope ? `<button class="btn ghost sm" data-act="phSelect" data-scope="${scope}">Select</button>` : '';
+async function makePhotoShare(ids, customerId, jobId){
+  const token=randHex(16); const id='ps'+genId();
+  const {error}=await sb.from('photo_shares').insert({id, data:{token, photoIds:ids, customerId, jobId:jobId||'', createdAt:Date.now(), expiresAt:Date.now()+180*864e5, by:S.uid||''}});
+  if(error) throw pgErr(error);
+  return `${location.origin}/photos?t=${token}`;
+}
+function photoMsg(via, cid, jobId, link, n){
+  const s=settings(), c=cust(cid), first=(c&&(c.firstName||String(c.name||'').split(/\s+/)[0]))||'there', j=jobId?job(jobId):null;
+  const when=j&&j.date?` from ${fmtDate(j.date)}`:'';
+  const what=n===1?'the photo':`the ${n} photos`;
+  if(via==='text') return `Hi ${first}, here ${n===1?'is':'are'} ${what}${when}: ${link}\n- ${s.businessName||'PureWash'}`;
+  return {subject:`${n===1?'A photo':'Photos'} from ${s.businessName||'your visit'}`, body:`Hi ${first},\n\nHere ${n===1?'is':'are'} ${what}${when}. You can see ${n===1?'it':'them all'} here:\n${link}\n\nThank you,\n${s.businessName||''}`.trim()};
+}
+const PHOTO_ATTACH_MAX=10;
 function custActivityHtml(id){
   if(S.role==='crew') return '';
   const all=custActivity(id); const f=S.actFilter||'all'; const list=f==='cust'?all.filter(a=>a.who==='cust'):all;
@@ -2697,8 +2751,8 @@ const DRAWERS = {
       <section class="panel"><div class="panel-head"><h3>Service history</h3><span class="muted" style="font-size:.8rem">${jobs.length} job${jobs.length===1?'':'s'}</span></div>
         ${jobs.length?`<div class="list">${jobs.map(j=>`<button class="row" data-act="openJob" data-id="${j.id}" data-stack="1"><span class="t">${j.date?esc(fmtDate(j.date))+(j.time?` · ${esc(fmtTime(j.time))}`:''):'Date TBD'}</span><span class="s">${esc(itemsSummary(j.items)||'No services listed')}${j.notes?` — ${esc(j.notes.slice(0,80))}`:''}</span><span class="r">${pill(j.status)}<span class="num" style="font-size:.84rem">${money(jobTotal(j))}</span></span></button>`).join('')}</div>`:'<p class="muted">No jobs yet.</p>'}
       </section>
-      <section class="panel"><div class="panel-head"><h3>Before & after</h3><span class="muted" style="font-size:.8rem">${photos.length} photo${photos.length===1?'':'s'}</span></div>
-        ${photos.length?`<div class="photo-grid">${photos.slice(0,12).map(p=>`<button class="ph" data-act="openPhoto" data-id="${p.id}" aria-label="${p.kind} photo"><img src="${photoUrl(p.assetId)}" alt="" loading="lazy" onerror="this.style.display='none'"><span class="tag ${p.kind}">${p.kind}</span></button>`).join('')}</div>`:'<p class="muted">Photos are added from a job.</p>'}
+      <section class="panel"><div class="panel-head"><h3>Before & after</h3><span class="ph-head-r"><span class="muted" style="font-size:.8rem">${photos.length} photo${photos.length===1?'':'s'}</span>${phSelectBtn('cust:'+id)}</span></div>
+        ${photoGridHtml('cust:'+id, {limit:12, empty:'<p class="muted">Photos are added from a job.</p>'})}
       </section>
       <section class="panel office-only"><div class="panel-head"><h3>Invoices</h3></div>
         ${invs.length?`<div class="list">${invs.map(v=>`<button class="row" data-act="openInvoice" data-id="${v.id}" data-stack="1"><span class="t">#${esc(v.number)}</span><span class="s">${esc(fmtDate(v.date))}</span><span class="r">${pill(invStatus(v))}<span class="num" style="font-size:.84rem">${money(totals(v).total)}</span></span></button>`).join('')}</div>`:'<p class="muted">No invoices yet.</p>'}
@@ -2786,9 +2840,9 @@ const DRAWERS = {
           <p class="muted" style="font-size:.9rem">${esc(repeatLabel(j.seriesRule))}${nxt?` · next visit ${esc(fmtDate(nxt.date))}`:' · this is the last scheduled visit'}</p>
           <div class="btnrow"><button class="btn sm" data-act="openSeries" data-sid="${j.seriesId}">See all visits</button><span class="office-only btnrow" style="display:contents"><button class="btn sm" data-act="seriesExtendForm" data-sid="${j.seriesId}">${I.plus} Add more visits</button>${later?`<button class="btn sm danger" data-act="seriesEndAsk" data-sid="${j.seriesId}" data-from="${addDays(j.date,1)}">End series after this visit</button>`:''}</span></div></section>`; })():''}
       ${c?mapEmbed(c):''}
-      <section class="panel"><div class="panel-head"><h3>Before & after</h3><span class="muted" style="font-size:.8rem">${ps.length} photo${ps.length===1?'':'s'}</span></div>
+      <section class="panel"><div class="panel-head"><h3>Before & after</h3><span class="ph-head-r"><span class="muted" style="font-size:.8rem">${ps.length} photo${ps.length===1?'':'s'}</span>${phSelectBtn('job:'+id)}</span></div>
         ${b&&a?`<div class="cmp" id="cmp-${id}"><img src="${photoUrl(a.assetId)}" alt="After"><div class="before-clip" style="width:50%"><img src="${photoUrl(b.assetId)}" alt="Before" style="width:auto;min-width:100%"></div><div class="divider" style="left:50%"></div><span class="tag before">Before</span><span class="tag after">After</span><input type="range" id="rng-${id}" min="0" max="100" value="50" aria-label="Slide to compare before and after" data-cmp="cmp-${id}"></div><p class="hint" style="margin:6px 0 12px">Drag across the photo to compare.</p>`:''}
-        ${ps.length?`<div class="photo-grid" style="margin-bottom:12px">${ps.map(p=>`<button class="ph" data-act="openPhoto" data-id="${p.id}" aria-label="${p.kind} photo"><img src="${photoUrl(p.assetId)}" alt="" loading="lazy" onerror="this.style.display='none'"><span class="tag ${p.kind}">${p.kind}</span></button>`).join('')}</div>`:`<p class="muted" style="margin-bottom:12px">Snap a few shots before you start and after you finish. The latest before and after pair becomes a side-by-side slider.</p>`}
+        ${photoGridHtml('job:'+id, {style:'margin-bottom:12px', empty:`<p class="muted" style="margin-bottom:12px">Snap a few shots before you start and after you finish. The latest before and after pair becomes a side-by-side slider.</p>`})}
         ${S.assetsOn?`<div class="btnrow"><button class="btn primary" data-act="openCamera" data-id="${id}">${I.camera} Take photos</button>${upl('before')}${upl('after')}</div><div id="upl-status" class="hint" style="margin-top:6px"></div>`:'<p class="hint">Adding photos needs edit access to this app.</p>'}
       </section>
       <section class="panel"><div class="panel-head"><h3>Services</h3>${jobRate(j)===0&&(j.taxExempt||custExempt(j.customerId))?'<span class="pill">Tax exempt</span>':''}</div>${linesTable(j.items)}<div class="totals" style="margin-top:8px">${totalsHtml(jobTotals(j), j.taxExempt||custExempt(j.customerId))}</div></section>
@@ -2915,12 +2969,14 @@ const DRAWERS = {
       <div class="btnrow"><button class="btn primary" type="submit">Record ${money(t.balance)} payment</button><button class="btn" type="button" data-act="back">Cancel</button></div>
     </form>`, after(){ const a=$('#p-amt'), btn=$('form[data-form=payment] button[type=submit]'); a.addEventListener('input',()=>{ btn.textContent=`Record ${money(a.value)} payment`; }); }};
   },
-  compose({cid, jobId, invId, tpl}){
+  compose({cid, jobId, invId, tpl, photos, plink, pjob}){
     const s=settings(); const t = s.templates.find(x=>x.name===tpl) || null;
-    const body = t ? fillTemplate(t.text, cid, {jobId, invId}) : '';
+    const pn=photos?String(photos).split(',').filter(Boolean).length:0;
+    const body = pn ? photoMsg('text', cid, pjob, plink, pn) : t ? fillTemplate(t.text, cid, {jobId, invId}) : '';
     const c = cust(cid);
-    return {back:stack.length>0, title:'Text a customer', body:`
-    <form data-form="message" style="display:flex;flex-direction:column;gap:14px" data-job="${esc(jobId||'')}" data-inv="${esc(invId||'')}">
+    return {back:stack.length>0, title:pn?`Text ${pn} photo${pn===1?'':'s'}`:'Text a customer', body:`
+    <form data-form="message" style="display:flex;flex-direction:column;gap:14px" data-job="${esc(jobId||pjob||'')}" data-inv="${esc(invId||'')}" data-plink="${esc(plink||'')}">
+      ${pn?`<div class="notice info">The message includes a private link to ${pn===1?'the photo':`all ${pn} photos`}. Keep the link in the message so your customer can open ${pn===1?'it':'them'}.</div>`:''}
       ${customerSelect('m-cust', cid||'')}
       <div id="m-to">${toLine(c, !!invId)}</div>
       <div class="field"><label for="m-tpl">Template</label><select id="m-tpl" name="tpl"><option value="">Write your own</option>${s.templates.map(x=>`<option ${t&&t.name===x.name?'selected':''}>${esc(x.name)}</option>`).join('')}</select></div>
@@ -2929,13 +2985,16 @@ const DRAWERS = {
       :`<div class="btnrow"><button class="btn primary" type="button" data-act="copyMsg">Copy message</button><span id="m-sms"></span><button class="btn" type="submit">Log as sent</button></div><p class="hint">Paste into your phone.com app and send, then log it here so it appears in the customer's history.</p>`}
     </form>`, after(){ updateSmsLink(); }};
   },
-  email({cid, jobId, invId, tpl}){
+  email({cid, jobId, invId, tpl, photos, plink, pjob}){
     const s=settings(); const t = s.emailTemplates.find(x=>x.name===tpl) || null; const c=cust(cid);
-    const subj = t ? fillTemplate(t.subject, cid, {jobId, invId}) : '';
-    const body = t ? withQuoteLink(fillTemplate(t.body, cid, {jobId, invId}), jobId) : '';
+    const pn=photos?String(photos).split(',').filter(Boolean).length:0; const pm=pn?photoMsg('email', cid, pjob, plink, pn):null;
+    const subj = pm ? pm.subject : t ? fillTemplate(t.subject, cid, {jobId, invId}) : '';
+    const body = pm ? pm.body : t ? withQuoteLink(fillTemplate(t.body, cid, {jobId, invId}), jobId) : '';
     const v = invId ? inv(invId) : null;
-    return {back:stack.length>0, title:'Email a customer', body:`
-    <form data-form="email" style="display:flex;flex-direction:column;gap:14px" data-job="${esc(jobId||'')}" data-inv="${esc(invId||'')}">
+    return {back:stack.length>0, title:pn?`Email ${pn} photo${pn===1?'':'s'}`:'Email a customer', body:`
+    <form data-form="email" style="display:flex;flex-direction:column;gap:14px" data-job="${esc(jobId||pjob||'')}" data-inv="${esc(invId||'')}" data-photos="${esc(photos||'')}" data-plink="${esc(plink||'')}">
+      ${pn?`<div class="ph-strip" aria-label="Photos being sent">${String(photos).split(',').slice(0,12).map(i=>{ const p=S.photos.find(x=>x.id===i); return p?`<img src="${photoUrl(p.assetId)}" alt="">`:''; }).join('')}${pn>12?`<span>+${pn-12}</span>`:''}</div>
+        <div class="notice info">${pn<=PHOTO_ATTACH_MAX?`The photo${pn===1?' is':'s are'} attached, and the email has a button to view ${pn===1?'it':'them all'} online.`:`More than ${PHOTO_ATTACH_MAX} photos are too many to attach, so the email has a button to view them all online.`}</div>`:''}
       ${customerSelect('e-cust', cid||'')}
       <div class="field"><label for="e-to">To</label><input type="email" id="e-to" name="to" value="${esc((invId?billTo(c).email:c?.email)||'')}" placeholder="customer@example.com">${c&&!c.email?'<span class="hint">No email on file. Type one here, and add it to the customer\'s file so it\'s there next time.</span>':''}</div>
       <div class="field"><label for="e-tpl">Template</label><select id="e-tpl" name="tpl"><option value="">Write your own</option>${s.emailTemplates.map(x=>`<option ${t&&t.name===x.name?'selected':''}>${esc(x.name)}</option>`).join('')}</select></div>
@@ -3241,6 +3300,32 @@ const A = {
   async copyQuoteLink(d){ if(!await commitQuoteToken(d.id, false)) return toast('Couldn\'t create the link. Try again.','bad'); copyText(quoteLink(d.id), 'Link copied. Paste it into a text or email.'); },
   openInvoice(d){ d.stack ? go('invoice',{id:d.id}) : (stack.length=0, openDrawer('invoice',{id:d.id})); },
   openPhoto(d){ go('photo',{id:d.id}); },
+  phSelect(d){ S.phSel={scope:d.scope, ids:new Set(), confirm:false}; rerender(); },
+  phCancel(){ S.phSel={scope:null, ids:new Set(), confirm:false}; rerender(); },
+  phToggle(d){ const s=S.phSel.ids; s.has(d.id)?s.delete(d.id):s.add(d.id); S.phSel.confirm=false; rerender(); const b=document.querySelector(`[data-act="phToggle"][data-id="${CSS.escape(d.id)}"]`); if(b) b.focus(); },
+  phSelAll(d){ const all=photosForScope(d.scope).map(p=>p.id); S.phSel.ids=S.phSel.ids.size===all.length?new Set():new Set(all); S.phSel.confirm=false; rerender(); },
+  phMore(d){ S.phAll.add(d.scope); rerender(); },
+  async phDelete(d,el){
+    const ids=[...S.phSel.ids]; if(!ids.length) return;
+    if(!S.phSel.confirm){ S.phSel.confirm=true; rerender(); return; }
+    if(el){ el.disabled=true; el.textContent='Deleting…'; }
+    let done=0, failed=0;
+    for(const id of ids){ const p=S.photos.find(x=>x.id===id); if(!p) continue;
+      try{ await db.collection('photos').doc(id).delete(); done++; if(assets) for(const a of [p.assetId,p.originalAssetId]) if(a){ try{ await assets.delete(a); }catch(e){} } }
+      catch(e){ failed++; } }
+    S.phSel={scope:S.phSel.scope, ids:new Set(), confirm:false};
+    if(!photosForScope(S.phSel.scope).length) S.phSel.scope=null;
+    rerender();
+    toast(failed?`${done} deleted. ${failed} couldn't be deleted${S.role==='crew'?' (crew can only delete photos they took)':''}.`:`${done} photo${done===1?'':'s'} deleted`, failed?'bad':undefined);
+  },
+  async phSend(d,el){
+    const ids=photosForScope(d.scope).filter(p=>S.phSel.ids.has(p.id)).map(p=>p.id); if(!ids.length) return;
+    const first=S.photos.find(p=>p.id===ids[0]); const cid=first.customerId; const jobIds=[...new Set(ids.map(i=>S.photos.find(p=>p.id===i).jobId))]; const jobId=jobIds.length===1?jobIds[0]:'';
+    if(el){ el.disabled=true; }
+    let link; try{ link=await makePhotoShare(ids, cid, jobId); }catch(e){ if(el) el.disabled=false; return toast('Couldn\'t make the photo link: '+errMsg(e),'bad'); }
+    S.phSel={scope:null, ids:new Set(), confirm:false};
+    go(d.via==='email'?'email':'compose', {cid, jobId:'', photos:ids.join(','), plink:link, pjob:jobId});
+  },
   openCamera(d){ openCamera(d.id); },
   cameraJob(d){ closeDrawer(); openCamera(d.id, {returnTo:()=>{ S.view='photos'; render(); }}); },
   markupPhoto(d){ markupSavedPhoto(d.id); },
@@ -3302,11 +3387,21 @@ const A = {
     if(/\[[a-z ]+\]/.test(subject+body)) return toast('Fill in the parts in [brackets] first.','bad');
     const v=f.dataset.inv?inv(f.dataset.inv):null; const s=settings();
     const jid=f.dataset.job||''; let quoteLinkSent='';
-    if(jid && quoteOpen(job(jid)) && body.includes(quoteLink(jid))){ if(!await commitQuoteToken(jid, true)) return toast('Couldn\'t prepare the quote link. Try again.','bad'); quoteLinkSent=quoteLink(jid); }
+    const photoIds=(f.dataset.photos||'').split(',').filter(Boolean), plink=f.dataset.plink||'';
+    if(!photoIds.length && jid && quoteOpen(job(jid)) && body.includes(quoteLink(jid))){ if(!await commitQuoteToken(jid, true)) return toast('Couldn\'t prepare the quote link. Try again.','bad'); quoteLinkSent=quoteLink(jid); }
     let attachments = [];
     if(v){ try{ attachments=[{filename:`Invoice-${v.number}.pdf`, content:await invoicePdfBase64(v)}]; }catch(e){ attachments=[{filename:`Invoice-${v.number}.html`, content:btoa(unescape(encodeURIComponent(invoiceHTML(v))))}]; } }
-    let prepFailed=false, quoteCard=null;
-    if(!v && jid && quoteOpen(job(jid))){
+    let prepFailed=false, quoteCard=null, photosCard=null;
+    if(photoIds.length){
+      el.disabled=true; el.textContent='Attaching photos…';
+      photosCard={count:photoIds.length, link:plink&&body.includes(plink)?plink:''};
+      if(photoIds.length<=PHOTO_ATTACH_MAX){ let total=0, k=0;
+        for(const id of photoIds){ const p=S.photos.find(x=>x.id===id); if(!p) continue; k++;
+          try{ const {data,error}=await sb.storage.from('photos').download(p.assetId); if(error||!data) throw error; if(total+data.size>18e6) break; total+=data.size;
+            const b64=await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result).split(',')[1]); r.onerror=rej; r.readAsDataURL(data); });
+            attachments.push({filename:`Photo-${k}-${p.kind||'photo'}.jpg`, content:b64}); }catch(e){ prepFailed=true; } } }
+    }
+    else if(!v && jid && quoteOpen(job(jid))){
       if(!await ensureQuoteNumber(jid)) return toast('Couldn\'t save the quote number. Try again.','bad');
       const qj=job(jid), qt=jobTotals(qj);
       quoteCard={number:quoteNo(qj), total:qt.total, date:qj.date||''};
@@ -3316,10 +3411,10 @@ const A = {
     el.disabled=true; el.textContent='Sending…';
     const trackToken=randHex(16); const vt=v?totals(v):null;
     const invoiceCard=v?{number:String(v.number||''), total:Math.round(vt.balance*100)/100, due:v.dueDate||''}:null;
-    const r=await callFn('messaging',{action:'email', to, subject, text:body, replyTo:s.email||'', attachments, quoteLink:quoteLinkSent, quoteCard, invoiceCard, appOrigin:location.origin, track:{token:trackToken, customerId:cid, jobId:jid, invoiceId:v?v.id:''}});
+    const r=await callFn('messaging',{action:'email', to, subject, text:body, replyTo:s.email||'', attachments, quoteLink:quoteLinkSent, quoteCard, invoiceCard, photosCard, appOrigin:location.origin, track:{token:trackToken, customerId:cid, jobId:jid, invoiceId:v?v.id:''}});
     if(!r.ok){ el.disabled=false; el.textContent='Send email'; return toast(r.error,'bad'); }
     await write(()=>saveDoc('messages',newId('messages'),{customerId:cid, to, subject, body, channel:'email', sent:true, trackToken, jobId:f.dataset.job||'', invoiceId:f.dataset.inv||'', createdAt:Date.now(), by:S.uid||''}),prepFailed?null:'Email sent');
-    if(prepFailed) toast('Email sent, but a PDF couldn\'t be made, so it wasn\'t attached. Check your connection.','bad');
+    if(prepFailed) toast(photoIds.length?'Email sent, but some photos couldn\'t be attached. The link in the email still shows them all.':'Email sent, but a PDF couldn\'t be made, so it wasn\'t attached. Check your connection.','bad');
     const c=cust(cid); if(c && !c.email && !v) await write(()=>saveDoc('customers',c.id,{...c,email:to,updatedAt:Date.now()}));
     if(v && v.status==='Draft') await write(()=>saveDoc('invoices',v.id,{...v,status:'Sent',updatedAt:Date.now()}));
     back();
@@ -4983,13 +5078,13 @@ document.addEventListener('change', e=>{
   else if(t.id==='e-tpl' || t.id==='e-cust'){
     const f=t.form; const cid=$('#e-cust').value; const c=cust(cid); const tpl=settings().emailTemplates.find(x=>x.name===$('#e-tpl').value);
     if(t.id==='e-cust') $('#e-to').value = (f.dataset.inv ? billTo(c).email : c?.email)||'';
-    if(tpl){ $('#e-subj').value=fillTemplate(tpl.subject, cid, {jobId:f.dataset.job, invId:f.dataset.inv}); $('#e-body').value=withQuoteLink(fillTemplate(tpl.body, cid, {jobId:f.dataset.job, invId:f.dataset.inv}), f.dataset.job); }
+    if(tpl){ $('#e-subj').value=fillTemplate(tpl.subject, cid, {jobId:f.dataset.job, invId:f.dataset.inv}); let b=withQuoteLink(fillTemplate(tpl.body, cid, {jobId:f.dataset.job, invId:f.dataset.inv}), f.dataset.job); if(f.dataset.plink && !b.includes(f.dataset.plink)) b+=`\n\nSee the photos: ${f.dataset.plink}`; $('#e-body').value=b; }
     updateMailto();
   }
   else if(t.id==='m-tpl' || t.id==='m-cust'){
     const f=t.form; const cid=$('#m-cust').value; const tpl=settings().templates.find(x=>x.name===$('#m-tpl').value);
     if(t.id==='m-cust') $('#m-to').innerHTML=toLine(cust(cid), !!f.dataset.inv);
-    if(tpl) $('#m-body').value=fillTemplate(tpl.text, cid, {jobId:f.dataset.job, invId:f.dataset.inv});
+    if(tpl){ let b=fillTemplate(tpl.text, cid, {jobId:f.dataset.job, invId:f.dataset.inv}); if(f.dataset.plink && !b.includes(f.dataset.plink)) b+=` Photos: ${f.dataset.plink}`; $('#m-body').value=b; }
     $('#m-count').textContent=$('#m-body').value.length+' characters'; updateSmsLink();
   }
 });
@@ -5172,7 +5267,7 @@ function applyChange(t, p){
   if(t==='messages' && p.eventType==='INSERT' && p.new && p.new.data && p.new.data.direction==='in' && !p.new.data.read){ const d=p.new.data; const c=msgCustomerId(d); toast(`New text from ${c?custLabel(cust(c)):fmtNum(d.number)}`); }
   if(t==='jobs' && p.new && p.new.data && p.new.data.quoteResponse && S.role!=='crew'){ const was=m.get(p.new.id); if(!was || !was.quoteResponse){ const d=p.new.data; toast(`${custName(d.customerId)} ${d.quoteResponse.decision} your quote${d.quoteResponse.decision==='accepted'?(d.status==='Scheduled'?` · booked ${fmtDate(d.date)}`:' · pick a date'):''}`); } }
   if(t==='invoices' && p.new && p.new.data && S.role!=='crew'){ const was=m.get(p.new.id); const seen=new Set(((was&&was.payments)||[]).map(x=>x.qboId).filter(Boolean)); const fresh=(p.new.data.payments||[]).filter(x=>x.source==='quickbooks' && x.qboId && !seen.has(x.qboId)); if(was && fresh.length) toast(`QuickBooks payment: ${money(fresh.reduce((a,x)=>a+(+x.amount||0),0))} on invoice #${p.new.data.number}`); }
-  if(t==='customer_events' && p.eventType==='INSERT' && p.new && p.new.data && S.role!=='crew'){ const e=p.new.data; if(e.kind==='quote_viewed'||e.kind==='email_opened'){ const a=actText({id:p.new.id,...e}); if(a) toast(`${custName(e.customerId)} ${a.toast}`); } }
+  if(t==='customer_events' && p.eventType==='INSERT' && p.new && p.new.data && S.role!=='crew'){ const e=p.new.data; if(e.kind==='quote_viewed'||e.kind==='email_opened'||e.kind==='photos_viewed'){ const a=actText({id:p.new.id,...e}); if(a) toast(`${custName(e.customerId)} ${a.toast}`); } }
   if(t==='voicemails' && p.eventType==='INSERT' && p.new && p.new.data && !p.new.data.heard && !p.new.data.deleted) toast(`New voicemail from ${vmWho(p.new.data)}`);
   if(p.eventType==='DELETE'){ if(p.old && p.old.id) m.delete(p.old.id); } else if(p.new){ m.set(p.new.id, {id:p.new.id, ...(p.new.data||{})}); }
   S[t]=[...m.values()]; scheduleRender();
