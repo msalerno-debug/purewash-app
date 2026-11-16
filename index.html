@@ -1945,6 +1945,8 @@ function conversations(){
   return [...map.values()].map(g=>{ g.msgs.sort((a,b)=>(a.createdAt||0)-(b.createdAt||0)); g.last=g.msgs[g.msgs.length-1]; return g; }).sort((a,b)=>(b.last.createdAt||0)-(a.last.createdAt||0));
 }
 const unreadTexts = () => S.messages.reduce((n,m)=>n+(m.channel!=='email' && m.direction==='in' && !m.read ? 1 : 0),0);
+// heard/unheard in the app goes to phone.com right away; anything that misses is sent by the minute sync
+function vmPushHeard(ids, heard){ if(!ids.length || !S.integ.sms) return; callFn('voicemail',{action:'heard', ids, heard}).catch(()=>{}); }
 const unheardVm = () => S.voicemails.reduce((n,v)=>n+(!v.heard && !v.deleted ? 1 : 0),0);
 const inboxCount = () => unreadTexts() + unheardVm();
 const VM={url:new Map(), want:new Set(), timer:null};
@@ -3373,8 +3375,8 @@ const A = {
     const {data:row}=await sb.from('voicemails').select('id,data').eq('id',d.id).maybeSingle();
     if(row) applyLocal('voicemails', row.id, row.data||{}); else rerender();
   },
-  async vmHeard(d){ const v=STORE.voicemails.get(d.id); if(!v) return; await write(()=>saveDoc('voicemails', v.id, {...v, heard:d.on==='1', heardVia:d.on==='1'?'app':null})); },
-  async vmAllHeard(){ const list=vmList().filter(v=>!v.heard); let n=0; for(const v of list){ try{ await saveDoc('voicemails', v.id, {...v, heard:true, heardVia:'app'}); n++; }catch(e){} } toast(`${n} voicemail${n===1?'':'s'} marked heard`); },
+  async vmHeard(d){ const v=STORE.voicemails.get(d.id); if(!v) return; const on=d.on==='1'; if(await write(()=>saveDoc('voicemails', v.id, {...v, heard:on, heardVia:'app', pcPending:true}))) vmPushHeard([v.id], on); },
+  async vmAllHeard(){ const list=vmList().filter(v=>!v.heard); const ids=[]; for(const v of list){ try{ await saveDoc('voicemails', v.id, {...v, heard:true, heardVia:'app', pcPending:true}); ids.push(v.id); }catch(e){} } toast(`${ids.length} voicemail${ids.length===1?'':'s'} marked heard`); vmPushHeard(ids, true); },
   vmDeleteAsk(d){ S.vmConfirm=d.id; rerender(); },
   vmDeleteCancel(){ S.vmConfirm=null; rerender(); },
   async vmDelete(d){
@@ -5009,7 +5011,7 @@ document.addEventListener('play', e=>{
   const a=e.target; if(!a || a.tagName!=='AUDIO') return;
   document.querySelectorAll('audio').forEach(x=>{ if(x!==a && !x.paused) x.pause(); });
   const v=a.dataset.vm && STORE.voicemails.get(a.dataset.vm);
-  if(v && !v.heard) saveDoc('voicemails', v.id, {...v, heard:true, heardVia:'app'}).catch(()=>{});
+  if(v && !v.heard) saveDoc('voicemails', v.id, {...v, heard:true, heardVia:'app', pcPending:true}).then(()=>vmPushHeard([v.id], true)).catch(()=>{});
 }, true);
 ['pause','ended'].forEach(ev=>document.addEventListener(ev, e=>{ if(e.target && e.target.tagName==='AUDIO' && S._renderPending && !audioPlaying()){ S._renderPending=false; setTimeout(scheduleRender, 50); } }, true));
 document.addEventListener('click', e=>{

@@ -1,4 +1,6 @@
-// Voicemail from phone.com.
+// Voicemail from phone.com. Heard/unheard stays in step both ways:
+//  - listened to (or marked) in phone.com -> updated here by the scheduled sync
+//  - played or marked in this app -> sent to phone.com right away ({action:"heard"}); if that misses, pcPending makes the sync send it
 //  - Scheduled sync (pg_cron, x-sync-token header): lists voicemails, saves new ones, copies recent recordings into storage.
 //  - On demand (signed-in owner/office): {action:"fetch", id} copies one older recording so it can be played.
 // Recordings are converted from telephone µ-law WAV to standard WAV so every browser can play them.
@@ -42,6 +44,12 @@ async function copyAudio(admin: SupabaseClient, token: string, voip: string, row
   return { ok: true, audio };
 }
 
+// tell phone.com a voicemail is heard (is_new=false) or new again (is_new=true)
+async function pushHeard(token: string, voip: string, pcId: string, heard: boolean) {
+  const r = await fetch(`https://api.phone.com/v4/accounts/${encodeURIComponent(voip)}/voicemail/${encodeURIComponent(pcId)}`, { method: "PATCH", headers: { "Authorization": `Bearer ${token}`, "Accept": "application/json", "Content-Type": "application/json" }, body: JSON.stringify({ is_new: !heard }) });
+  return r.ok || r.status === 404;
+}
+
 async function sync(admin: SupabaseClient) {
   const { token, voip } = await keys(admin);
   if (!token || !voip) return { skipped: "phone.com not configured" };
@@ -81,7 +89,7 @@ async function sync(admin: SupabaseClient) {
   }
   const cutoff = Date.now() - EAGER_DAYS * 86400e3;
   const fresh: { id: string; data: Record<string, unknown> }[] = [];
-  let heardUpdates = 0;
+  let heardUpdates = 0, heardPushed = 0;
   for (const it of items) {
     const id = "vm-" + String(it.id);
     const from = (it.from || {}) as Record<string, unknown>;
@@ -89,8 +97,17 @@ async function sync(admin: SupabaseClient) {
     const createdAt = Number(it.created_at || 0) * 1000;
     const old = existing.get(id);
     if (old) {
-      // phone.com says it's been listened to (e.g. on the phone) -> mark heard here too
-      if (it.is_new === false && old.heard === false && !old.deleted) { await admin.from("voicemails").update({ data: { ...old, heard: true, heardVia: "phone.com" } }).eq("id", id); heardUpdates++; }
+      if (old.deleted || typeof it.is_new !== "boolean") continue;
+      const heardThere = it.is_new === false, heardHere = !!old.heard;
+      // changed in this app and not yet sent (or played here before two-way sync existed): send it to phone.com
+      const appOwes = old.pcPending === true || (old.heardVia === "app" && old.pcSynced !== true);
+      if (appOwes) {
+        if (heardThere !== heardHere) { if (await pushHeard(token, voip, String(old.pcId), heardHere)) heardPushed++; else continue; }
+        await admin.from("voicemails").update({ data: { ...old, pcPending: false, pcSynced: true } }).eq("id", id);
+      } else if (heardThere !== heardHere) {
+        // listened to, or marked new again, in phone.com -> same here
+        await admin.from("voicemails").update({ data: { ...old, heard: heardThere, heardVia: "phone.com", pcSynced: true } }).eq("id", id); heardUpdates++;
+      }
       continue;
     }
     fresh.push({ id, data: {
@@ -110,7 +127,7 @@ async function sync(admin: SupabaseClient) {
   for (const row of queue) { const r = await copyAudio(admin, token, voip, row as { id: string; data: Record<string, unknown> }); r.ok ? copied++ : copyErrors++; }
 
   await save({ backfilled: true, lastRun: Date.now(), lastError: null, total: items.length > (Number(prev.total) || 0) ? items.length : prev.total, audioQueue: Math.max(0, (want || []).length - copied) });
-  return { ok: true, firstRun, added: fresh.length, heardUpdates, copied, copyErrors };
+  return { ok: true, firstRun, added: fresh.length, heardUpdates, heardPushed, copied, copyErrors };
 }
 
 Deno.serve(async (req) => {
@@ -134,6 +151,22 @@ Deno.serve(async (req) => {
       if (!token || !voip) return json({ error: "phone.com isn't connected. The owner can fix it in Settings → APIs." }, 503);
       const r = await copyAudio(admin, token, voip, row as { id: string; data: Record<string, unknown> });
       return r.ok ? json({ ok: true }) : json({ error: r.error }, 502);
+    }
+    if (body.action === "heard") {
+      const { token, voip } = await keys(admin);
+      if (!token || !voip) return json({ ok: true, skipped: "phone.com not set up" });
+      const ids = (Array.isArray(body.ids) ? body.ids : []).map(String).filter((x: string) => /^vm-/.test(x)).slice(0, 200);
+      const heard = body.heard !== false;
+      let sent = 0;
+      for (let i = 0; i < ids.length; i += 100) {
+        const { data: rows } = await admin.from("voicemails").select("id,data").in("id", ids.slice(i, i + 100));
+        for (const r of rows || []) {
+          const d = r.data as Record<string, unknown>;
+          if (!!d.heard !== heard || !d.pcId) continue; // changed again since; the sync will settle it
+          if (await pushHeard(token, voip, String(d.pcId), heard)) { await admin.from("voicemails").update({ data: { ...d, pcPending: false, pcSynced: true } }).eq("id", r.id); sent++; }
+        }
+      }
+      return json({ ok: true, sent });
     }
     if (body.action === "sync") {
       if (me.role !== "owner") return json({ error: "Only the owner can run a sync." }, 403);
