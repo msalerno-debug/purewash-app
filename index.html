@@ -495,6 +495,9 @@ td.selcol,th.selcol{width:36px;padding-right:0}
 .bulk-preview{display:flex;flex-wrap:wrap;gap:6px}
 .bulk-preview span{font-size:.8rem;background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:3px 9px}
 .chk-row{display:flex;gap:8px;align-items:center;font-weight:600;font-size:.9rem;cursor:pointer}
+.field label.tbd-row{text-transform:none;letter-spacing:0;font-size:.95rem;font-weight:600;color:var(--ink);margin-top:2px;min-height:40px}
+.tbd-row input[type=checkbox]{width:20px;height:20px;accent-color:var(--accent);flex:none}
+.field [hidden],.fgrid > [hidden]{display:none!important}
 .chk-row input{width:18px;height:18px;accent-color:var(--accent)}
 .billbox{border:1px solid var(--line);border-radius:var(--r);padding:12px;background:var(--surface-2);gap:8px}
 .billing-fields{display:flex;flex-direction:column;gap:8px;margin-top:6px}
@@ -1115,6 +1118,8 @@ function syncTbd(){
   const st=f.querySelector('#j-status'), cb=f.querySelector('#j-tbd'), row=f.querySelector('#j-tbd-row'), d=f.querySelector('#j-date'); if(!st||!cb||!d) return;
   const quoted = st.value==='Quoted'; if(row) row.hidden=!quoted; if(!quoted && cb.checked) cb.checked=false;
   const off = quoted && cb.checked; d.disabled=off; d.hidden=off; d.required=!off;
+  // no date yet means no arrival time either; it comes back when the date is set
+  const tf=f.querySelector('#j-time-field'), t=f.querySelector('#j-time'); if(tf&&t){ tf.hidden=off; t.disabled=off; }
   if(!off && document.activeElement===cb) d.focus();
 }
 function updateRepPreview(){
@@ -2899,9 +2904,9 @@ const DRAWERS = {
       ${customerSelect('j-cust', j.customerId)}
       <div class="fgrid">
         <div class="field"><label for="j-date">Date</label><input type="date" id="j-date" name="date" value="${esc(j.date||'')}" ${tbd?'disabled hidden':'required'}>
-          <label class="chk-row" id="j-tbd-row" style="font-weight:500" ${j.status==='Quoted'?'':'hidden'}><input type="checkbox" id="j-tbd" name="dateTbd" ${tbd?'checked':''}> Date TBD</label>
+          <label class="chk-row tbd-row" id="j-tbd-row" ${j.status==='Quoted'?'':'hidden'}><input type="checkbox" id="j-tbd" name="dateTbd" ${tbd?'checked':''}> Date TBD</label>
           ${book&&!j.date?'<span class="hint">This quote has no date yet. Pick the visit date to book it.</span>':''}</div>
-        <div class="field"><label for="j-time">Arrival time</label><input type="time" id="j-time" name="time" value="${esc(j.time)}"></div>
+        <div class="field" id="j-time-field" ${tbd?'hidden':''}><label for="j-time">Arrival time</label><input type="time" id="j-time" name="time" value="${esc(j.time)}" ${tbd?'disabled':''}></div>
         <div class="field"><label for="j-status">Status</label><select id="j-status" name="status">${JOB_STATUS.map(s=>`<option ${j.status===s?'selected':''}>${s}</option>`).join('')}</select></div>
         <div class="field"><label for="j-crew">Crew</label><input type="text" id="j-crew" name="crew" value="${esc(j.crew)}" placeholder="Mike & Dan" list="team-names" autocomplete="off"><datalist id="team-names">${teamNames().map(n=>`<option value="${esc(n)}">`).join('')}</datalist></div>
         <div class="field full" id="j-offwarn" aria-live="polite">${jobFormWarn(j.date, j.crew, j.time, j.hours)}</div>
@@ -3836,6 +3841,7 @@ const F = {
     if(!fd.customerId){ toast('Choose a customer.','bad'); return; }
     const prev = id ? job(id) : {createdAt:Date.now()};
     fd.date = fd.status==='Quoted' && fd.dateTbd ? '' : (fd.date||'');
+    if(fd.status==='Quoted' && fd.dateTbd) fd.time='';
     if(!fd.date && fd.status!=='Quoted'){ toast('Pick a date. Only quotes can have the date TBD.','bad'); return; }
     const data = {...prev, customerId:fd.customerId, date:fd.date, time:fd.time, status:fd.status, crew:fd.crew.trim(), hours:fd.hours!==''&&fd.hours!=null?+fd.hours:'', notes:fd.notes, items:readItems(f), updatedAt:Date.now()};
     Object.assign(data, readDisc(fd));
