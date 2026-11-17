@@ -16,7 +16,8 @@ body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Inter,system-u
 .wrap{max-width:640px;margin:0 auto;padding:28px 16px 48px}
 .brand{font-weight:800;font-size:1.25rem;letter-spacing:-.01em}
 .qhead{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
-.qlogo{display:block;width:260px;max-width:80%;height:auto;background:#fff;border-radius:12px;padding:8px 12px}
+.qlogo{display:block;width:300px;max-width:84%;height:auto}
+@media (prefers-color-scheme:dark){.qlogo{background:#fff;border-radius:14px;padding:10px 14px}}
 .sub{color:var(--muted);font-size:.9rem}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px;margin-top:18px;box-shadow:0 1px 2px rgba(19,35,63,.05)}
 h1{font-size:1.5rem;line-height:1.25;margin:0 0 6px;letter-spacing:-.015em}
@@ -33,7 +34,12 @@ textarea:focus,button:focus-visible{outline:2px solid var(--accent);outline-offs
 .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
 button{font:inherit;font-weight:700;border-radius:10px;padding:13px 22px;cursor:pointer;border:1px solid var(--accent);min-height:48px}
 .yes{background:var(--accent);color:var(--accent-ink);flex:1 1 200px}
-.no{background:transparent;color:var(--accent);border-color:var(--line);flex:0 1 160px}
+.no{background:transparent;color:var(--accent);border-color:var(--line);flex:1 1 140px}
+.chg{background:transparent;color:var(--accent);border-color:var(--accent);flex:1 1 140px}
+.btns .yes{flex:1 1 100%}
+.legal{margin-top:18px;padding-top:14px;border-top:1px solid var(--line);font-size:.8rem;line-height:1.55;color:var(--muted)}
+.sent{margin-top:16px;padding:14px;border-radius:12px;background:var(--good-soft);color:var(--ink)}
+.sent strong{color:var(--good)}
 button[disabled]{opacity:.6;cursor:default}
 .confirm{margin-top:16px;padding:14px;border-radius:12px;background:var(--accent-soft)}
 .done{text-align:center;padding:30px 22px}
@@ -59,14 +65,15 @@ const app=document.getElementById('app');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=n=>'$'+(Math.round(n*100)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtDate=s=>{ if(!s) return ''; const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'}); };
-let Q=null, choice=pre==='decline'?'decline':pre==='accept'?'accept':null, busy=false, err='';
+let Q=null, choice=pre==='decline'?'decline':pre==='accept'?'accept':pre==='change'?'change':null, busy=false, err='', sent=false;
+const LEGAL='By accepting this quote, you acknowledge you have read and agree to the attached “Preparing for Your Appointment” instructions which form part of this agreement. PureWash is not responsible for pre-existing damage it did not cause. If I authorize PureWash to move belongings, I release PureWash and its employees from liability for accidental property damage caused by that movement, including ordinary negligence, to the extent permitted by law. This excludes gross negligence, reckless or intentional misconduct, and rights that cannot legally be waived.';
 async function call(body){ const r=await fetch(FN,{method:'POST',headers:{'Content-Type':'application/json',apikey:KEY,Authorization:'Bearer '+KEY},body:JSON.stringify({t:T,...body})}); const j=await r.json().catch(()=>({})); return {status:r.status, ...j}; }
 function contact(){ const b=Q&&Q.business||{}; const bits=[b.phone?`call <a href="tel:${esc(String(b.phone).replace(/[^\d+]/g,''))}">${esc(b.phone)}</a>`:'', b.email?`email <a href="mailto:${esc(b.email)}">${esc(b.email)}</a>`:''].filter(Boolean); return bits.length?`Questions? ${bits.join(' or ')}.`:''; }
 function render(){
   if(!Q){ app.innerHTML=`<div class="card"><h1>Quote not found</h1><p class="sub">${esc(err||'This link may be incomplete. Please use the button in your email, or contact us.')}</p></div>`; return; }
   const b=Q.business, name=b.name||'Your quote';
   document.title=`${name} quote`;
-  const logo=b.logo?`<img class="qlogo" src="${esc(b.logo)}" alt="${esc(name)}">`:`<div class="brand">${esc(name)}</div>`;
+  const logo=`<img class="qlogo" src="/purewash-logo-stacked.png" alt="${esc(name)}">`;
   const head=`<div class="qhead">${logo}${b.address?`<div class="sub">${esc(b.address)}</div>`:''}</div>`;
   if(Q.state==='accepted'||Q.state==='declined'){
     const ok=Q.state==='accepted';
@@ -82,13 +89,17 @@ function render(){
     <table><thead><tr><th>Service</th><th class="r">Price</th></tr></thead><tbody>${rows||'<tr><td colspan="2" class="sub">No services listed</td></tr>'}${Q.discount>0?`<tr><td>Subtotal</td><td class="r">${esc(money(Q.subtotal))}</td></tr><tr><td>${esc(Q.discountLabel||'Discount')}</td><td class="r">−${esc(money(Q.discount))}</td></tr>`:''}${Q.tax>0?`${Q.discount>0?'':`<tr><td>Subtotal</td><td class="r">${esc(money(Q.subtotal))}</td></tr>`}<tr><td>Sales tax (${esc(+(+Q.taxRate).toFixed(3))}%)</td><td class="r">${esc(money(Q.tax))}</td></tr>`:Q.taxExempt?`<tr><td>Sales tax</td><td class="r sub">Exempt</td></tr>`:''}<tr class="tot"><td>Total</td><td class="r">${esc(money(Q.total))}</td></tr></tbody></table>
   </section>
   <section class="card">
-    ${choice?`<div class="confirm"><strong>${choice==='accept'?(Q.date?`Accept this quote and book ${esc(fmtDate(Q.date))}?`:'Accept this quote?'):'Decline this quote?'}</strong></div>`:'<strong>Would you like to go ahead?</strong>'}
-    <label for="note">${choice==='decline'?'Mind sharing why? (optional)':'Anything we should know? (optional)'}</label>
-    <textarea id="note" maxlength="1000" placeholder="${choice==='decline'?'Price, timing, went with someone else…':'Gate code, best time to call, pets…'}"></textarea>
+    ${sent?`<div class="sent" role="status"><strong>✓ Change request sent.</strong> We'll review it and send you an updated quote. You can still accept this one below if you'd rather go ahead as is.</div>`:''}
+    ${choice?`<div class="confirm"><strong>${choice==='accept'?(Q.date?`Accept this quote and book ${esc(fmtDate(Q.date))}?`:'Accept this quote?'):choice==='change'?'What would you like changed?':'Decline this quote?'}</strong>${choice==='change'?'<div class="sub" style="margin-top:4px">Tell us what to add, remove or adjust and we\'ll send you an updated quote.</div>':''}</div>`:`<strong>${sent?'Ready to go ahead?':'Would you like to go ahead?'}</strong>`}
+    <label for="note">${choice==='decline'?'Mind sharing why? (optional)':choice==='change'?'Your requested changes':'Anything we should know? (optional)'}</label>
+    <textarea id="note" maxlength="1000" ${choice==='change'?'required':''} placeholder="${choice==='decline'?'Price, timing, went with someone else…':choice==='change'?'Add screens, skip the gutters, different date…':'Gate code, best time to call, pets…'}"></textarea>
     <div class="btns">${choice==='decline'
       ?`<button class="yes" style="background:var(--bad);border-color:var(--bad);color:#fff" data-go="decline" ${busy?'disabled':''}>${busy?'Sending…':'Yes, decline'}</button><button class="no" data-pick="" ${busy?'disabled':''}>Back</button>`
-      :`<button class="yes" data-go="accept" ${busy?'disabled':''}>${busy?'Sending…':(choice==='accept'?'Yes, accept quote':'Accept quote')}</button><button class="no" data-pick="decline" ${busy?'disabled':''}>Decline</button>`}</div>
+      :choice==='change'
+      ?`<button class="yes" data-go="change" ${busy?'disabled':''}>${busy?'Sending…':'Send change request'}</button><button class="no" data-pick="" ${busy?'disabled':''}>Back</button>`
+      :`<button class="yes" data-go="accept" ${busy?'disabled':''}>${busy?'Sending…':(choice==='accept'?'Yes, accept quote':'Accept quote')}</button><button class="chg" data-pick="change" ${busy?'disabled':''}>Request change</button><button class="no" data-pick="decline" ${busy?'disabled':''}>Decline</button>`}</div>
     ${err?`<div class="err" role="alert">${esc(err)}</div>`:''}
+    <p class="legal">${esc(LEGAL)}</p>
   </section>
   <p class="foot">${contact()}</p>`;
 }
@@ -96,10 +107,11 @@ app.addEventListener('click', async e=>{
   const pk=e.target.closest('[data-pick]'); if(pk){ const n=document.getElementById('note').value; choice=pk.dataset.pick||null; err=''; render(); document.getElementById('note').value=n; return; }
   const go=e.target.closest('[data-go]'); if(!go || busy) return;
   const note=(document.getElementById('note')||{}).value||'';
+  if(go.dataset.go==='change' && note.trim().length<3){ err='Please tell us what you\'d like changed.'; render(); const n=document.getElementById('note'); n.value=note; n.focus(); return; }
   busy=true; err=''; render(); document.getElementById('note').value=note;
   const r=await call({action:'respond', decision:go.dataset.go, note});
   busy=false;
-  if(r.ok){ Q=r; } else { if(r.state) Q={...Q,...r}; err=r.error||'Something went wrong. Please try again.'; }
+  if(r.ok){ Q=r; if(r.changeSent){ sent=true; choice=null; render(); window.scrollTo({top:0,behavior:'smooth'}); return; } } else { if(r.state) Q={...Q,...r}; err=r.error||'Something went wrong. Please try again.'; }
   render(); if(Q.state==='open'){ const n=document.getElementById('note'); if(n) n.value=note; }
   window.scrollTo({top:0,behavior:'smooth'});
 });

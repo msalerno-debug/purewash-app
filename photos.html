@@ -15,7 +15,8 @@
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased}
 .wrap{max-width:980px;margin:0 auto;padding:24px 16px 48px}
 .head{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
-.logo{display:block;width:240px;max-width:72%;height:auto;background:#fff;border-radius:12px;padding:8px 12px}
+.logo{display:block;width:280px;max-width:80%;height:auto}
+@media (prefers-color-scheme:dark){.logo{background:#fff;border-radius:14px;padding:10px 14px}}
 .brand{font-weight:800;font-size:1.3rem}
 h1{font-size:1.5rem;line-height:1.25;margin:18px 0 4px;letter-spacing:-.015em;text-align:center}
 .sub{color:var(--muted);font-size:.92rem;text-align:center;margin:0}
@@ -72,7 +73,7 @@ function contact(b){ const bits=[b.phone?`call <a href="tel:${esc(String(b.phone
 function render(){
   if(!D){ app.innerHTML=`<div class="err" role="alert">${esc(err||'This link may be incomplete. Please use the link we sent you, or contact us.')}</div>`; return; }
   const b=D.business; document.title=`Photos from ${b.name||'your visit'}`;
-  const head=`<div class="head">${b.logo?`<img class="logo" src="${esc(b.logo)}" alt="${esc(b.name)}">`:`<div class="brand">${esc(b.name)}</div>`}</div>`;
+  const head=`<div class="head"><img class="logo" src="/purewash-logo-stacked.png" alt="${esc(b.name||'PureWash')}"></div>`;
   const before=D.photos.filter(p=>p.kind==='before'), after=D.photos.filter(p=>p.kind==='after'), other=D.photos.filter(p=>p.kind!=='before'&&p.kind!=='after');
   order=[...before,...after,...other];
   const tile=p=>{ const i=order.indexOf(p); return `<div><button class="ph" data-i="${i}" aria-label="Open photo ${i+1}${p.caption?': '+esc(p.caption):''}"><img src="${esc(p.url)}" alt="${esc(p.caption||(p.kind?p.kind+' photo':'Photo'))}" loading="lazy">${p.kind==='before'||p.kind==='after'?`<span class="tag ${p.kind}">${p.kind}</span>`:''}</button>${p.caption?`<p class="cap">${esc(p.caption)}</p>`:''}</div>`; };

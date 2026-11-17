@@ -1,6 +1,6 @@
 // Public quote page backend. No sign-in: the long random token in the link is the key.
 //  {action:"get", t}                       -> what the customer sees (no internal notes, crew or prices beyond the quote)
-//  {action:"respond", t, decision, note}  -> accept or decline once; updates the job and notifies the business
+//  {action:"respond", t, decision, note}  -> accept or decline once, or request a change (quote stays open); updates the job and emails the notification list
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const cors = {
@@ -51,10 +51,11 @@ Deno.serve(async (req) => {
 
     const view = () => ({
       ok: true, state,
-      business: { name: s.businessName || "", phone: s.phone || "", email: s.email || "", address: s.address || "", logo: (() => { const l = String(s.logo || "/purewash-logo.png"); return l.startsWith("/") ? "https://purewash-app.vercel.app" + l : l; })() },
+      business: { name: s.businessName || "", phone: s.phone || "", email: s.email || "", address: s.address || "", logo: "https://purewash-app.vercel.app/purewash-logo-stacked.png" },
       customer: { first: firstName(c), address: address(c) },
       items: items.map((i) => ({ desc: String(i.desc || ""), details: String(i.details || ""), qty: Number(i.qty) || 0, rate: Number(i.rate) || 0 })),
       subtotal: sub, discount: disc, discountLabel: discLabel, taxRate: rate, tax: taxAmt, taxExempt: exempt, total: grand, date: String(j.date || ""), response: resp ? { decision: resp.decision, at: resp.at } : null,
+      changeRequested: (() => { const cr = (j.changeRequests || []) as Rec[]; const last = cr[cr.length - 1]; return last ? { at: last.at } : null; })(),
     });
 
     const logEvent = async (kind: string, extra: Rec = {}) => {
@@ -72,12 +73,57 @@ Deno.serve(async (req) => {
       return json(view());
     }
 
+    // who hears about it: the list in Settings > Notifications, else the business email, else the owner
+    const recipients = async (): Promise<string[]> => {
+      const ok = (e: unknown) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e || "").trim());
+      const list = Array.isArray(s.notifyEmails) ? (s.notifyEmails as unknown[]).map((e) => String(e).trim().toLowerCase()).filter(ok) : [];
+      if (list.length) return [...new Set(list)].slice(0, 20);
+      if (ok(s.email)) return [String(s.email).trim()];
+      const { data: own } = await admin.from("profiles").select("email").eq("role", "owner").eq("active", true).limit(1);
+      return own?.[0]?.email ? [own[0].email] : [];
+    };
+    const notify = async (kind: "accepted" | "declined" | "change", note: string, booked: boolean) => {
+      try {
+        const { data: keys } = await admin.from("app_secrets").select("key,value");
+        const k = new Map((keys || []).map((r) => [r.key, r.value]));
+        const key = String(k.get("RESEND_API_KEY") ?? env("RESEND_API_KEY")).trim(), from = String(k.get("EMAIL_FROM") ?? env("EMAIL_FROM")).trim();
+        const to = await recipients();
+        if (!key || !from || !to.length) return;
+        const name = custName(c); const amt = money(grand); const qn = j.quoteNumber ? ` #${j.quoteNumber}` : "";
+        const what = kind === "change" ? `asked for a change to quote${qn}` : kind === "accepted" ? (booked ? `accepted quote${qn} and is booked for ${fmtDate(String(j.date))}` : `accepted quote${qn}. The date is TBD, so pick one in the app to book it`) : `declined quote${qn}`;
+        const subject = kind === "change" ? `Change requested: ${name} (${amt})` : `Quote ${kind}: ${name} (${amt})`;
+        const color = kind === "accepted" ? "#1F7A4D" : kind === "declined" ? "#B3261E" : "#B26A00";
+        const label = kind === "accepted" ? "Accepted" : kind === "declined" ? "Declined" : "Change requested";
+        const noteLabel = kind === "change" ? "What they'd like changed" : "Their note";
+        const text = `${name} ${what}.\n${note ? `\n${noteLabel}: "${note}"\n` : ""}\nServices:\n${items.map((i) => `- ${i.desc}${Number(i.qty) > 1 ? ` x${i.qty}` : ""}: ${money((Number(i.qty) || 0) * (Number(i.rate) || 0))}`).join("\n")}${disc ? `\n${discLabel}: -${money(disc)}` : ""}${taxAmt ? `\nSales tax: ${money(taxAmt)}` : ""}\nTotal: ${amt}\n\nAddress: ${address(c) || "none on file"}${c?.phone ? `\nPhone: ${c.phone}` : ""}${c?.email ? `\nEmail: ${c.email}` : ""}\n\nOpen the app: https://purewash-app.vercel.app`;
+        const html = `<div style="font-family:Arial,sans-serif;font-size:15px;color:#13233f;line-height:1.5"><p><span style="display:inline-block;background:${color};color:#fff;font-weight:bold;font-size:12px;letter-spacing:.04em;text-transform:uppercase;padding:4px 10px;border-radius:999px">${label}</span></p><p style="font-size:17px"><strong>${esc(name)}</strong> ${esc(what)}.</p>${note ? `<p style="background:#f2f5fa;border-left:4px solid ${color};padding:10px 12px;border-radius:8px"><strong>${esc(noteLabel)}:</strong><br>“${esc(note).replace(/\n/g, "<br>")}”</p>` : ""}<p>${items.map((i) => `${esc(i.desc)}: ${esc(money((Number(i.qty) || 0) * (Number(i.rate) || 0)))}`).join("<br>")}${disc ? `<br>${esc(discLabel)}: -${esc(money(disc))}` : ""}${taxAmt ? `<br>Sales tax: ${esc(money(taxAmt))}` : ""}<br><strong>Total: ${esc(amt)}</strong></p><p>${esc(address(c))}${c?.phone ? `<br>${esc(c.phone)}` : ""}${c?.email ? `<br>${esc(c.email)}` : ""}</p><p><a href="https://purewash-app.vercel.app" style="background:#2B5190;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;display:inline-block">Open PureWash</a></p></div>`;
+        const payload: Rec = { from, to, subject, text, html };
+        if (c?.email && /^\S+@\S+\.\S+$/.test(String(c.email))) payload.reply_to = String(c.email);
+        await fetch("https://api.resend.com/emails", { method: "POST", headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      } catch (_) { /* the in-app alert still shows */ }
+    };
+
     if (body.action === "respond") {
-      const decision = body.decision === "accept" ? "accepted" : body.decision === "decline" ? "declined" : "";
-      if (!decision) return json({ error: "Choose accept or decline." }, 400);
+      const decision = body.decision === "accept" ? "accepted" : body.decision === "decline" ? "declined" : body.decision === "change" ? "change" : "";
+      if (!decision) return json({ error: "Choose accept, decline or request a change." }, 400);
       if (state !== "open") return json({ ...view(), error: state === "closed" ? "This quote is no longer open. Please contact us." : "You already answered this quote. Contact us if you'd like to change it." }, 409);
       const note = String(body.note || "").trim().slice(0, 1000);
       const now = Date.now();
+
+      if (decision === "change") {
+        if (note.length < 3) return json({ ...view(), error: "Please tell us what you'd like changed." }, 400);
+        const prev = ((j.changeRequests || []) as Rec[]);
+        const last = prev[prev.length - 1];
+        if (last && String(last.note) === note && now - Number(last.at) < 10 * 60000) return json({ ...view(), changeSent: true });
+        const upd: Rec = { ...j, changeRequests: [...prev, { note, at: now, seen: false }].slice(-20), updatedAt: now };
+        const { data: done } = await admin.from("jobs").update({ data: upd }).eq("id", row.id).eq("data->>status", "Quoted").is("data->quoteResponse", null).select("id");
+        if (!done || !done.length) return json({ ...view(), error: "This quote is no longer open. Please contact us." }, 409);
+        Object.assign(j, upd);
+        await logEvent("quote_change", { note });
+        await notify("change", note, false);
+        return json({ ...view(), changeSent: true });
+      }
+
       const booked = decision === "accepted" && !!j.date;
       const upd: Rec = { ...j, quoteResponse: { decision, note, at: now, seen: false, booked }, updatedAt: now };
       if (booked) upd.status = "Scheduled";
@@ -87,23 +133,7 @@ Deno.serve(async (req) => {
       if (!done || !done.length) return json({ ...view(), error: "You already answered this quote." }, 409);
       await logEvent(decision === "accepted" ? "quote_accepted" : "quote_declined", note ? { note } : {});
       if (decision === "accepted" && c && (c.status === "Lead" || c.status === "Quoted")) await admin.from("customers").update({ data: { ...c, status: "Active", updatedAt: now } }).eq("id", cr!.id);
-
-      // notify the business by email
-      try {
-        const { data: keys } = await admin.from("app_secrets").select("key,value");
-        const k = new Map((keys || []).map((r) => [r.key, r.value]));
-        const key = String(k.get("RESEND_API_KEY") ?? env("RESEND_API_KEY")).trim(), from = String(k.get("EMAIL_FROM") ?? env("EMAIL_FROM")).trim();
-        let to = String(s.email || "").trim();
-        if (!/^\S+@\S+\.\S+$/.test(to)) { const { data: own } = await admin.from("profiles").select("email").eq("role", "owner").eq("active", true).limit(1); to = own?.[0]?.email || ""; }
-        if (key && from && to) {
-          const name = custName(c); const amt = money(grand);
-          const what = decision === "accepted" ? (booked ? `accepted and is booked for ${fmtDate(String(j.date))}` : "accepted. The date is TBD, so pick one in the app to book it") : "declined";
-          const subject = `Quote ${decision}: ${name} (${amt})`;
-          const text = `${name} ${what}.\n\nServices:\n${items.map((i) => `- ${i.desc}${Number(i.qty) > 1 ? ` x${i.qty}` : ""}: ${money((Number(i.qty) || 0) * (Number(i.rate) || 0))}`).join("\n")}${disc ? `\n${discLabel}: -${money(disc)}` : ""}${taxAmt ? `\nSales tax: ${money(taxAmt)}` : ""}\nTotal: ${amt}\n${note ? `\nTheir note: "${note}"\n` : ""}\nAddress: ${address(c) || "none on file"}${c?.phone ? `\nPhone: ${c.phone}` : ""}\n\nOpen the app: https://purewash-app.vercel.app`;
-          const html = `<div style="font-family:Arial,sans-serif;font-size:15px;color:#13233f;line-height:1.5"><p style="font-size:17px"><strong>${esc(name)}</strong> ${esc(what)}.</p><p>${items.map((i) => `${esc(i.desc)}: ${esc(money((Number(i.qty) || 0) * (Number(i.rate) || 0)))}`).join("<br>")}${disc ? `<br>${esc(discLabel)}: -${esc(money(disc))}` : ""}${taxAmt ? `<br>Sales tax: ${esc(money(taxAmt))}` : ""}<br><strong>Total: ${esc(amt)}</strong></p>${note ? `<p style="background:#f2f5fa;padding:10px 12px;border-radius:8px">Their note: “${esc(note)}”</p>` : ""}<p>${esc(address(c))}${c?.phone ? `<br>${esc(c.phone)}` : ""}</p><p><a href="https://purewash-app.vercel.app" style="background:#2B5190;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;display:inline-block">Open PureWash</a></p></div>`;
-          await fetch("https://api.resend.com/emails", { method: "POST", headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ from, to: [to], subject, text, html }) });
-        }
-      } catch (_) { /* the in-app alert still shows */ }
+      await notify(decision as "accepted" | "declined", note, booked);
 
       const { data: fresh } = await admin.from("jobs").select("data").eq("id", row.id).single();
       Object.assign(j, fresh?.data || {});

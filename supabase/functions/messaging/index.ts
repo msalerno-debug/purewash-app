@@ -23,8 +23,8 @@ const QUOTE_LINE = "Review your quote and accept or decline it online:";
 function brandedEmailHtml(text: string, o: { link?: string; quote?: Rec; invoice?: Rec; photos?: Rec; pixel?: string; origin: string }, s: Rec): string {
   const NAVY = "#1E3A6E", BLUE = "#2B5190", CYAN = "#00B4EE", TINT = "#E8F7FD", INK = "#24324A", MUTED = "#5F6B7E", FONT = "Arial,Helvetica,sans-serif";
   const name = String(s.businessName || "").trim();
-  const rawLogo = String(s.logo || "/purewash-logo.png");
-  const logo = rawLogo.startsWith("/") ? o.origin + rawLogo : /^https:\/\//.test(rawLogo) ? rawLogo : "";
+  // customer-facing emails use the stacked PureWash logo (transparent background)
+  const logo = "https://purewash-app.vercel.app/purewash-logo-stacked.png";
   const card = (o.quote || o.invoice || {}) as Rec;
   const num = String(card.number || "").trim();
   const total = card.total == null || card.total === "" ? NaN : Number(card.total);
@@ -68,7 +68,7 @@ function brandedEmailHtml(text: string, o: { link?: string; quote?: Rec; invoice
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background:#ffffff;border-radius:10px;overflow:hidden;font-family:${FONT};color:${INK}">
   <tr><td style="height:6px;background:${CYAN};font-size:0;line-height:0">&nbsp;</td></tr>
   ${kindLabel ? `<tr><td align="center" style="padding:22px 24px 0;font-size:12px;letter-spacing:2px;color:${MUTED};text-transform:uppercase">${kindLabel}</td></tr>` : ""}
-  <tr><td align="center" style="padding:${kindLabel ? 14 : 24}px 24px 0">${logo ? `<img src="${esc(logo)}" alt="${esc(name)}" width="${band ? 260 : 220}" style="display:block;width:${band ? 260 : 220}px;max-width:80%;height:auto;border:0">` : ""}</td></tr>
+  <tr><td align="center" style="padding:${kindLabel ? 14 : 24}px 24px 0">${logo ? `<img src="${esc(logo)}" alt="${esc(name)}" width="${band ? 290 : 250}" style="display:block;width:${band ? 290 : 250}px;max-width:84%;height:auto;border:0">` : ""}</td></tr>
   ${name && !logo ? `<tr><td align="center" style="padding:6px 24px 0;font-size:24px;font-weight:bold;color:${NAVY}">${esc(name)}</td></tr>` : ""}
   ${band ? `<tr><td style="padding:24px 0 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${TINT}"><tr><td align="center" style="padding:28px 24px 24px">${band}</td></tr></table></td></tr>` : ""}
   <tr><td style="padding:26px 32px 8px;font-size:16px;line-height:1.55;color:${INK}">${paras}${note ? `<p style="margin:0 0 14px;font-size:14px;color:${MUTED}">${note}</p>` : ""}</td></tr>

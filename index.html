@@ -199,6 +199,9 @@ button.act-row{cursor:pointer} button.act-row:hover .t{text-decoration:underline
 .notice.info{background:var(--accent-soft);color:var(--ink)}
 .notice.bad{background:var(--bad-soft);color:var(--bad)}
 .notice.good{background:var(--good-soft);color:var(--good)}
+.pill.change-requested{background:var(--mark-soft);color:var(--mark-ink);border-color:transparent}
+.nf-list{display:flex;flex-direction:column;gap:8px;max-width:520px}
+.nf-row{display:flex;gap:8px;align-items:center}.nf-row input{flex:1;min-width:0}
 .logo-pick{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 .logo-prev{width:240px;height:96px;border:1px dashed var(--line);border-radius:10px;display:grid;place-items:center;background:#fff;overflow:hidden;padding:6px}
 .logo-prev img{max-width:100%;max-height:100%;object-fit:contain}
@@ -898,6 +901,7 @@ const DEFAULT_SETTINGS = {
   invoiceThanks:'Thank you for your business, have a great day!',
   invoiceFooter:'We accept all major credit cards. All credit card payments over the amount of $500.00 are subject to a 3% processing fee. Thank you for your business',
   invoicePage2On:true, invoicePage2Title:'PREPARING FOR YOUR APPOINTMENT',
+  notifyEmails:['joe@purewash.net','info@purewash.net'],
   invoicePage2:"Thank you for choosing PureWash Window Cleaning. We look forward to making your windows sparkling clean. Please help us provide an excellent customer service experience for you by reviewing these tips and procedures:\n\n# PRIOR TO OUR ARRIVAL\nPlease be sure any delicate or breakable objects near your windows have been moved to a safe place prior to our arrival. If we are not cleaning the inside of your windows, please remove any exterior screens so that we can have ready access to the exterior glass.\n\n# WHAT WE MEAN BY “ALL WINDOWS AND DOORS CLEANED”\nWe will clean all glass on our estimate to remove all natural debris—that’s our 100% guarantee. Our standard cleaning does not include removal of physical damage, paint, hard water or chemical stains. Services for removing hard water stains or construction clean-up are available upon request and can be quoted separately.\n\n# WHAT WE MEAN BY “WIPE SILLS”\nWhen we clean, we wipe your sills and tracks with a towel. We can also provide deep clean track services for an additional charge. This service includes scraping and vacuuming tracks. If you would like this service, please request it prior to your scheduled cleaning.\n\n# WHAT WE MEAN BY “WE CLEAN YOUR SCREENS”\nWe remove screens from their tracks and wipe them down with a towel and cleaning solution. If we are not cleaning your interior glass, any screen that you would like cleaned should be left outside your home and will be cleaned at the additional charge of $3 per screen.\n\n# STORM WINDOWS\nPlease check to be sure that all storm windows can be opened and closed. We will remove and clean all sides of the storm windows.\n\n# OUR CLEANERS\nOur professional cleaners have received background checks, are bonded, insured, and wear uniforms. All cleaners receive ongoing safety and skills training to ensure their safety and the safety of your property. You can trust them to treat you and your home with the utmost care and respect.\n\n# WEATHER CHANGES\nIf adverse weather conditions prevent cleaning at your scheduled time, we will contact you immediately to reschedule your cleaning.\n\n# ADDITIONAL CLEANING SERVICES\nOur professional cleaners can also clean gutters, skylights, chandeliers, ceiling fans, mirrors, screens, light fixtures, awnings, and solar panels.",
   serviceDescriptions:{},
   invoiceNote:'Thank you for your business! Streak-free guarantee: if anything was missed, call within 7 days and we will come back.',
@@ -995,6 +999,7 @@ function actText(e){
     case 'photos_viewed': return {who:'cust', icon:'👁', text:`Viewed the ${e.count>1?e.count+' photos':'photo'} you sent`, toast:`is looking at the photos you sent`};
     case 'quote_accepted': return {who:'cust', icon:'✓', text:`Accepted ${d}${amt}`, note:e.note, good:true};
     case 'quote_declined': return {who:'cust', icon:'✕', text:`Declined ${d}${amt}`, note:e.note, bad:true};
+    case 'quote_change': return {who:'cust', icon:'✎', text:`Asked for a change to ${d}`, note:e.note, toast:`asked for a change to ${d}`};
   } return null; }
 function custActivity(id){
   const out=[]; const add=(at,a,extra={})=>{ if(a && at) out.push({at:+at, ...a, ...extra}); };
@@ -1071,8 +1076,13 @@ function seenHtml(filter, what, sent){
   const bits=[viewed.length?`viewed it online ${viewed.length===1?'once':viewed.length+' times'} (last ${fmtStamp(viewed[0].at)})`:'', opened.length?`opened the email ${opened.length===1?'once':opened.length+' times'} (last ${fmtStamp(opened[0].at)})`:''].filter(Boolean);
   return bits.length?`<p class="hint">👁 The customer ${esc(bits.join(' and '))}.</p>`:`<p class="hint">The ${what} email hasn't been opened yet.</p>`;
 }
+function changeReqHtml(j){
+  const cr=(j.changeRequests||[]); if(!cr.length) return '';
+  const last=cr[cr.length-1];
+  return `<div class="notice warn" style="flex-direction:column;align-items:flex-start;gap:6px"><strong>✎ Change requested ${esc(fmtStamp(last.at))}</strong><span>“${esc(last.note)}”</span>${cr.length>1?`<details><summary class="hint">${cr.length-1} earlier request${cr.length>2?'s':''}</summary>${cr.slice(0,-1).reverse().map(x=>`<p class="hint" style="margin-top:4px">${esc(fmtStamp(x.at))}: “${esc(x.note)}”</p>`).join('')}</details>`:''}<span class="hint">Edit the quote and email it again. The customer can still accept the current version.</span></div>`;
+}
 function quoteRespHtml(j){
-  const r=j.quoteResponse; if(!r) return j.status==='Quoted'?`${j.quoteSentAt?`<p class="hint">Quote emailed ${esc(fmtStamp(j.quoteSentAt))}. The customer can accept or decline it from the email.</p>`:''}${seenHtml(e=>e.jobId===j.id&&(e.kind==='quote_viewed'||(e.kind==='email_opened'&&e.doc==='quote')),'quote',S.customer_events.some(e=>e.jobId===j.id&&e.kind==='email_sent'))}`:'';
+  const r=j.quoteResponse; if(!r) return j.status==='Quoted'?`${changeReqHtml(j)}${j.quoteSentAt?`<p class="hint">Quote emailed ${esc(fmtStamp(j.quoteSentAt))}. The customer can accept or decline it from the email.</p>`:''}${seenHtml(e=>e.jobId===j.id&&(e.kind==='quote_viewed'||(e.kind==='email_opened'&&e.doc==='quote')),'quote',S.customer_events.some(e=>e.jobId===j.id&&e.kind==='email_sent'))}`:'';
   const acc=r.decision==='accepted';
   return `<div class="notice ${acc?'good':'bad'}" style="flex-direction:column;align-items:flex-start;gap:6px"><strong>${acc?'✓ Accepted online':'✕ Declined online'} ${esc(fmtStamp(r.at))}</strong>
     <span>${acc?(j.status==='Quoted'?'The date is TBD. Pick one to book the job.':r.booked?`Booked automatically for ${esc(fmtDate(j.date))}.`:''):'The quote was marked lost.'}</span>
@@ -1080,9 +1090,12 @@ function quoteRespHtml(j){
 }
 function quoteRespNotice(){
   if(S.role==='crew') return '';
-  const list=S.jobs.filter(j=>j.quoteResponse && (!j.quoteResponse.seen || (j.quoteResponse.decision==='accepted' && j.status==='Quoted'))).sort((a,b)=>(b.quoteResponse.at||0)-(a.quoteResponse.at||0));
+  const chg=j=>{ const cr=j.changeRequests||[]; return j.status==='Quoted' && !j.quoteResponse && cr.length && !cr[cr.length-1].seen ? cr[cr.length-1] : null; };
+  const at=j=>j.quoteResponse?(j.quoteResponse.at||0):(chg(j)||{}).at||0;
+  const list=S.jobs.filter(j=>(j.quoteResponse && (!j.quoteResponse.seen || (j.quoteResponse.decision==='accepted' && j.status==='Quoted'))) || chg(j)).sort((a,b)=>at(b)-at(a));
   if(!list.length) return '';
-  const line=j=>{ const r=j.quoteResponse; const what = r.decision==='declined' ? 'declined' : j.status==='Quoted' ? 'accepted · needs a date' : `accepted · booked ${fmtDate(j.date)}`;
+  const line=j=>{ const c=!j.quoteResponse&&chg(j); if(c) return `<button class="row" data-act="openJob" data-id="${j.id}"><span class="t">${esc(custName(j.customerId))} <span class="pill quoted">New</span></span><span class="s">asked for a change · ${esc(money(jobTotal(j)))} · “${esc(c.note.slice(0,60))}${c.note.length>60?'…':''}”</span><span class="r">${pill('Change requested')}</span></button>`;
+    const r=j.quoteResponse; const what = r.decision==='declined' ? 'declined' : j.status==='Quoted' ? 'accepted · needs a date' : `accepted · booked ${fmtDate(j.date)}`;
     return `<button class="row" data-act="openJob" data-id="${j.id}"><span class="t">${esc(custName(j.customerId))}${r.seen?'':' <span class="pill quoted">New</span>'}</span><span class="s">${esc(what)} · ${esc(money(jobTotal(j)))}${r.note?` · “${esc(r.note.slice(0,60))}${r.note.length>60?'…':''}”`:''}</span><span class="r">${pill(r.decision==='accepted'?'Accepted':'Declined')}</span></button>`; };
   return `<section class="panel"><div class="panel-head"><h2>Quote responses</h2><span class="muted" style="font-size:.84rem">From your quote emails</span></div><div class="list">${list.slice(0,6).map(line).join('')}</div></section>`;
 }
@@ -2200,8 +2213,8 @@ function activityHtml(){
   return S.activity.map(a=>`<div class="act-row"><span class="muted mono" style="font-size:.76rem;white-space:nowrap">${esc(new Date(a.at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}))}</span><span>${esc(nm(a.user_id))} ${a.action==='insert'?'added':a.action==='delete'?'deleted':'updated'} ${esc(what[a.tbl]||a.tbl)}${a.summary?` <span class="muted">${esc(a.summary)}</span>`:''}</span></div>`).join('');
 }
 async function loadActivity(){ if(S.role!=='owner') return; const {data}=await sb.from('activity').select('*').order('at',{ascending:false}).limit(60); S.activity=data||[]; const box=document.getElementById('activity-box'); if(box) box.innerHTML=activityHtml(); }
-const SET_TABS=[['general','General'],['business','Business'],['services','Services & prices'],['templates','Templates'],['team','Team',1],['activity','Activity',1],['apis','APIs',1],['data','Data',1]];
-const FORM_TABS=['business','services','templates'];
+const SET_TABS=[['general','General'],['business','Business'],['services','Services & prices'],['templates','Templates'],['notifications','Notifications'],['team','Team',1],['activity','Activity',1],['apis','APIs',1],['data','Data',1]];
+const FORM_TABS=['business','services','templates','notifications'];
 function setTabsVisible(){ return SET_TABS.filter(t=>!t[2] || S.role==='owner'); }
 function applySetTab(){
   const t=S.setTab;
@@ -2269,7 +2282,10 @@ function viewSettings(){
     <div id="etpls" style="display:flex;flex-direction:column;gap:12px">${s.emailTemplates.map((t,i)=>etplRow(t,i,ro)).join('')}</div>
     ${ro?'':`<div><button type="button" class="btn sm" data-act="addEtpl">${I.plus} Add email template</button></div>`}
     </section>
-    ${ro?'':`<div class="set-savebar" id="set-savebar" ${FORM_TABS.includes(T)?'':'hidden'}><span class="hint">Business, services and templates are saved together.</span><button class="btn primary" type="submit">Save settings</button></div>`}
+    <section class="panel set-panel" id="sp-notifications" role="tabpanel" aria-labelledby="st-notifications" data-tabpanel="notifications" ${hid('notifications')}>
+    ${notifyPanel(s, ro)}
+    </section>
+    ${ro?'':`<div class="set-savebar" id="set-savebar" ${FORM_TABS.includes(T)?'':'hidden'}><span class="hint">Business, services, templates and notifications are saved together.</span><button class="btn primary" type="submit">Save settings</button></div>`}
   </form>
   ${S.role==='owner'?`
   <div class="set-panel" id="sp-team" role="tabpanel" aria-labelledby="st-team" data-tabpanel="team" ${hid('team')}>${teamSection()}</div>
@@ -2280,6 +2296,25 @@ function viewSettings(){
   <div class="set-panel" id="sp-data" role="tabpanel" aria-labelledby="st-data" data-tabpanel="data" ${hid('data')}>${dataSection()}</div>`:''}`;
 }
 
+/* ---------- Notifications tab: who gets emailed about quote responses ---------- */
+const EMAIL_RE=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function notifyList(s){ return Array.isArray(s.notifyEmails) ? s.notifyEmails : DEFAULT_SETTINGS.notifyEmails; }
+function notifyRow(e, ro){ return `<div class="nf-row"><label class="sr-only">Notification email</label><input type="email" class="nf-email" value="${esc(e)}" placeholder="name@purewash.net" autocomplete="off" inputmode="email" ${ro?'disabled':''}>${ro?'':`<button type="button" class="btn sm ghost" data-act="nfDel" aria-label="Remove ${esc(e||'this email')}">${I.trash||'Remove'}</button>`}</div>`; }
+function notifyPanel(s, ro){
+  const list=notifyList(s);
+  return `<h2>Notifications</h2>
+    <p class="muted" style="font-size:.9rem;margin-top:4px;max-width:70ch">These addresses get an email whenever a customer accepts, declines or asks for a change to a quote from the online quote page.</p>
+    <div class="field" style="margin-top:14px"><span class="lbl">Send quote responses to</span>
+      <div id="nf-list" class="nf-list">${(list.length?list:['']).map(e=>notifyRow(e,ro)).join('')}</div>
+      ${ro?'':`<div style="margin-top:10px"><button type="button" class="btn sm" data-act="nfAdd">${I.plus} Add email</button></div>`}
+      <span class="hint">Up to 20 addresses. If the list is empty, emails go to the business email on the Business tab.</span></div>`;
+}
+function readNotify(f){
+  const raw=[...f.querySelectorAll('.nf-email')].map(i=>i.value.trim().toLowerCase()).filter(Boolean);
+  const bad=raw.find(e=>!EMAIL_RE.test(e)); if(bad) return {error:`"${bad}" isn't a valid email address.`};
+  const list=[...new Set(raw)]; if(list.length>20) return {error:'Notifications can go to at most 20 addresses.'};
+  return {list};
+}
 /* ---------- Data tab: backup + delete everything ---------- */
 function dataSection(){
   const n={c:S.customers.length, j:S.jobs.length, i:S.invoices.length, p:S.photos.length, m:S.messages.length};
@@ -3336,7 +3371,8 @@ const A = {
     if(drawerState && drawerState.kind==='series' && !seriesJobs(d.sid).length) closeDrawer(); render();
   },
   openJob(d){ d.stack ? go('job',{id:d.id}) : (stack.length=0, openDrawer('job',{id:d.id}));
-    const j=job(d.id); if(j && j.quoteResponse && !j.quoteResponse.seen && S.role!=='crew') saveDoc('jobs', j.id, {...j, quoteResponse:{...j.quoteResponse, seen:true}}).catch(()=>{}); },
+    const j=job(d.id); if(j && j.quoteResponse && !j.quoteResponse.seen && S.role!=='crew') saveDoc('jobs', j.id, {...j, quoteResponse:{...j.quoteResponse, seen:true}}).catch(()=>{});
+    const cr=j&&j.changeRequests; if(cr && cr.length && !cr[cr.length-1].seen && S.role!=='crew') saveDoc('jobs', j.id, {...job(d.id), changeRequests:cr.map(x=>({...x, seen:true}))}).catch(()=>{}); },
   async copyQuoteLink(d){ if(!await commitQuoteToken(d.id, false)) return toast('Couldn\'t create the link. Try again.','bad'); copyText(quoteLink(d.id), 'Link copied. Paste it into a text or email.'); },
   openInvoice(d){ d.stack ? go('invoice',{id:d.id}) : (stack.length=0, openDrawer('invoice',{id:d.id})); },
   openPhoto(d){ go('photo',{id:d.id}); },
@@ -3558,6 +3594,8 @@ const A = {
   svcAdjustApply(){ const pct=+$('#svc-adj-pct').value; const r=+$('#svc-adj-round').value||0.01; if(!isFinite(pct)||pct===0) return toast('Enter a percentage other than 0.','bad'); if(pct<=-100) return toast('That would make prices zero or less.','bad');
     let n=0; document.querySelectorAll('#svc-list .svc-card:not(.gone)').forEach(c=>{ if(!c.querySelector('.svc-on').checked) return; const i=c.querySelector('.svc-rate'); const v=+i.value; if(!(v>0)) return; i.value=String(Math.round(Math.round(v*(1+pct/100)/r)*r*100)/100); n++; i.closest('.svc-money').classList.remove('bumped'); void i.offsetWidth; i.closest('.svc-money').classList.add('bumped'); });
     S.settingsDirty=true; A.svcAdjust(); toast(`${n} price${n===1?'':'s'} ${pct>0?'raised':'lowered'} ${Math.abs(pct)}%. Click Save settings to keep ${n===1?'it':'them'}.`); },
+  nfAdd(){ const box=$('#nf-list'); if(!box) return; box.insertAdjacentHTML('beforeend', notifyRow('', false)); S.settingsDirty=true; box.lastElementChild.querySelector('input').focus(); },
+  nfDel(d,el){ const row=el&&el.closest('.nf-row'); const box=$('#nf-list'); if(!row||!box) return; if(box.querySelectorAll('.nf-row').length>1) row.remove(); else row.querySelector('input').value=''; S.settingsDirty=true; },
   addEtpl(){ const box=$('#etpls'); const i=box.querySelectorAll('.etpl').length; box.insertAdjacentHTML('beforeend', etplRow({name:'',subject:'',body:''}, Date.now()%100000, false)); S.settingsDirty=true; box.lastElementChild.querySelector('input').focus(); },
   rmEtpl(d,el){ el.closest('.etpl').remove(); S.settingsDirty=true; },
   copyMsg(){ copyText($('#m-body').value, 'Message copied. Paste it into phone.com.'); },
@@ -4032,10 +4070,11 @@ const F = {
     const fd=Object.fromEntries(new FormData(f));
     const sv=readServices(f); if(sv.error){ S.setTab='services'; document.querySelectorAll('[data-tabpanel]').forEach(p=>p.hidden=p.dataset.tabpanel!=='services'); return toast(sv.error,'bad'); }
     const services=sv.services;
+    const nf=readNotify(f); if(nf.error){ S.setTab='notifications'; applySetTab(); return toast(nf.error,'bad'); }
     const templates = fd.templates.split('\n').map(l=>{ const i=l.indexOf('|'); return i<0?null:{name:l.slice(0,i).trim(), text:l.slice(i+1).trim()}; }).filter(x=>x&&x.name&&x.text);
     const emailTemplates=[...f.querySelectorAll('.etpl')].map(r=>({name:r.querySelector('.et-name').value.trim(), subject:r.querySelector('.et-subj').value.trim(), body:r.querySelector('.et-body').value})).filter(x=>x.name&&(x.subject||x.body.trim()));
     const serviceDescriptions=sv.serviceDescriptions;
-    const data={...(S.settingsDoc||{}), logo:fd.logo||'', website:(fd.website||'').trim(), invoiceThanks:(fd.invoiceThanks||'').trim(), invoiceFooter:(fd.invoiceFooter||'').trim(), invoicePage2On:!!fd.invoicePage2On, invoicePage2Title:(fd.invoicePage2Title||'').trim(), invoicePage2:fd.invoicePage2||'', serviceDescriptions,
+    const data={...(S.settingsDoc||{}), notifyEmails:nf.list, logo:fd.logo||'', website:(fd.website||'').trim(), invoiceThanks:(fd.invoiceThanks||'').trim(), invoiceFooter:(fd.invoiceFooter||'').trim(), invoicePage2On:!!fd.invoicePage2On, invoicePage2Title:(fd.invoicePage2Title||'').trim(), invoicePage2:fd.invoicePage2||'', serviceDescriptions,
       ...(()=>{ const m=String(fd.weatherLoc||'').match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/); return m&&Math.abs(+m[1])<=90&&Math.abs(+m[2])<=180?{weatherLat:+m[1], weatherLon:+m[2]}:{weatherLat:null, weatherLon:null}; })(),
       businessName:fd.businessName.trim()||'Your Window Co.', phone:fd.phone.trim(), email:fd.email.trim(), address:fd.address.trim(), taxRate:+fd.taxRate||0, termsDays:+fd.termsDays||0, dayCapacity:+fd.dayCapacity||0, invoiceStart:Math.max(1,parseInt(fd.invoiceStart,10)||1001), invoiceNote:fd.invoiceNote, services, templates, emailTemplates, updatedAt:Date.now()};
     if(await write(()=>db.doc('settings/app').set(data),'Settings saved')){ S.settingsDirty=false; render(); }
@@ -5309,7 +5348,7 @@ function applyChange(t, p){
   if(t==='messages' && p.eventType==='INSERT' && p.new && p.new.data && p.new.data.direction==='in' && !p.new.data.read){ const d=p.new.data; const c=msgCustomerId(d); toast(`New text from ${c?custLabel(cust(c)):fmtNum(d.number)}`); }
   if(t==='jobs' && p.new && p.new.data && p.new.data.quoteResponse && S.role!=='crew'){ const was=m.get(p.new.id); if(!was || !was.quoteResponse){ const d=p.new.data; toast(`${custName(d.customerId)} ${d.quoteResponse.decision} your quote${d.quoteResponse.decision==='accepted'?(d.status==='Scheduled'?` · booked ${fmtDate(d.date)}`:' · pick a date'):''}`); } }
   if(t==='invoices' && p.new && p.new.data && S.role!=='crew'){ const was=m.get(p.new.id); const seen=new Set(((was&&was.payments)||[]).map(x=>x.qboId).filter(Boolean)); const fresh=(p.new.data.payments||[]).filter(x=>x.source==='quickbooks' && x.qboId && !seen.has(x.qboId)); if(was && fresh.length) toast(`QuickBooks payment: ${money(fresh.reduce((a,x)=>a+(+x.amount||0),0))} on invoice #${p.new.data.number}`); }
-  if(t==='customer_events' && p.eventType==='INSERT' && p.new && p.new.data && S.role!=='crew'){ const e=p.new.data; if(e.kind==='quote_viewed'||e.kind==='email_opened'||e.kind==='photos_viewed'){ const a=actText({id:p.new.id,...e}); if(a) toast(`${custName(e.customerId)} ${a.toast}`); } }
+  if(t==='customer_events' && p.eventType==='INSERT' && p.new && p.new.data && S.role!=='crew'){ const e=p.new.data; if(e.kind==='quote_viewed'||e.kind==='email_opened'||e.kind==='photos_viewed'||e.kind==='quote_change'){ const a=actText({id:p.new.id,...e}); if(a) toast(`${custName(e.customerId)} ${a.toast}`); } }
   if(t==='voicemails' && p.eventType==='INSERT' && p.new && p.new.data && !p.new.data.heard && !p.new.data.deleted) toast(`New voicemail from ${vmWho(p.new.data)}`);
   if(p.eventType==='DELETE'){ if(p.old && p.old.id) m.delete(p.old.id); } else if(p.new){ m.set(p.new.id, {id:p.new.id, ...(p.new.data||{})}); }
   S[t]=[...m.values()]; scheduleRender();
