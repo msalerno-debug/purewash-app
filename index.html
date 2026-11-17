@@ -643,6 +643,35 @@ html.cam-lock .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
 .mk-dlg-l{font-weight:700;font-size:.9rem}
 .mk-dlg-box textarea{width:100%;font-size:16px;resize:none}
 @media (min-width:900px){ .mk-bottom{flex-direction:row;align-items:center;justify-content:center;gap:24px} .mk-tools{width:420px} .cam-lower{padding-bottom:28px} }
+/* ---------- phones: smooth scrolling, no zoom when typing ---------- */
+.drawer{overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+html.drawer-open,html.drawer-open body{overflow:hidden}
+.drawer form,.drawer .panel,.drawer .field{min-width:0}
+.drawer input,.drawer select,.drawer textarea{max-width:100%}
+.mapwrap{position:relative}
+.map-cover,.map-done{display:none}
+@media (pointer:coarse),(hover:none),(max-width:720px){
+  /* iPhones zoom the whole page into any box with text smaller than 16px */
+  input[type=text],input[type=tel],input[type=email],input[type=date],input[type=time],input[type=number],input[type=search],input[type=url],input[type=password],input:not([type]),select,textarea,.item-row .it-details,.drawer textarea,.drawer input,.drawer select{font-size:16px}
+  .drawer input[type=checkbox],.drawer input[type=radio]{font-size:inherit}
+}
+@media (pointer:coarse),(hover:none){
+  /* the map would otherwise catch your swipe and pan instead of scrolling the page */
+  .mapwrap:not(.live) .mapframe{pointer-events:none}
+  .mapwrap:not(.live) .map-cover{display:flex;position:absolute;right:10px;bottom:10px;align-items:center;gap:6px;border:0;border-radius:999px;background:rgba(19,35,63,.82);color:#fff;font:inherit;font-size:.82rem;font-weight:650;padding:8px 14px;min-height:36px}
+  .mapwrap.live .map-done{display:block;position:absolute;right:10px;top:10px;border:0;border-radius:999px;background:#fff;color:#13233F;font:inherit;font-size:.82rem;font-weight:700;padding:8px 14px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+}
+@media(max-width:620px){
+  .item-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(70px,auto) 34px}
+  .item-row .it-svc{grid-column:1 / 4;grid-row:1}
+  .item-row [data-act="rmItem"]{grid-column:4;grid-row:1}
+  .item-row .it-desc{grid-column:1 / -1;grid-row:2}
+  .item-row .it-qty{grid-column:1;grid-row:3}
+  .item-row .it-rate{grid-column:2;grid-row:3}
+  .item-row .it-amt{grid-column:3 / -1;grid-row:3;white-space:nowrap}
+  .item-row .it-details{grid-row:4}
+  .item-row > *{min-width:0}
+}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 /* services & prices */
 .svc-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
@@ -1231,7 +1260,7 @@ function mapEmbed(c){
   const addr=fullAddress(c); const has = c.lat!=null && c.lat!=='' && c.lng!=null; if(!has && !addr) return '';
   const k=encodeURIComponent(S.mapsKey);
   const src = has ? `https://www.google.com/maps/embed/v1/streetview?key=${k}&location=${c.lat},${c.lng}&fov=80` : `https://www.google.com/maps/embed/v1/place?key=${k}&q=${encodeURIComponent(addr)}&maptype=satellite&zoom=19`;
-  return `<section class="panel" style="padding:0;overflow:hidden"><iframe class="mapframe" title="${has?'Street View':'Satellite view'} of ${esc(addr)}" src="${esc(src)}" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>${has?'':`<p class="hint" style="padding:8px 12px">Satellite view. Add a Street View pin to the customer's file to see the house from the street here.</p>`}</section>`;
+  return `<section class="panel mapwrap" style="padding:0;overflow:hidden"><iframe class="mapframe" title="${has?'Street View':'Satellite view'} of ${esc(addr)}" src="${esc(src)}" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe><button type="button" class="map-cover" data-act="mapLive" aria-label="Use the map. Until then, swiping here scrolls the page">Tap to explore</button><button type="button" class="map-done" data-act="mapLive" data-off="1">Done</button>${has?'':`<p class="hint" style="padding:8px 12px">Satellite view. Add a Street View pin to the customer's file to see the house from the street here.</p>`}</section>`;
 }
 
 function toast(msg, kind){
@@ -2694,6 +2723,7 @@ async function activateCustomers(jobs){
 function openDrawer(kind, args={}, refresh){
   const fn = DRAWERS[kind]; if(!fn) return;
   const out = fn(args); if(!out){ closeDrawer(); return; }
+  document.documentElement.classList.add('drawer-open');
   const isDetail = !!out.detail;
   const root=$('#drawer-root');
   const scroll = refresh && root.querySelector('.drawer') ? root.querySelector('.drawer').scrollTop : 0;
@@ -2714,7 +2744,7 @@ function openDrawer(kind, args={}, refresh){
 }
 const stack=[];
 function go(kind,args){ if(drawerState) stack.push(drawerState); openDrawer(kind,args); }
-function closeDrawer(){ $('#drawer-root').innerHTML=''; drawerState=null; stack.length=0; }
+function closeDrawer(){ $('#drawer-root').innerHTML=''; drawerState=null; stack.length=0; document.documentElement.classList.remove('drawer-open'); }
 function back(){ const p=stack.pop(); if(p) openDrawer(p.kind,p.args); else closeDrawer(); }
 
 const DRAWERS = {
@@ -3305,6 +3335,7 @@ const A = {
   async copyQuoteLink(d){ if(!await commitQuoteToken(d.id, false)) return toast('Couldn\'t create the link. Try again.','bad'); copyText(quoteLink(d.id), 'Link copied. Paste it into a text or email.'); },
   openInvoice(d){ d.stack ? go('invoice',{id:d.id}) : (stack.length=0, openDrawer('invoice',{id:d.id})); },
   openPhoto(d){ go('photo',{id:d.id}); },
+  mapLive(d,el){ const w=el.closest('.mapwrap'); if(w) w.classList.toggle('live', !d.off); },
   phSelect(d){ S.phSel={scope:d.scope, ids:new Set(), confirm:false}; rerender(); },
   phCancel(){ S.phSel={scope:null, ids:new Set(), confirm:false}; rerender(); },
   phToggle(d){ const s=S.phSel.ids; s.has(d.id)?s.delete(d.id):s.add(d.id); S.phSel.confirm=false; rerender(); const b=document.querySelector(`[data-act="phToggle"][data-id="${CSS.escape(d.id)}"]`); if(b) b.focus(); },
