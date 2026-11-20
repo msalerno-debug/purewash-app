@@ -1,4 +1,4 @@
-// Owner-only: save, check and test the app's outside connections (phone.com, Resend, Google Maps).
+// Owner-only: save, check and test the app's outside connections (phone.com, Resend, Google Maps, QuickBooks and Bouncie keys).
 // Keys are stored in public.app_secrets, which only server functions can read. Values are never sent back to the browser.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -20,6 +20,8 @@ const KEYS: Record<string, { secret: boolean; group: string }> = {
   GOOGLE_MAPS_KEY: { secret: true, group: "maps" },
   QBO_CLIENT_ID: { secret: false, group: "qbo" },
   QBO_CLIENT_SECRET: { secret: true, group: "qbo" },
+  BOUNCIE_CLIENT_ID: { secret: false, group: "bouncie" },
+  BOUNCIE_CLIENT_SECRET: { secret: true, group: "bouncie" },
 };
 
 type Check = { label: string; ok: boolean | null; detail?: string; fix?: string };
@@ -55,6 +57,8 @@ function validate(key: string, raw: string): { value?: string; error?: string } 
     case "PHONECOM_FROM": { const d = d10(v); return d.length === 10 ? { value: d } : { error: "Enter your 10-digit phone.com number, for example 908-555-1234." }; }
     case "QBO_CLIENT_ID": return /^[A-Za-z0-9]{20,80}$/.test(v) ? { value: v } : { error: "The Client ID is a long string of letters and numbers. Copy it again from Intuit (Keys & credentials → Production)." };
     case "QBO_CLIENT_SECRET": return /^[A-Za-z0-9]{20,80}$/.test(v) ? { value: v } : { error: "The Client Secret is a long string of letters and numbers. Copy it again from Intuit (Keys & credentials → Production)." };
+    case "BOUNCIE_CLIENT_ID": return /^[A-Za-z0-9._\-]{3,120}$/.test(v) ? { value: v } : { error: "The Client ID is a single word with no spaces. Copy it again from your app at bouncie.dev." };
+    case "BOUNCIE_CLIENT_SECRET": return /^\S{8,200}$/.test(v) ? { value: v } : { error: "The Client Secret has no spaces. Copy it again from your app at bouncie.dev." };
     case "PHONECOM_TOKEN": return v.length >= 20 && !/\s/.test(v) ? { value: v } : { error: "That doesn't look like a phone.com API token. Copy the whole token with no spaces." };
   }
   return { error: "Unknown setting." };
@@ -92,7 +96,7 @@ Deno.serve(async (req) => {
         };
       }
       const tests: Record<string, unknown> = {};
-      for (const g of ["sms", "email", "maps", "qbo"]) tests[g] = await state("test:" + g);
+      for (const g of ["sms", "email", "maps", "qbo", "bouncie"]) tests[g] = await state("test:" + g);
       return { ok: true, keys, tests, pcToken: await state("phonecom:token"), smsSync: await state("phonecom"), vmSync: await state("voicemail"), ownerEmail: me.email || user.email };
     }
 

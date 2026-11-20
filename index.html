@@ -199,6 +199,34 @@ button.act-row{cursor:pointer} button.act-row:hover .t{text-decoration:underline
 .notice.info{background:var(--accent-soft);color:var(--ink)}
 .notice.bad{background:var(--bad-soft);color:var(--bad)}
 .notice.good{background:var(--good-soft);color:var(--good)}
+.trk-map{position:relative;height:300px;border-radius:12px;overflow:hidden;background:var(--surface-2);border:1px solid var(--line);isolation:isolate}
+.trk-map.tall{height:380px}
+.trk-map-inner{position:absolute;inset:0}
+.trk-map-ph{display:grid;place-items:center;height:100%;color:var(--muted);font-size:.9rem;padding:16px;text-align:center}
+@media (max-width:620px){.trk-map{height:240px}.trk-map.tall{height:300px}}
+.trk-move{font:600 .82rem/1 inherit;padding:8px 12px;border-radius:8px;border:1px solid rgba(0,0,0,.2);background:#fff;color:#13233f;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.trk-move.on{background:#2B5190;color:#fff;border-color:#2B5190}
+.trk-pin-wrap{background:none;border:0}
+.trk-pin{display:flex;align-items:center;gap:6px;transform:translate(0,0);white-space:nowrap;pointer-events:auto}
+.trk-dot{position:relative;width:20px;height:20px;border-radius:50%;background:#64748b;border:3px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.35);flex:none}
+.trk-dot i{position:absolute;left:50%;top:-9px;width:0;height:0;margin-left:-5px;border:5px solid transparent;border-bottom:7px solid currentColor;transform-origin:5px 16px}
+.trk-pin.drive .trk-dot{background:#16a34a;color:#16a34a}.trk-pin.idle .trk-dot{background:#d97706}.trk-pin.park .trk-dot{background:#2B5190}.trk-pin.bad .trk-dot{background:#dc2626}
+.trk-pin.stop .trk-dot{width:14px;height:14px;background:#00B4EE;border-width:2px}
+.trk-lbl{font:700 12px/1.2 system-ui,sans-serif;color:#13233f;background:#fff;padding:3px 7px;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.trk-pin.stop .trk-lbl{font-weight:600;font-size:11px}
+.trk-chip{display:inline-flex;align-items:center;gap:5px;font-size:.76rem;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--surface-2);color:var(--ink);white-space:nowrap;vertical-align:middle}
+.trk-chip::before{content:'';width:8px;height:8px;border-radius:50%;background:currentColor}
+.trk-chip.drive{color:var(--good);background:var(--good-soft)}.trk-chip.idle{color:var(--warn);background:var(--warn-soft)}.trk-chip.park{color:var(--accent);background:var(--surface-2)}.trk-chip.bad{color:var(--bad);background:var(--bad-soft,#fde8e8)}
+.trk-now{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:.92rem}
+.trk-now a{overflow-wrap:anywhere}
+.trk-day{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.trk-day input[type=date]{width:auto;min-width:0;flex:0 1 170px}
+.trk-list .trk-stop .t{font-weight:600}
+.veh-live{display:flex;gap:8px;align-items:center;font-size:.82rem;min-width:0}
+.veh-live .muted{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.fuelbar{display:inline-block;width:46px;height:8px;border-radius:4px;background:var(--surface-2);border:1px solid var(--line);vertical-align:middle;overflow:hidden}
+.fuelbar i{display:block;height:100%;background:var(--accent)}
+.leaflet-container{font:inherit}
 .pill.change-requested{background:var(--mark-soft);color:var(--mark-ink);border-color:transparent}
 .nf-list{display:flex;flex-direction:column;gap:8px;max-width:520px}
 .nf-row{display:flex;gap:8px;align-items:center}.nf-row input{flex:1;min-width:0}
@@ -1348,10 +1376,12 @@ function render(){
   const keepFocus = document.activeElement && document.activeElement.id && $('#view').contains(document.activeElement) ? document.activeElement.id : null;
   const sel = keepFocus ? [document.activeElement.selectionStart, document.activeElement.selectionEnd] : null;
   const keepVals = S.view==='settings' ? [...document.querySelectorAll('#view input[id]:not([type=checkbox]):not([type=radio]):not([type=file])')].filter(i=>!i.closest('form[data-form=settings]') && i.value).map(i=>[i.id,i.value]) : [];
+  parkMaps($('#view'));
   $('#view').innerHTML = banner() + v();
   keepVals.forEach(([id,val])=>{ const el=document.getElementById(id); if(el && !el.value) el.value=val; });
   document.querySelectorAll('#view input[data-mixed]').forEach(x=>{ x.indeterminate=true; });
   if(keepFocus){ const el=document.getElementById(keepFocus); if(el){ el.focus(); try{ el.setSelectionRange(sel[0],sel[1]); }catch(e){} } }
+  if(S.view==='fleet' && document.querySelector('[data-map="fleet"]')) mountMap('fleet', drawFleet);
   if(drawerState && drawerState.detail) openDrawer(drawerState.kind, drawerState.args, true);
 }
 
@@ -2360,6 +2390,9 @@ const API_DEFS=[
   {id:'qbo', name:'QuickBooks Online', icon:'invoices', what:'Sends invoices to QuickBooks when you click Send to QuickBooks, and keeps payments in step both ways.',
     keys:[['QBO_CLIENT_ID','Client ID',false,'From Intuit: Keys & credentials → Production'],['QBO_CLIENT_SECRET','Client Secret',true,'From Intuit: Keys & credentials → Production']],
     links:[['Intuit Developer portal','https://developer.intuit.com/app/developer/myapps']]},
+  {id:'bouncie', name:'Bouncie', icon:'fleet', what:'Live truck locations, trips, mileage and check-engine alerts from the Bouncie devices plugged into your vehicles.',
+    keys:[['BOUNCIE_CLIENT_ID','Client ID',false,'From your app at bouncie.dev'],['BOUNCIE_CLIENT_SECRET','Client Secret',true,'From your app at bouncie.dev']],
+    links:[['Bouncie developer portal','https://www.bouncie.dev/']]},
 ];
 function apiStatus(def){
   const D=S.api.data; if(!D) return {cls:'', label:'Checking…'};
@@ -2369,6 +2402,7 @@ function apiStatus(def){
   if(missing) return {cls:'overdue', label:'Missing details'};
   if(def.id==='sms' && ((D.smsSync && D.smsSync.lastError) || (D.vmSync && D.vmSync.lastError))) return {cls:'overdue', label:'Needs attention'};
   if(def.id==='qbo'){ const Q=S.qbo; if(!Q) return {cls:'', label:'Checking…'}; if(Q.lost) return {cls:'overdue', label:'Needs attention'}; if(!Q.connected) return {cls:'quoted', label:'Not connected'}; if(Q.lastError) return {cls:'overdue', label:'Needs attention'}; return {cls:'paid', label:'Connected'}; }
+  if(def.id==='bouncie'){ const Q=S.bouncie; if(!Q) return {cls:'', label:'Checking…'}; if(Q.lost) return {cls:'overdue', label:'Needs attention'}; if(!Q.connected) return {cls:'quoted', label:'Not connected'}; if(Q.lastError) return {cls:'overdue', label:'Needs attention'}; return {cls:'paid', label:'Connected'}; }
   if(!t) return {cls:'quoted', label:'Not tested'};
   return t.ok ? {cls:'paid', label:'Connected'} : {cls:'overdue', label:'Needs attention'};
 }
@@ -2404,6 +2438,26 @@ function qboExtra(busy){
        <div class="api-actions"><button class="btn primary" data-act="qboConnect" ${keys&&!busy?'':'disabled'}>Connect to QuickBooks</button>${keys?'':'<span class="hint">Save the Client ID and Client Secret first.</span>'}</div>`;
   return `${conn}${steps}`;
 }
+function bouncieExtra(busy){
+  const Q=S.bouncie||{}; const D=S.api.data; const keys=['BOUNCIE_CLIENT_ID','BOUNCIE_CLIENT_SECRET'].every(k=>D&&D.keys[k]&&D.keys[k].set);
+  const copy=(l,u)=>`<div class="copyline"><span class="lbl">${esc(l)}</span><span class="mono">${esc(u)}</span><button class="btn sm" type="button" data-act="copy" data-text="${esc(u)}">Copy</button></div>`;
+  const steps=`<details class="qbo-steps" ${Q.connected?'':'open'}><summary><strong>How to set up Bouncie</strong> (about 10 minutes, one time)</summary>
+    <ol>
+      <li>Go to the <a href="https://www.bouncie.dev/" target="_blank" rel="noopener">Bouncie developer portal</a> and sign in with the same account you use in the Bouncie app.</li>
+      <li>Add a new app and name it <em>PureWash</em>.</li>
+      <li>Set the app's <strong>Redirect URL</strong> to this, exactly:<div class="qbo-urls">${copy('Redirect URL', Q.redirectUri||'https://quthcaplccvgpvlietyo.supabase.co/functions/v1/bouncie')}</div></li>
+      <li>Copy the app's <strong>Client ID</strong> and <strong>Client Secret</strong> into the boxes above.</li>
+      <li>Click <strong>Connect Bouncie</strong> below and approve access to your vehicles.</li>
+      <li>Optional, for instant updates: in the app's webhook settings, paste the <strong>Webhook URL</strong> that appears below once you're connected, and turn on all events. Without it, locations still update every 2 minutes.</li>
+    </ol></details>`;
+  const conn=Q.connected
+    ? `<div class="notice good" style="flex-direction:column;align-items:flex-start;gap:4px"><strong>Connected${Q.account?` to ${esc(Q.account)}`:''}</strong><span>Since ${esc(fmtStamp(Q.connectedAt))}. ${Q.lastRun?`Vehicles last updated ${esc(ago(Q.lastRun))}`:'Vehicles update every 2 minutes'}${Q.devices!=null?` · ${Q.devices} device${Q.devices===1?'':'s'}`:''}${Q.lastHook?` · last instant update ${esc(ago(Q.lastHook))}`:''}.</span>${Q.lastError?`<span style="color:var(--bad)">Last update failed: ${esc(Q.lastError)}</span>`:''}</div>
+       ${Q.webhookUrl?`<div class="qbo-urls">${copy('Webhook URL', Q.webhookUrl)}<p class="hint">Paste this into your app's webhook settings at bouncie.dev. If it also asks for an authorization key, use <span class="mono">${esc(Q.webhookKey||'')}</span>.</p></div>`:''}
+       <div class="api-actions"><button class="btn" data-act="bouncieSync" ${busy?'disabled':''}>Update vehicles now</button><button class="btn ghost" data-act="bouncieDisconnectAsk">Disconnect</button></div><div id="bouncie-confirm"></div>`
+    : `${Q.lost?'<div class="notice bad">The Bouncie connection expired or was revoked. Connect again to keep tracking.</div>':''}
+       <div class="api-actions"><button class="btn primary" data-act="bouncieConnect" ${keys&&!busy?'':'disabled'}>Connect Bouncie</button>${keys?'':'<span class="hint">Save the Client ID and Client Secret first.</span>'}</div>`;
+  return `${conn}${steps}`;
+}
 function apiCard(def){
   const D=S.api.data; const st=apiStatus(def); const busy=S.api.busy[def.id]; const t=D&&D.tests&&D.tests[def.id];
   const keyRow=([k,label,secret,ph])=>{ const info=(D&&D.keys[k])||{};
@@ -2423,6 +2477,7 @@ function apiCard(def){
       ${D&&D.smsSync&&D.smsSync.lastRun?`<p class="hint">Text sync last ran ${esc(ago(D.smsSync.lastRun))}${D.smsSync.lastError?` and failed: <span style="color:var(--bad)">${esc(D.smsSync.lastError)}</span>`:', with no errors'}.</p>`:''}
       ${D&&D.vmSync&&D.vmSync.lastRun?`<p class="hint">Voicemail sync last ran ${esc(ago(D.vmSync.lastRun))}${D.vmSync.lastError?` and failed: <span style="color:var(--bad)">${esc(D.vmSync.lastError)}</span>`:', with no errors'}${D.vmSync.audioQueue?` · ${D.vmSync.audioQueue} recording${D.vmSync.audioQueue===1?'':'s'} still being copied`:''}.</p>`:''}`
     : def.id==='qbo' ? qboExtra(busy)
+    : def.id==='bouncie' ? bouncieExtra(busy)
     : def.id==='email' ? `
       <div class="api-actions"><button class="btn" data-act="apiTest" data-i="email" data-send="1" ${busy?'disabled':''}>Send test email to ${esc((D&&D.ownerEmail)||'me')}</button></div>`
     : `
@@ -2442,10 +2497,10 @@ function apisHtml(){
   return `<div style="display:flex;flex-direction:column;gap:16px">
     <p class="muted" style="font-size:.9rem;max-width:70ch">Connect the outside services the app uses. Keys you save here are stored on the server and never shown again in full. A key saved here replaces one entered in the Supabase dashboard. Use <strong>Test connection</strong> any time something stops working; it checks each step and tells you how to fix what fails.</p>
     ${API_DEFS.map(apiCard).join('')}
-    <section class="panel api-card"><div class="api-head"><div style="display:flex;gap:10px;align-items:center"><span class="api-ic" aria-hidden="true">${I.invoices}</span><div><h2>QuickBooks Online</h2><p class="muted" style="font-size:.86rem">Automatic sync of customers, invoices and payments. Until it's connected, use the CSV exports on the Invoices page.</p></div></div><span class="pill">Not built yet</span></div></section>
   </div>`;
 }
 function refreshApis(){ const box=document.getElementById('apis-box'); if(box) box.innerHTML=apisHtml(); document.querySelectorAll('#st-apis').forEach(el=>{ el.innerHTML='APIs'+apiTabBadge(); }); }
+async function loadBouncie(){ if(!['owner','office'].includes(S.role)) return; const r=await callFn('bouncie',{action:'status'}); if(r.ok){ S.bouncie=r; scheduleRender(); refreshApis(); } }
 async function loadQbo(){ if(!['owner','office'].includes(S.role)) return; const r=await callFn('qbo',{action:'status'}); if(r.ok){ S.qbo=r; scheduleRender(); refreshApis(); } }
 const qboOn = () => !!(S.qbo && S.qbo.connected);
 function qbCustInfo(c){ const b=billTo(c); const {first,last}=nameParts(c);
@@ -2488,7 +2543,7 @@ const vehName = v => v ? (v.name || [v.year,v.make,v.model].filter(Boolean).join
 const vehDesc = v => [v.year,v.make,v.model].filter(Boolean).join(' ');
 const vLogs = id => S.vehicle_logs.filter(l=>l.vehicleId===id).sort((a,b)=>(b.date||'').localeCompare(a.date||'') || (+b.odometer||0)-(+a.odometer||0) || (b.createdAt||0)-(a.createdAt||0));
 const fmtMi = n => (n==null||n==='') ? '—' : Math.round(+n).toLocaleString('en-US')+' mi';
-function vOdo(v){ return Math.max(+v.odometer||0, ...vLogs(v.id).map(l=>+l.odometer||0), 0) || null; }
+function vOdo(v){ const lv=typeof liveFor==='function'?liveFor(v):null; return Math.max(+v.odometer||0, ...vLogs(v.id).map(l=>+l.odometer||0), lv&&lv.odometer?+lv.odometer:0, 0) || null; }
 function schedule(v){ return (v.schedule && v.schedule.length) ? v.schedule : DEFAULT_SCHEDULE; }
 function schedStatus(v){
   const odo=vOdo(v); const t=todayISO(); const logs=vLogs(v.id);
@@ -2519,6 +2574,7 @@ function vehAlerts(v){
   docDates(v).forEach(d=>{ if(d.state==='overdue') a.push({sev:2, text:`${d.label} expired ${fmtDate(d.date)}`}); else if(d.state==='soon') a.push({sev:1, text:`${d.label} expires ${fmtDate(d.date)}`}); });
   if(!(v.docs&&v.docs.insurance)) a.push({sev:1, text:'No insurance card uploaded'});
   if(!(v.docs&&v.docs.registration)) a.push({sev:1, text:'No registration uploaded'});
+  a.push(...liveAlerts(v));
   return a.sort((x,y)=>y.sev-x.sev);
 }
 function fleetAttention(){ return S.vehicles.filter(v=>vehAlerts(v).some(a=>a.sev>=1 && !/^No (insurance|registration)/.test(a.text) || a.sev===2)); }
@@ -2548,10 +2604,313 @@ function vehCard(v){
   return `<button class="veh-card" data-act="openVehicle" data-id="${v.id}">
     <div class="veh-top"><span class="veh-ic" aria-hidden="true">${I.fleet}</span><div style="min-width:0;flex:1"><div class="veh-name">${esc(vehName(v))}</div><div class="muted" style="font-size:.84rem">${esc([vehDesc(v)!==v.name?vehDesc(v):'', v.plate?`Plate ${v.plate}`:''].filter(Boolean).join(' · '))}</div></div>${pill(v.status||'Active').replace('pill active','pill paid').replace('pill in-the-shop','pill partial').replace('pill out-of-service','pill overdue')}</div>
     <div class="veh-stats"><span><span class="lbl">Odometer</span>${esc(fmtMi(vOdo(v)))}</span><span><span class="lbl">Driver</span>${esc(v.driver||'—')}</span><span><span class="lbl">Next service</span>${nx?esc(`${nx.name}, ${nx.label}`):'Log a service to start tracking'}</span></div>
+    ${liveChip(v)}
     <div class="doc-chips">${DOC_SLOTS.map(docChip).join('')}</div>
     ${al.length?`<div class="veh-alerts">${al.slice(0,3).map(a=>`<span class="${a.sev===2?'bad':'soon'}">${a.sev===2?'●':'○'} ${esc(a.text)}</span>`).join('')}</div>`:''}
   </button>`;
 }
+/* ---------- Bouncie: live tracking, trips, job visits, mileage log ---------- */
+// Live rows come from public.vehicle_live (one per device, updated every 2 minutes and on Bouncie webhooks).
+// Trip summaries come from public.vehicle_trips (start/end point, miles); routes for one day are fetched on demand.
+const NEAR_MI=0.15, IRS_RATE_2026=0.725;
+const isOffice=()=>['owner','office'].includes(S.role);
+function distMi(a,b,c,d){ const r=x=>x*Math.PI/180; const h=Math.sin(r(c-a)/2)**2+Math.cos(r(a))*Math.cos(r(c))*Math.sin(r(d-b)/2)**2; return 7917.6*Math.asin(Math.min(1,Math.sqrt(h))); }
+function decodePoly(str){ const out=[]; let i=0, lat=0, lon=0; str=String(str||''); while(i<str.length){ for(let w=0;w<2;w++){ let sh=0, res=0, b=0; do{ b=str.charCodeAt(i++)-63; res|=(b&0x1f)<<sh; sh+=5; }while(b>=0x20 && i<str.length); const dd=res&1?~(res>>1):res>>1; if(w===0) lat+=dd; else lon+=dd; } out.push([lat/1e5, lon/1e5]); } return out.filter(p=>Math.abs(p[0])>0.1); }
+const clock = ms => ms ? new Date(ms).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}).replace(' AM',' am').replace(' PM',' pm') : '';
+const durTxt = ms => { const m=Math.max(0,Math.round(ms/60000)); return m<60?`${m} min`:`${Math.floor(m/60)} hr${m%60?` ${m%60} min`:''}`; };
+const tripDay = t => t && t.start ? iso(new Date(t.start)) : '';
+const hasLoc = c => c && c.lat!=null && c.lat!=='' && c.lng!=null && c.lng!=='';
+function liveAll(){ return isOffice() ? (S.vehicle_live||[]).filter(l=>l.imei) : []; }
+function liveVehicle(l){ return S.vehicles.find(v=>v.bouncieImei===l.imei) || S.vehicles.find(v=>!v.bouncieImei && v.vin && String(v.vin).trim().toUpperCase()===l.vin && !S.vehicles.some(o=>o.bouncieImei===l.imei)) || null; }
+function liveFor(v){ if(!v||!isOffice()) return null; const L=liveAll(); if(v.bouncieImei) return L.find(l=>l.imei===v.bouncieImei)||null; const vin=String(v.vin||'').trim().toUpperCase(); return vin.length>=11 ? (L.find(l=>l.vin===vin && !S.vehicles.some(o=>o.bouncieImei===l.imei))||null) : null; }
+function unlinkedDevices(){ return liveAll().filter(l=>!liveVehicle(l)); }
+const devLabel = d => [d.nickName, [d.year,d.make,d.model].filter(Boolean).join(' '), d.vin?`VIN …${d.vin.slice(-6)}`:''].filter(Boolean).join(' · ') || `Device ${d.imei}`;
+function liveState(l){
+  if(!l) return null;
+  if(l.unplugged) return {cls:'bad', label:'Device unplugged', short:'Unplugged'};
+  if(l.isRunning && (+l.speed||0)>=3) return {cls:'drive', label:`Driving · ${Math.round(+l.speed)} mph`, short:'Driving'};
+  if(l.isRunning) return {cls:'idle', label:'Engine on, not moving', short:'Idling'};
+  return {cls:'park', label:'Parked', short:'Parked'};
+}
+function liveWhere(l){ if(!l) return ''; if(l.address) return String(l.address).replace(/,?\s*(USA|United States)$/,''); if(l.lat!=null) return `${(+l.lat).toFixed(5)}, ${(+l.lon).toFixed(5)}`; return 'Location not reported yet'; }
+const liveMapUrl = l => l && l.lat!=null ? `https://www.google.com/maps/search/?api=1&query=${l.lat},${l.lon}` : '';
+function liveAlerts(v){
+  const l=liveFor(v); if(!l) return [];
+  const a=[];
+  if(l.milOn) a.push({sev:2, text:`Check engine light on${l.dtcs&&l.dtcs.length?` (${l.dtcs.map(d=>d.code).filter(Boolean).slice(0,3).join(', ')})`:''}`});
+  if(/critical|low/i.test(l.battery||'')) a.push({sev:2, text:'Battery low'});
+  if(l.unplugged) a.push({sev:2, text:'Bouncie device unplugged'});
+  else if(l.statsAt && Date.now()-l.statsAt>7*864e5) a.push({sev:1, text:`No Bouncie signal since ${fmtDate(iso(new Date(l.statsAt)))}`});
+  return a;
+}
+// customer whose saved map point is within NEAR_MI of a stop; prefers a customer with a job that day
+function nearCustomer(lat, lon, date){
+  if(lat==null||lon==null) return null;
+  const hits=[];
+  for(const c of S.customers){ if(!hasLoc(c)) continue; const d=distMi(+lat,+lon,+c.lat,+c.lng); if(d<=NEAR_MI) hits.push({c,d}); }
+  if(!hits.length) return null;
+  const jobsDay=date?S.jobs.filter(j=>j.date===date && j.status!=='Cancelled'):[];
+  hits.sort((x,y)=>(jobsDay.some(j=>j.customerId===y.c.id)-jobsDay.some(j=>j.customerId===x.c.id)) || x.d-y.d);
+  const c=hits[0].c; return {customer:c, job:jobsDay.find(j=>j.customerId===c.id)||null};
+}
+// stops between trips (trips sorted by start, one device): where it parked and for how long
+function stopsFrom(trips, date){
+  const out=[];
+  trips.forEach((t,i)=>{
+    const lat=t.eLat!=null?t.eLat:(t.line&&t.line.length?t.line[t.line.length-1][0]:null), lon=t.eLon!=null?t.eLon:(t.line&&t.line.length?t.line[t.line.length-1][1]:null);
+    const m=nearCustomer(lat, lon, date); if(!m) return;
+    const arrive=t.end?Date.parse(t.end):null, nx=trips[i+1], leave=nx&&nx.start?Date.parse(nx.start):null;
+    const prev=out[out.length-1];
+    if(prev && prev.customer.id===m.customer.id && prev.leave && arrive && arrive-prev.leave<30*60000){ prev.leave=leave; return; }
+    out.push({...m, arrive, leave, afterTrip:i, lat, lon});
+  });
+  return out;
+}
+
+/* trip summaries (vehicle_trips), loaded from a start date forward */
+const TRIPS={from:null, loading:null};
+async function loadTrips(fromISO){
+  if(!isOffice()||!sb) return;
+  if(TRIPS.from && TRIPS.from<=fromISO) return;
+  if(TRIPS.loading) return TRIPS.loading;
+  TRIPS.loading=(async()=>{
+    const since=new Date(parseISO(fromISO).getTime()-864e5).toISOString();
+    const until=TRIPS.from?new Date(parseISO(TRIPS.from).getTime()+864e5).toISOString():null;
+    let all=[], off=0;
+    for(;;){ let q=sb.from('vehicle_trips').select('id,data').gte('started_at',since).order('started_at').range(off,off+999); if(until) q=q.lt('started_at',until); const {data,error}=await q; if(error) break; all=all.concat(data||[]); if(!data||data.length<1000) break; off+=1000; }
+    const m=STORE.vehicle_trips||(STORE.vehicle_trips=new Map()); all.forEach(r=>m.set(r.id,{id:r.id, ...(r.data||{})})); S.vehicle_trips=[...m.values()];
+    TRIPS.from=fromISO; TRIPS.loading=null; scheduleRender();
+  })();
+  return TRIPS.loading;
+}
+const tripsOf = (imei, from, to) => (S.vehicle_trips||[]).filter(t=>t.imei===imei && tripDay(t)>=from && tripDay(t)<=to).sort((a,b)=>String(a.start).localeCompare(String(b.start)));
+const sumMi = list => list.reduce((a,t)=>a+(+t.miles||0),0);
+
+/* one day of trips with routes, from Bouncie */
+const TD={};
+async function fetchTripDay(imei, date){
+  const k=imei+'|'+date; const cur=TD[k]; if(cur && cur.loading) return;
+  TD[k]={...(cur||{}), loading:true};
+  const r=await callFn('bouncie',{action:'trips', imei, date});
+  TD[k]= r.ok ? {at:Date.now(), trips:(r.trips||[]).map(t=>({...t, line:decodePoly(t.gps)}))} : {at:Date.now(), error:r.error||'Couldn\'t load trips', trips:(cur&&cur.trips)||null};
+  if(drawerState && drawerState.kind==='vehicle') openDrawer('vehicle', drawerState.args, true);
+}
+
+/* job drawer: when a tracked vehicle was at the customer's address */
+function jobVisits(j){
+  const c=cust(j.customerId); if(!hasLoc(c)) return [];
+  const out=[];
+  for(const l of liveAll()){
+    const trips=tripsOf(l.imei, j.date, j.date);
+    trips.forEach((t,i)=>{ if(t.eLat==null || distMi(+t.eLat,+t.eLon,+c.lat,+c.lng)>NEAR_MI) return; const nx=trips[i+1]; const arrive=Date.parse(t.end), leave=nx&&nx.start?Date.parse(nx.start):null;
+      const prev=out.find(x=>x.l===l && x.leave && arrive-x.leave<30*60000); if(prev){ prev.leave=leave; return; } out.push({l, v:liveVehicle(l), arrive, leave}); });
+  }
+  return out.sort((a,b)=>a.arrive-b.arrive);
+}
+function jobVisitsHtml(j){
+  if(!isOffice() || !liveAll().length || !j.date || j.date>todayISO() || j.status==='Quoted') return '';
+  const c=cust(j.customerId);
+  if(!TRIPS.from || TRIPS.from>j.date){ loadTrips(j.date); return `<section class="panel"><div class="panel-head"><h3>Vehicles on site</h3></div><p class="muted" style="font-size:.88rem">Checking Bouncie trips…</p></section>`; }
+  if(!hasLoc(c)) return '';
+  const vs=jobVisits(j); const today=j.date===todayISO();
+  return `<section class="panel"><div class="panel-head"><h3>Vehicles on site</h3><span class="muted" style="font-size:.8rem">from Bouncie</span></div>${vs.length?`<div class="list">${vs.map(x=>`<button class="row" ${x.v?`data-act="openVehicle" data-id="${x.v.id}"`:'disabled'}><span class="t">${esc(x.v?vehName(x.v):devLabel(x.l))}</span><span class="s">Arrived ${esc(clock(x.arrive))}${x.leave?`, left ${esc(clock(x.leave))} · ${esc(durTxt(x.leave-x.arrive))} on site`:today?' · still there':' · last stop of the day'}</span></button>`).join('')}</div>`:`<p class="muted" style="font-size:.88rem">No tracked vehicle stopped at this address ${today?'yet today':'on '+esc(fmtDate(j.date))}.</p>`}</section>`;
+}
+
+/* maps: one Leaflet map per slot, kept alive across re-renders */
+let leafletP=null;
+function loadLeaflet(){
+  return leafletP ||= new Promise((res,rej)=>{
+    if(window.L && window.L.map) return res(window.L);
+    const css=document.createElement('link'); css.rel='stylesheet'; css.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'; document.head.appendChild(css);
+    const sc=document.createElement('script'); sc.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    sc.onload=()=>window.L&&window.L.map?res(window.L):rej(new Error('map')); sc.onerror=()=>{ leafletP=null; rej(new Error('map')); }; document.head.appendChild(sc);
+  });
+}
+const MAPS={};
+// take live maps out of a container before its HTML is replaced, so they can be re-attached afterwards
+function parkMaps(root){ if(!root) return; Object.values(MAPS).forEach(M=>{ if(M.el && root.contains(M.el)){ if(root.contains(document.activeElement) && M.el.contains(document.activeElement)) document.activeElement.blur(); M.el.remove(); } }); }
+const mapBox = (key, tall) => `<div class="trk-map${tall?' tall':''}" data-map="${key}"><div class="trk-map-ph">Loading map…</div></div>`;
+async function mountMap(key, draw){
+  const slot=document.querySelector(`[data-map="${key}"]`); if(!slot) return;
+  let M=MAPS[key]; if(!M){ M=MAPS[key]={el:document.createElement('div'), map:null, layer:null, sig:''}; M.el.className='trk-map-inner'; }
+  if(M.el.parentNode!==slot){ slot.innerHTML=''; slot.appendChild(M.el); }
+  let Lf; try{ Lf=await loadLeaflet(); }catch(e){ slot.innerHTML='<div class="trk-map-ph">The map couldn\'t load. Check your internet connection.</div>'; return; }
+  if(!M.map){
+    const touch=window.matchMedia('(pointer:coarse)').matches;
+    M.map=Lf.map(M.el,{scrollWheelZoom:false, zoomControl:true, attributionControl:true, dragging:!touch, tap:false}).setView([40.6976,-74.2632],11);
+    if(touch){ // one finger scrolls the page; this button lets the map be dragged
+      const Ctl=Lf.Control.extend({onAdd(){ const b=Lf.DomUtil.create('button','trk-move'); b.type='button'; b.textContent='Move map'; Lf.DomEvent.disableClickPropagation(b);
+        Lf.DomEvent.on(b,'click',()=>{ const on=!M.map.dragging.enabled(); on?M.map.dragging.enable():M.map.dragging.disable(); b.textContent=on?'Done':'Move map'; b.classList.toggle('on',on); }); return b; }});
+      new Ctl({position:'topright'}).addTo(M.map);
+    }
+    Lf.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'}).addTo(M.map);
+    M.layer=Lf.layerGroup().addTo(M.map);
+  }
+  requestAnimationFrame(()=>{ M.map.invalidateSize(); try{ draw(Lf, M); }catch(e){ console.warn('map draw', e); } });
+}
+function pinIcon(Lf, cls, label, heading){
+  return Lf.divIcon({className:'trk-pin-wrap', iconSize:null, iconAnchor:[10,10], html:`<div class="trk-pin ${cls}"><span class="trk-dot">${heading!=null?`<i style="transform:rotate(${+heading}deg)"></i>`:''}</span>${label?`<span class="trk-lbl">${esc(label)}</span>`:''}</div>`});
+}
+function drawFleet(Lf, M){
+  M.layer.clearLayers(); const pts=[];
+  liveAll().forEach(l=>{
+    if(l.lat==null) return; const v=liveVehicle(l); const st=liveState(l); const name=v?vehName(v):(l.nickName||'Unlinked device');
+    const mk=Lf.marker([+l.lat,+l.lon],{icon:pinIcon(Lf, st.cls, name, l.isRunning&&(+l.speed||0)>=3?l.heading:null), title:`${name}: ${st.label}`, keyboard:true}).addTo(M.layer);
+    mk.bindTooltip(`${esc(name)} · ${esc(st.label)}<br>${esc(liveWhere(l))}`,{direction:'top', offset:[0,-12]});
+    if(v) mk.on('click',()=>A.openVehicle({id:v.id}));
+    pts.push([+l.lat,+l.lon]);
+  });
+  const sig=pts.length+':'+liveAll().map(l=>l.imei).join(',');
+  if(pts.length && M.sig!==sig){ if(pts.length===1) M.map.setView(pts[0],14); else M.map.fitBounds(pts,{padding:[50,50], maxZoom:15}); M.sig=sig; }
+}
+function drawVehicle(v){
+  return (Lf, M)=>{
+    M.layer.clearLayers(); const l=liveFor(v); if(!l) return;
+    const date=trkDate(v.id); const td=TD[l.imei+'|'+date]; const trips=(td&&td.trips)||[]; const pts=[];
+    trips.forEach((t,i)=>{ if(t.line && t.line.length>1){ Lf.polyline(t.line,{color:i%2?'#2B5190':'#00B4EE', weight:5, opacity:.85}).addTo(M.layer).bindTooltip(`${clock(Date.parse(t.start))}${t.end?' – '+clock(Date.parse(t.end)):''}${t.miles!=null?` · ${(+t.miles).toFixed(1)} mi`:''}`); pts.push(...t.line); } });
+    stopsFrom(trips, date).forEach(s=>{ if(s.lat==null) return; Lf.marker([+s.lat,+s.lon],{icon:pinIcon(Lf,'stop',custLabel(s.customer))}).addTo(M.layer).on('click',()=>A.openCustomer?A.openCustomer({id:s.customer.id}):null); });
+    if(date===todayISO() && l.lat!=null){ const st=liveState(l); Lf.marker([+l.lat,+l.lon],{icon:pinIcon(Lf, st.cls, vehName(v), l.isRunning&&(+l.speed||0)>=3?l.heading:null), zIndexOffset:1000}).addTo(M.layer).bindTooltip(`${esc(st.label)}<br>${esc(liveWhere(l))}`); pts.push([+l.lat,+l.lon]); }
+    const sig=v.id+'|'+date+'|'+trips.length;
+    if(M.sig!==sig){ if(pts.length>1) M.map.fitBounds(pts,{padding:[30,30], maxZoom:16}); else if(pts.length) M.map.setView(pts[0],15); else if(l.lat!=null) M.map.setView([+l.lat,+l.lon],14); M.sig=sig; }
+  };
+}
+
+/* vehicle drawer section */
+S.trkDate={};
+const trkDate = vid => S.trkDate[vid] || todayISO();
+function trackingHtml(v){
+  if(!isOffice()) return '';
+  const l=liveFor(v); const Bq=S.bouncie;
+  if(!l){
+    const free=unlinkedDevices();
+    if(!free.length){
+      if(Bq && Bq.connected) return `<section class="panel trk"><div class="panel-head"><h3>Live tracking</h3></div><p class="muted" style="font-size:.88rem">No Bouncie device is linked to this vehicle${liveAll().length?', and every device on your Bouncie account is already linked to another vehicle':''}. Plug a Bouncie device into it and activate it in the Bouncie app, then it will show up here.</p></section>`;
+      return S.role==='owner'?`<section class="panel trk"><div class="panel-head"><h3>Live tracking</h3></div><p class="muted" style="font-size:.88rem">Connect Bouncie to see where this vehicle is, the trips it takes and its mileage, and to get check-engine alerts.</p><div class="btnrow"><button class="btn sm" data-act="goApis">Set up Bouncie</button></div></section>`:'';
+    }
+    return `<section class="panel trk"><div class="panel-head"><h3>Live tracking</h3></div><div class="field"><label for="trk-link">Bouncie device in this vehicle</label><div style="display:flex;gap:8px;flex-wrap:wrap"><select id="trk-link" style="flex:1 1 220px">${free.map(d=>`<option value="${esc(d.imei)}">${esc(devLabel(d))}</option>`).join('')}</select><button class="btn primary" data-act="trkLink" data-vid="${v.id}">Link device</button></div><span class="hint">Devices link on their own when the VIN saved on this vehicle matches the one Bouncie reads.</span></div></section>`;
+  }
+  const st=liveState(l); const date=trkDate(v.id); const k=l.imei+'|'+date; const td=TD[k];
+  if(!td || (!td.loading && date===todayISO() && Date.now()-td.at>180000)) setTimeout(()=>fetchTripDay(l.imei,date),0);
+  const trips=(td&&td.trips)||[]; const stops=stopsFrom(trips, date);
+  const miles=sumMi(trips); const driveMs=trips.reduce((a,t)=>a+(t.end?Date.parse(t.end)-Date.parse(t.start):0),0);
+  const fuel=l.fuel!=null?Math.round(+l.fuel):null;
+  const timeline=[]; trips.forEach((t,i)=>{ timeline.push({t}); const s=stops.find(x=>x.afterTrip===i); if(s) timeline.push({s}); });
+  const dtcs=(l.dtcs||[]).filter(d=>d.code);
+  return `<section class="panel trk" style="display:flex;flex-direction:column;gap:12px">
+    <div class="panel-head" style="margin:0"><h3>Live tracking</h3><span class="muted" style="font-size:.8rem">${l.statsAt?`Updated ${esc(ago(l.statsAt))}`:'Waiting for the first update'}</span></div>
+    <div class="trk-now"><span class="trk-chip ${st.cls}">${esc(st.label)}</span>${l.lat!=null?`<a href="${esc(liveMapUrl(l))}" target="_blank" rel="noopener">${esc(liveWhere(l))}</a>`:`<span class="muted">${esc(liveWhere(l))}</span>`}</div>
+    <div class="facts">
+      <div class="fact"><div class="k">Fuel</div><div class="v" style="font-size:.95rem">${fuel!=null?`<span class="fuelbar" aria-hidden="true"><i style="width:${Math.max(0,Math.min(100,fuel))}%"></i></span> ${fuel}%`:'—'}</div></div>
+      <div class="fact"><div class="k">Check engine</div><div class="v" style="font-size:.95rem;${l.milOn?'color:var(--bad);font-weight:700':''}">${l.milOn?'On':'Off'}</div></div>
+      <div class="fact"><div class="k">Battery</div><div class="v" style="font-size:.95rem;${/critical|low/i.test(l.battery||'')?'color:var(--bad);font-weight:700':''}">${esc(l.battery?l.battery[0].toUpperCase()+l.battery.slice(1):'—')}</div></div>
+      <div class="fact"><div class="k">Bouncie odometer</div><div class="v num" style="font-size:.95rem">${esc(fmtMi(l.odometer))}</div></div>
+    </div>
+    ${l.milOn&&dtcs.length?`<div class="notice bad" style="flex-direction:column;align-items:flex-start;gap:4px"><strong>Trouble codes</strong>${dtcs.map(d=>`<span><a href="https://www.google.com/search?q=${encodeURIComponent(d.code+' '+[v.year,v.make,v.model].filter(Boolean).join(' '))}" target="_blank" rel="noopener" class="mono">${esc(d.code)}</a>${d.name?` · ${esc(d.name)}`:''}</span>`).join('')}</div>`:''}
+    ${mapBox('veh')}
+    <div class="trk-day">
+      <button class="btn sm ghost" data-act="trkDay" data-vid="${v.id}" data-step="-1" aria-label="Previous day">‹</button>
+      <input type="date" id="trk-date" data-trk="date" data-vid="${v.id}" value="${esc(date)}" max="${esc(todayISO())}" aria-label="Day to show">
+      <button class="btn sm ghost" data-act="trkDay" data-vid="${v.id}" data-step="1" aria-label="Next day" ${date>=todayISO()?'disabled':''}>›</button>
+      ${date!==todayISO()?`<button class="btn sm" data-act="trkDay" data-vid="${v.id}" data-today="1">Today</button>`:''}
+      <span class="muted" style="font-size:.84rem;margin-left:auto">${td&&td.trips?`${trips.length} trip${trips.length===1?'':'s'} · ${miles.toFixed(1)} mi · ${durTxt(driveMs)} driving`:''}</span>
+    </div>
+    ${!td||td.loading&&!td.trips?'<p class="muted" style="font-size:.88rem">Loading trips…</p>':td.error&&!td.trips?`<div class="notice bad">${esc(td.error)}</div>`:!trips.length?`<p class="muted" style="font-size:.88rem">No trips ${date===todayISO()?'yet today':'on '+esc(fmtDate(date))}.</p>`:`<div class="list trk-list">${timeline.map(x=>x.t
+      ?`<div class="row" style="cursor:default"><span class="t">${esc(clock(Date.parse(x.t.start)))}${x.t.end?` – ${esc(clock(Date.parse(x.t.end)))}`:' · driving now'}</span><span class="s">${x.t.miles!=null?`${(+x.t.miles).toFixed(1)} mi`:''}${x.t.end?` · ${esc(durTxt(Date.parse(x.t.end)-Date.parse(x.t.start)))}`:''}</span></div>`
+      :`<button class="row trk-stop" data-act="${x.s.job?'openJob':'openCustomer'}" data-id="${x.s.job?x.s.job.id:x.s.customer.id}" data-stack="1"><span class="t">📍 ${esc(custLabel(x.s.customer))}${x.s.job?' <span class="pill paid">Job</span>':''}</span><span class="s">${esc(clock(x.s.arrive))}${x.s.leave?` – ${esc(clock(x.s.leave))} · ${esc(durTxt(x.s.leave-x.s.arrive))}`:date===todayISO()?' · here now':''}</span></button>`).join('')}</div>`}
+    ${td&&td.error&&td.trips?`<p class="hint" style="color:var(--bad)">${esc(td.error)}</p>`:''}
+    <div class="btnrow fleet-manage"><button class="btn sm ghost" data-act="trkUnlink" data-vid="${v.id}">Unlink Bouncie device</button></div>
+  </section>`;
+}
+
+/* fleet page */
+function fleetLiveHtml(){
+  if(!isOffice()) return '';
+  const L=liveAll(); const free=unlinkedDevices();
+  if(!L.length) return '';
+  const rows=L.map(l=>{ const v=liveVehicle(l); const st=liveState(l); return {l,v,st}; }).sort((a,b)=>(!!b.v-!!a.v) || (a.v?vehName(a.v):'').localeCompare(b.v?vehName(b.v):''));
+  return `<section class="panel trk" style="display:flex;flex-direction:column;gap:12px">
+    <div class="panel-head" style="margin:0"><h2>Where the trucks are</h2><span class="muted" style="font-size:.8rem">Live from Bouncie</span></div>
+    ${mapBox('fleet', true)}
+    <div class="list">${rows.map(({l,v,st})=>`<button class="row" ${v?`data-act="openVehicle" data-id="${v.id}"`:`data-act="trkPick" data-imei="${esc(l.imei)}"`}><span class="t">${esc(v?vehName(v):devLabel(l))} <span class="trk-chip ${st.cls}">${esc(st.short)}</span>${l.milOn?' <span class="pill overdue">Check engine</span>':''}</span><span class="s">${esc(liveWhere(l))}${l.statsAt?` · ${esc(ago(l.statsAt))}`:''}${l.fuel!=null?` · fuel ${Math.round(+l.fuel)}%`:''}</span><span class="r">${v?'':'<span class="pill partial">Not linked</span>'}</span></button>`).join('')}</div>
+    ${free.length?`<p class="hint">${free.length} Bouncie device${free.length===1?' isn\'t':'s aren\'t'} linked to a vehicle yet. Open the vehicle it's in and pick it under Live tracking.</p>`:''}
+  </section>`;
+}
+function liveChip(v){
+  const l=liveFor(v); if(!l) return '';
+  const st=liveState(l);
+  return `<div class="veh-live"><span class="trk-chip ${st.cls}">${esc(st.short)}</span><span class="muted">${esc(liveWhere(l))}${l.statsAt?` · ${esc(ago(l.statsAt))}`:''}</span></div>`;
+}
+
+/* mileage log */
+S.mlog={from:'', to:'', vid:'all'};
+function mlRate(){ try{ const r=parseFloat(localStorage.getItem('pw.mileRate')); if(r>0&&r<5) return r; }catch(e){} return IRS_RATE_2026; }
+function mlRange(){ const t=todayISO(); const from=S.mlog.from||t.slice(0,8)+'01'; const to=S.mlog.to||t; return from<=to?[from,to]:[to,from]; }
+function mlRows(){
+  const [from,to]=mlRange();
+  const devs=liveAll().filter(l=>S.mlog.vid==='all' || (liveVehicle(l)&&liveVehicle(l).id===S.mlog.vid));
+  const out=[];
+  devs.forEach(l=>{
+    const v=liveVehicle(l); const trips=tripsOf(l.imei, from, to); const byDay=new Map();
+    trips.forEach(t=>{ const d=tripDay(t); if(!byDay.has(d)) byDay.set(d,[]); byDay.get(d).push(t); });
+    byDay.forEach((list,d)=>{ const stops=stopsFrom(list,d); out.push({date:d, name:v?vehName(v):devLabel(l), vid:v&&v.id, trips:list.length, miles:sumMi(list), first:list[0].start, last:list[list.length-1].end, startOdo:list[0].startOdo, endOdo:list[list.length-1].endOdo, places:[...new Set(stops.map(s=>custLabel(s.customer)))]}); });
+  });
+  return out.sort((a,b)=>a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
+}
+function mileageDrawer(){
+  if(!isOffice()) return null;
+  const [from,to]=mlRange(); const loading=!TRIPS.from || TRIPS.from>from;
+  if(loading) loadTrips(from);
+  const rows=loading?[]:mlRows(); const total=rows.reduce((a,r)=>a+r.miles,0); const rate=mlRate();
+  const linked=S.vehicles.filter(v=>liveFor(v));
+  const y=todayISO().slice(0,4), m=todayISO().slice(0,7);
+  const pm=(()=>{ const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()-1); return iso(d).slice(0,7); })();
+  const lastDay=ym=>{ const [yy,mm]=ym.split('-').map(Number); return iso(new Date(yy,mm,0)); };
+  const preset=(label,f,t)=>`<button class="btn sm ${from===f&&to===t?'primary':''}" data-act="mlPreset" data-from="${f}" data-to="${t}">${label}</button>`;
+  const since=S.bouncie&&S.bouncie.connectedAt?iso(new Date(S.bouncie.connectedAt-30*864e5)):'';
+  return {detail:true, back:stack.length>0, title:'Mileage log', body:`
+    <p class="muted" style="font-size:.9rem">Miles from Bouncie, by vehicle and day, with the customers each truck stopped at. Bouncie records every trip, so take out any personal driving before using this for taxes.</p>
+    <div class="btnrow">${preset('This month', m+'-01', todayISO())}${preset('Last month', pm+'-01', lastDay(pm))}${preset(`${y} so far`, y+'-01-01', todayISO())}${preset(`${+y-1}`, `${+y-1}-01-01`, `${+y-1}-12-31`)}</div>
+    <div class="fgrid">
+      <div class="field"><label for="ml-from">From</label><input type="date" id="ml-from" data-trk="mlFrom" value="${esc(from)}" max="${esc(todayISO())}"></div>
+      <div class="field"><label for="ml-to">To</label><input type="date" id="ml-to" data-trk="mlTo" value="${esc(to)}" max="${esc(todayISO())}"></div>
+      <div class="field"><label for="ml-veh">Vehicle</label><select id="ml-veh" data-trk="mlVeh"><option value="all">All tracked vehicles</option>${linked.map(v=>`<option value="${v.id}" ${S.mlog.vid===v.id?'selected':''}>${esc(vehName(v))}</option>`).join('')}</select></div>
+      <div class="field"><label for="ml-rate">Rate per mile</label><input type="number" id="ml-rate" data-trk="mlRate" step="0.005" min="0" max="5" inputmode="decimal" value="${rate}"><span class="hint">IRS 2026 business rate is $0.725</span></div>
+    </div>
+    <div class="facts">
+      <div class="fact"><div class="k">Miles</div><div class="v num">${loading?'…':total.toLocaleString('en-US',{maximumFractionDigits:1})}</div></div>
+      <div class="fact"><div class="k">Days driven</div><div class="v num">${loading?'…':new Set(rows.map(r=>r.date)).size}</div></div>
+      <div class="fact"><div class="k">At $${rate}/mi</div><div class="v num">${loading?'…':money(total*rate)}</div></div>
+    </div>
+    ${since&&from<since?`<p class="hint">Trip history starts ${esc(fmtDate(since))}, 30 days before Bouncie was connected. Earlier days show nothing.</p>`:''}
+    <div class="btnrow"><button class="btn" data-act="mlExport" data-fmt="xlsx" ${rows.length?'':'disabled'}>${I.download||''} Excel</button><button class="btn" data-act="mlExport" data-fmt="csv" ${rows.length?'':'disabled'}>CSV</button></div>
+    ${loading?'<p class="muted">Loading trips…</p>':rows.length?`<div class="tablewrap"><table><thead><tr><th>Date</th><th>Vehicle</th><th class="num">Miles</th><th>Driving</th><th>Stopped at</th></tr></thead><tbody>${rows.map(r=>`<tr><td style="white-space:nowrap">${esc(fmtDate(r.date))}</td><td>${esc(r.name)}</td><td class="num">${r.miles.toFixed(1)}</td><td class="muted" style="white-space:nowrap">${esc(clock(Date.parse(r.first)))}–${esc(clock(Date.parse(r.last)))} · ${r.trips} trip${r.trips===1?'':'s'}</td><td>${esc(r.places.join(', ')||'—')}</td></tr>`).join('')}</tbody><tfoot><tr><th colspan="2">Total</th><th class="num">${total.toFixed(1)}</th><th colspan="2"></th></tr></tfoot></table></div>`:'<p class="muted">No trips in this range.</p>'}`};
+}
+let trkRedraw=null;
+// redraw after the event finishes: replacing a focused input fires change again, which must not redraw mid-replace
+function trkRefresh(kind){ if(trkRedraw) return; trkRedraw=setTimeout(()=>{ trkRedraw=null; if(drawerState && drawerState.kind===kind) openDrawer(kind, drawerState.args, true); },0); }
+function trkChange(t){
+  const k=t.dataset.trk;
+  if(k==='date'){ if(t.value){ S.trkDate[t.dataset.vid]=t.value>todayISO()?todayISO():t.value; trkRefresh('vehicle'); } return; }
+  if(k==='mlFrom'){ S.mlog.from=t.value; } else if(k==='mlTo'){ S.mlog.to=t.value; } else if(k==='mlVeh'){ S.mlog.vid=t.value; }
+  else if(k==='mlRate'){ const r=parseFloat(t.value); if(r>0&&r<5){ try{ localStorage.setItem('pw.mileRate', String(r)); }catch(e){} } }
+  trkRefresh('mileage');
+}
+const TRK_ACTIONS={
+  goApis(){ closeDrawer(); S.view='settings'; S.setTab='apis'; if(!S.api.loaded) loadApis(); render(); },
+  async trkLink(d){ const v=veh(d.vid); const sel=$('#trk-link'); if(!v||!sel||!sel.value) return; const ok=await write(()=>saveDoc('vehicles', v.id, {...v, bouncieImei:sel.value}), 'Bouncie device linked'); if(ok) openDrawer('vehicle',{id:v.id},true); },
+  async trkUnlink(d){ const v=veh(d.vid); if(!v) return; const ok=await write(()=>saveDoc('vehicles', v.id, {...v, bouncieImei:'none'}), 'Bouncie device unlinked'); if(ok) openDrawer('vehicle',{id:v.id},true); },
+  trkDay(d){ const cur=trkDate(d.vid); let n=d.today?todayISO():iso(new Date(parseISO(cur).getTime()+(+d.step)*864e5+3600e3)); if(n>todayISO()) n=todayISO(); S.trkDate[d.vid]=n; openDrawer('vehicle',{id:d.vid},true); },
+  trkPick(){ toast('Open the vehicle this device is in, then pick it under Live tracking.'); },
+  mileageLog(){ stack.length=0; openDrawer('mileage',{}); },
+  mlPreset(d){ S.mlog.from=d.from; S.mlog.to=d.to; openDrawer('mileage',{},true); },
+  async mlExport(d){
+    const rows=mlRows(); const rate=mlRate(); const total=rows.reduce((a,r)=>a+r.miles,0); const [from,to]=mlRange();
+    const out=[['Date','Vehicle','Miles','Trips','First departure','Last arrival','Start odometer','End odometer','Stopped at']].concat(rows.map(r=>[r.date, r.name, +r.miles.toFixed(1), r.trips, clock(Date.parse(r.first)), clock(Date.parse(r.last)), r.startOdo!=null?Math.round(r.startOdo):'', r.endOdo!=null?Math.round(r.endOdo):'', r.places.join('; ')]));
+    out.push([]); out.push(['Total','',+total.toFixed(1)]); out.push([`At $${rate} per mile`,'',+(total*rate).toFixed(2)]);
+    await exportTable(`mileage-log-${from}-to-${to}`, 'Mileage', out, d.fmt);
+  },
+};
+
 function viewFleet(){
   const list=[...S.vehicles].sort((a,b)=>(a.status==='Sold')-(b.status==='Sold') || vehName(a).localeCompare(vehName(b)));
   const active=list.filter(v=>v.status!=='Sold');
@@ -2561,14 +2920,16 @@ function viewFleet(){
   const due=active.reduce((n,v)=>n+schedStatus(v).filter(x=>x.state==='overdue'||x.state==='soon').length,0);
   const exp=active.reduce((n,v)=>n+docDates(v).filter(d=>d.state!=='ok').length,0);
   return `
-  <div class="page-head"><div><p class="eyebrow">Vehicles & maintenance</p><h1>Fleet</h1></div><div class="actions"><button class="btn primary" data-act="newVehicle">${I.plus} Vehicle</button></div></div>
+  <div class="page-head"><div><p class="eyebrow">Vehicles & maintenance</p><h1>Fleet</h1></div><div class="actions">${isOffice()&&liveAll().length?`<button class="btn" data-act="mileageLog">Mileage log</button>`:''}<button class="btn primary" data-act="newVehicle">${I.plus} Vehicle</button></div></div>
   ${S.vehicles.length?`<div class="stats">
     <div class="stat" style="--dot:var(--accent)"><span class="k">Vehicles</span><span class="v">${active.length}</span><span class="d">${list.length-active.length?`${list.length-active.length} sold`:'in service'}</span></div>
     <div class="stat" style="--dot:var(--warn)"><span class="k">Service due</span><span class="v">${due}</span><span class="d">overdue or within 500 mi / 30 days</span></div>
     <div class="stat" style="--dot:var(--bad)"><span class="k">Papers expiring</span><span class="v">${exp}</span><span class="d">registration, insurance, inspection</span></div>
+    ${isOffice()&&liveAll().length?(()=>{ const f=iso(new Date(Date.now()-6*864e5)); const mi=liveAll().reduce((a,l)=>a+sumMi(tripsOf(l.imei,f,todayISO())),0); return `<div class="stat" style="--dot:var(--good)"><span class="k">Miles, last 7 days</span><span class="v">${Math.round(mi).toLocaleString('en-US')}</span><span class="d">all tracked vehicles</span></div>`; })():''}
     <div class="stat office-only" style="--dot:var(--violet)"><span class="k">Spent in ${yr}</span><span class="v">${money(spent)}</span><span class="d">maintenance & repairs</span></div>
   </div>`:''}
   ${att.length?`<section class="panel"><div class="panel-head"><h2>Needs attention</h2></div><div class="list">${att.map(v=>`<button class="row" data-act="openVehicle" data-id="${v.id}"><span class="t">${esc(vehName(v))}</span><span class="s">${vehAlerts(v).map(a=>esc(a.text)).join(' · ')}</span><span class="r">${pill(vehAlerts(v)[0].sev===2?'Overdue':'Due soon').replace('pill due-soon','pill partial')}</span></button>`).join('')}</div></section>`:''}
+  ${fleetLiveHtml()}
   ${list.length?`<div class="veh-grid">${list.map(vehCard).join('')}</div>`
     : `<section class="panel">${emptyBox('No vehicles yet','Add each truck or van with its plate, VIN and mileage. Then upload the registration and insurance card, and log services so the app can tell you when maintenance is due.','newVehicle','Add a vehicle')}</section>`}`;
 }
@@ -2596,6 +2957,7 @@ function vehicleDrawer({id}){
       <div class="fact office-only"><div class="k">Spent all time</div><div class="v num" style="font-size:.95rem">${money(spentAll)}</div></div>
       <div class="fact"><div class="k">Inspection due</div><div class="v" style="font-size:.9rem">${v.inspExp?esc(fmtDate(v.inspExp)):'—'}</div></div>
     </div>
+    ${trackingHtml(v)}
     <section class="panel" style="display:flex;flex-direction:column;gap:12px"><div class="panel-head" style="margin:0"><h3>Registration & insurance</h3></div>
       <div class="doc-slots">${DOC_SLOTS.map(docSlot).join('')}</div>
       ${v.insCompany||v.insPolicy?`<dl class="kv"><dt>Insurance company</dt><dd>${esc(v.insCompany||'—')}</dd><dt>Policy #</dt><dd class="mono">${esc(v.insPolicy||'—')}</dd>${v.insPhone?`<dt>Claims phone</dt><dd>${esc(v.insPhone)}</dd>`:''}</dl>`:''}
@@ -2614,7 +2976,7 @@ function vehicleDrawer({id}){
       ${logs.length?`<div class="list">${logs.map(l=>`<div class="row" style="cursor:default"><span class="t">${esc(fmtDate(l.date))} · ${esc(l.type||'Service')}</span><span class="s">${[l.odometer?fmtMi(l.odometer):'', l.vendor, l.desc].filter(Boolean).map(esc).join(' · ')}${l.receipt?` · <a href="${esc(fleetUrl(l.receipt.path)||'#')}" target="_blank" rel="noopener">receipt</a>`:''}</span><span class="r"><span class="num">${l.cost?money(l.cost):''}</span><button class="btn sm ghost" data-act="editLog" data-id="${l.id}">Edit</button></span></div>`).join('')}</div>`:'<p class="muted">No services logged yet. Log the most recent oil change and other work so the schedule knows when the next one is due.</p>'}
     </section>
     ${v.vin||v.notes||v.purchaseDate?`<section class="panel"><dl class="kv">${v.vin?`<dt>VIN</dt><dd class="mono">${esc(v.vin)}</dd>`:''}${v.color?`<dt>Color</dt><dd>${esc(v.color)}</dd>`:''}${v.purchaseDate?`<dt>Purchased</dt><dd>${esc(fmtDate(v.purchaseDate))}</dd>`:''}${v.notes?`<dt>Notes</dt><dd style="white-space:pre-wrap">${esc(v.notes)}</dd>`:''}</dl></section>`:''}
-    <div class="fleet-manage"><button class="btn danger sm" data-act="askDelete" data-col="vehicles" data-id="${id}">Delete vehicle</button></div><div id="confirm-slot"></div>`};
+    <div class="fleet-manage"><button class="btn danger sm" data-act="askDelete" data-col="vehicles" data-id="${id}">Delete vehicle</button></div><div id="confirm-slot"></div>`, after:()=>{ if(liveFor(v)) mountMap('veh', drawVehicle(v)); }};
 }
 function vehicleFormDrawer({id}){
   const v = id ? veh(id) : {status:'Active', schedule:DEFAULT_SCHEDULE};
@@ -2772,6 +3134,7 @@ function openDrawer(kind, args={}, refresh){
   const typed = refresh ? [...root.querySelectorAll('textarea[id],input[type=text][id],select[id]')].map(e=>[e.id,e.value]) : [];
   const keepScrolled = refresh && drawerState && drawerState._scrolled;
   drawerState = {kind, args, detail:isDetail};
+  parkMaps(root);
   root.innerHTML = `<div class="drawer-wrap" data-act="backdrop"><div class="drawer" role="dialog" aria-modal="true" aria-labelledby="dtitle">
     <div class="dhead">${out.back?`<button class="icon-btn" data-act="back" aria-label="Back">‹</button>`:''}<h2 id="dtitle">${out.title}</h2><button class="icon-btn" data-act="close" aria-label="Close">×</button></div>
     <div class="dbody">${out.body}</div></div></div>`;
@@ -2784,7 +3147,7 @@ function openDrawer(kind, args={}, refresh){
 }
 const stack=[];
 function go(kind,args){ if(drawerState) stack.push(drawerState); openDrawer(kind,args); }
-function closeDrawer(){ $('#drawer-root').innerHTML=''; drawerState=null; stack.length=0; document.documentElement.classList.remove('drawer-open'); }
+function closeDrawer(){ parkMaps($('#drawer-root')); $('#drawer-root').innerHTML=''; drawerState=null; stack.length=0; document.documentElement.classList.remove('drawer-open'); }
 function back(){ const p=stack.pop(); if(p) openDrawer(p.kind,p.args); else closeDrawer(); }
 
 const DRAWERS = {
@@ -2907,6 +3270,7 @@ const DRAWERS = {
         <button class="btn" data-act="emailCompose" data-cid="${j.customerId}" data-job="${id}" data-tpl="${j.status==='Quoted'?'Quote':j.status==='Completed'?'Job complete':'Appointment reminder'}">${I.mail} Email${j.status==='Quoted'?' quote':''}</button>
         <button class="btn" data-act="editJob" data-id="${id}">Edit</button>
       </div>
+      ${jobVisitsHtml(j)}
       ${c?`<section class="panel" style="display:flex;flex-direction:column;gap:10px"><div><div style="font-weight:650">${esc(fullAddress(c)||'No address')}</div>${c.gate?`<div style="margin-top:4px"><strong>Access:</strong> ${esc(c.gate)}</div>`:''}<div class="muted" style="font-size:.86rem;margin-top:4px">${c.panes?esc(c.panes)+' panes · ':''}${c.stories?esc(c.stories)+' stor'+(c.stories==1?'y':'ies'):''}${c.phone?' · '+esc(c.phone):''}</div></div><div class="sv-links">${svButtons(c)}<button class="btn" data-act="openCustomer" data-id="${c.id}" data-stack="1">Customer file</button></div></section>`:''}
       ${S.role!=='crew'?quoteRespHtml(j):''}
       ${quoteOpen(j)?`<div class="btnrow office-only"><button class="btn sm" data-act="viewQuotePdf" data-id="${id}">View quote PDF</button><button class="btn sm" data-act="copyQuoteLink" data-id="${id}">Copy accept/decline link</button></div>`:''}
@@ -3095,6 +3459,7 @@ const DRAWERS = {
   importCust(){ return importDrawer(); },
   bulk(a){ return bulkDrawer(a); },
   vehicle(a){ return vehicleDrawer(a); },
+  mileage(){ return mileageDrawer(); },
   vehicleForm(a){ return vehicleFormDrawer(a); },
   timeoffForm({id, date}){
     const o = id ? STORE.timeoff.get(id) : {member:'', from:date||todayISO(), to:date||todayISO(), allDay:true, start:'08:00', end:'12:00', type:'Vacation', note:''};
@@ -3501,6 +3866,7 @@ const A = {
   apiReload(){ loadApis(true); },
   async apiTest(d){
     const i=d.i; const body={action:'test', integration:i};
+    if(i==='bouncie'){ S.api.busy.bouncie=true; refreshApis(); const r=await callFn('bouncie',{action:'test'}); S.api.busy.bouncie=false; if(!r.ok || !r.result){ toast(r.error||'The test didn\'t finish. Try again.','bad'); refreshApis(); return; } if(S.api.data){ S.api.data.tests=S.api.data.tests||{}; S.api.data.tests.bouncie=r.result; } await loadBouncie(); refreshApis(); toast(r.result.ok?'All checks passed':'Some checks need attention. See below.', r.result.ok?'':'bad'); return; }
     if(i==='qbo'){ S.api.busy.qbo=true; refreshApis(); const r=await callFn('qbo',{action:'test'}); S.api.busy.qbo=false; if(!r.ok || !r.result){ toast(r.error||'The test didn\'t finish. Try again.','bad'); refreshApis(); return; } if(S.api.data){ S.api.data.tests=S.api.data.tests||{}; S.api.data.tests.qbo=r.result; } await loadQbo(); refreshApis(); toast(r.result.ok?'All checks passed':'Some checks need attention. See below.', r.result.ok?'':'bad'); return; }
     if(d.send && i==='sms'){ const to=(document.getElementById('api-sms-to')||{}).value||''; if(String(to).replace(/\D/g,'').length<10) return toast('Enter the 10-digit number to send the test text to.','bad'); body.sendTo=to; }
     if(d.send && i==='email') body.sendTest=true;
@@ -3515,6 +3881,12 @@ const A = {
     const el=document.getElementById('api-'+i); if(el) el.querySelector('.api-result')?.scrollIntoView({block:'nearest'});
     toast(r.result.ok?'All checks passed':'Some checks failed. See how to fix them below.', r.result.ok?'':'bad');
   },
+  ...TRK_ACTIONS,
+  async bouncieConnect(){ S.api.busy.bouncie=true; refreshApis(); const r=await callFn('bouncie',{action:'connect'}); S.api.busy.bouncie=false; if(!r.ok){ refreshApis(); return toast(r.error,'bad'); } location.href=r.url; },
+  bouncieDisconnectAsk(){ const el=document.getElementById('bouncie-confirm'); if(el) el.innerHTML=`<div class="confirm"><strong>Disconnect Bouncie?</strong><span>Live locations and trips stop updating. Trip history already saved stays unless you also clear it.</span><div class="btnrow"><button class="btn danger" data-act="bouncieDisconnect">Disconnect</button><button class="btn ghost" data-act="bouncieDisconnect" data-clear="1">Disconnect and clear tracking data</button><button class="btn" data-act="bouncieDisconnectCancel">Keep connected</button></div></div>`; },
+  bouncieDisconnectCancel(){ const el=document.getElementById('bouncie-confirm'); if(el) el.innerHTML=''; },
+  async bouncieDisconnect(d){ const r=await callFn('bouncie',{action:'disconnect', clear:!!d.clear}); if(!r.ok) return toast(r.error,'bad'); toast('Bouncie disconnected'); await loadBouncie(); refreshApis(); },
+  async bouncieSync(){ S.api.busy.bouncie=true; refreshApis(); const r=await callFn('bouncie',{action:'sync'}); S.api.busy.bouncie=false; if(!r.ok) toast(r.error,'bad'); else toast(`Updated ${r.devices} vehicle${r.devices===1?'':'s'}${r.trips?` and ${r.trips} trip${r.trips===1?'':'s'}`:''}`); await loadBouncie(); refreshApis(); },
   async qboConnect(){ S.api.busy.qbo=true; refreshApis(); const r=await callFn('qbo',{action:'connect'}); S.api.busy.qbo=false; if(!r.ok){ refreshApis(); return toast(r.error,'bad'); } location.href=r.url; },
   qboDisconnectAsk(){ const el=document.getElementById('qbo-confirm'); if(el) el.innerHTML=`<div class="confirm"><strong>Disconnect QuickBooks?</strong><span>Invoices already sent stay in QuickBooks. Nothing new will sync until you connect again.</span><div class="btnrow"><button class="btn danger" data-act="qboDisconnect">Disconnect</button><button class="btn" data-act="qboDisconnectCancel">Keep connected</button></div></div>`; },
   qboDisconnectCancel(){ const el=document.getElementById('qbo-confirm'); if(el) el.innerHTML=''; },
@@ -5125,6 +5497,7 @@ document.addEventListener('change', e=>{
   if(t.classList && t.classList.contains('svc-on')){ t.closest('.svc-card').classList.toggle('off', !t.checked); S.settingsDirty=true; svcRefreshCount(); return; }
   if(t.classList && t.classList.contains('sel-cb')){ const set=S.sel[t.dataset.kind]; t.checked?set.add(t.dataset.id):set.delete(t.dataset.id); render(); return; }
   if(t.classList && t.classList.contains('sel-all')){ const set=S.sel[t.dataset.kind]; const ids=S._visible[t.dataset.kind]||[]; if(t.checked) ids.forEach(i=>set.add(i)); else ids.forEach(i=>set.delete(i)); render(); return; }
+  if(t.dataset.trk){ trkChange(t); return; }
   if(t.dataset.upload) uploadPhotos(t);
   else if(t.dataset.fleetUpload) uploadFleetFile(t);
   else if(t.id==='vl-receipt'){ const n=$('#vl-receipt-name'); if(n) n.textContent = t.files&&t.files[0] ? `Selected: ${t.files[0].name}` : ''; }
@@ -5332,11 +5705,13 @@ async function loadTeam(){ const {data}=await sb.from('profiles').select('*'); S
 async function loadAll(){
   S.dbState='connecting'; render();
   try{
-    const tabs=['customers','jobs','invoices','photos','messages','vehicles','vehicle_logs','timeoff'].concat(S.role==='crew'?[]:['voicemails','customer_events']);
+    const tabs=['customers','jobs','invoices','photos','messages','vehicles','vehicle_logs','timeoff'].concat(S.role==='crew'?[]:['voicemails','customer_events','vehicle_live']);
     const res=await Promise.all(tabs.map(t=>loadTable(t).catch(()=>[])));
     tabs.forEach((t,i)=>{ STORE[t]=new Map(res[i].map(r=>[r.id,{id:r.id, ...(r.data||{})}])); S[t]=[...STORE[t].values()]; });
     const st=await sb.from('settings').select('data').eq('id','app').maybeSingle(); S.settingsDoc = st.data ? st.data.data : null;
     await loadTeam();
+    STORE.vehicle_trips=new Map(); S.vehicle_trips=[]; TRIPS.from=null; TRIPS.loading=null;
+    if(isOffice() && (S.vehicle_live||[]).length) loadTrips(iso(new Date(Date.now()-31*864e5)));
     S.dbState='ok';
   }catch(e){ S.dbState='off'; }
   render();
@@ -5349,13 +5724,18 @@ function applyChange(t, p){
   if(t==='jobs' && p.new && p.new.data && p.new.data.quoteResponse && S.role!=='crew'){ const was=m.get(p.new.id); if(!was || !was.quoteResponse){ const d=p.new.data; toast(`${custName(d.customerId)} ${d.quoteResponse.decision} your quote${d.quoteResponse.decision==='accepted'?(d.status==='Scheduled'?` · booked ${fmtDate(d.date)}`:' · pick a date'):''}`); } }
   if(t==='invoices' && p.new && p.new.data && S.role!=='crew'){ const was=m.get(p.new.id); const seen=new Set(((was&&was.payments)||[]).map(x=>x.qboId).filter(Boolean)); const fresh=(p.new.data.payments||[]).filter(x=>x.source==='quickbooks' && x.qboId && !seen.has(x.qboId)); if(was && fresh.length) toast(`QuickBooks payment: ${money(fresh.reduce((a,x)=>a+(+x.amount||0),0))} on invoice #${p.new.data.number}`); }
   if(t==='customer_events' && p.eventType==='INSERT' && p.new && p.new.data && S.role!=='crew'){ const e=p.new.data; if(e.kind==='quote_viewed'||e.kind==='email_opened'||e.kind==='photos_viewed'||e.kind==='quote_change'){ const a=actText({id:p.new.id,...e}); if(a) toast(`${custName(e.customerId)} ${a.toast}`); } }
+  if(t==='vehicle_live' && p.new && p.new.data){ const was=m.get(p.new.id)||{}; const d=p.new.data; const v=liveVehicle({...d, imei:d.imei}); const nm=v?vehName(v):(d.nickName||'A vehicle');
+    if(d.milOn && !was.milOn && was.imei) toast(`${nm}: check engine light came on`,'bad');
+    if(d.unplugged && !was.unplugged && was.imei) toast(`${nm}: Bouncie device was unplugged`,'bad');
+    if(/critical/i.test(d.battery||'') && !/critical/i.test(was.battery||'') && was.imei) toast(`${nm}: battery is low`,'bad'); }
+  if(t==='vehicle_trips' && !STORE.vehicle_trips) return;
   if(t==='voicemails' && p.eventType==='INSERT' && p.new && p.new.data && !p.new.data.heard && !p.new.data.deleted) toast(`New voicemail from ${vmWho(p.new.data)}`);
   if(p.eventType==='DELETE'){ if(p.old && p.old.id) m.delete(p.old.id); } else if(p.new){ m.set(p.new.id, {id:p.new.id, ...(p.new.data||{})}); }
   S[t]=[...m.values()]; scheduleRender();
 }
 function subscribe(){
   const ch=sb.channel('purewash-live');
-  ['customers','jobs','invoices','photos','messages','voicemails','vehicles','vehicle_logs','timeoff','settings','profiles'].concat(S.role==='crew'?[]:['customer_events']).forEach(t=>ch.on('postgres_changes',{event:'*', schema:'public', table:t}, p=>applyChange(t,p)));
+  ['customers','jobs','invoices','photos','messages','voicemails','vehicles','vehicle_logs','timeoff','settings','profiles'].concat(S.role==='crew'?[]:['customer_events','vehicle_live','vehicle_trips']).forEach(t=>ch.on('postgres_changes',{event:'*', schema:'public', table:t}, p=>applyChange(t,p)));
   ch.subscribe(status=>{ if(status==='CHANNEL_ERROR' || status==='TIMED_OUT'){ setTimeout(()=>{ sb.removeChannel(ch); subscribe(); loadAll(); }, 5000); } });
 }
 async function importOldPhotos(){
@@ -5369,6 +5749,13 @@ async function importOldPhotos(){
     if(!error){ await sb.from('photo_import').delete().eq('id',row.id); PH.url.delete(row.id); n++; }
   }
   if(n){ toast(`${n} photo${n===1?'':'s'} moved over from the old app`); scheduleRender(); }
+}
+function bouncieReturn(){
+  let q; try{ q=new URLSearchParams(location.search); }catch(e){ return; } const v=q.get('bouncie'); if(!v) return;
+  try{ history.replaceState(null,'',location.pathname); }catch(e){}
+  if(v==='connected'){ const n=+q.get('n')||0; toast(n?`Bouncie is connected. Found ${n} vehicle${n===1?'':'s'}. Open each one in Fleet to check it's linked.`:'Bouncie is connected, but no vehicles were found yet.'); S.view='fleet'; render(); return; }
+  if(v==='error') toast(q.get('msg')||'Bouncie wasn\'t connected.','bad');
+  if(S.role==='owner'){ S.view='settings'; S.setTab='apis'; if(!S.api.loaded) loadApis(); render(); }
 }
 function qboReturn(){
   let q; try{ q=new URLSearchParams(location.search); }catch(e){ return; } const v=q.get('qbo'); if(!v) return;
@@ -5389,7 +5776,7 @@ async function enterApp(session){
   await loadAll(); subscribe();
   callFn('messaging',{action:'status'}).then(r=>{ if(r.ok){ S.integ={email:!!r.email, sms:!!r.sms}; S.mapsKey=r.mapsKey||null; scheduleRender(); } });
   if(prof.role==='owner') loadApis();
-  loadQbo(); qboReturn();
+  loadQbo(); qboReturn(); loadBouncie(); bouncieReturn();
   importOldPhotos();
 }
 (async function start(){
