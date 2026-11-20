@@ -360,7 +360,7 @@ Deno.serve(async (req) => {
             add({ label: n ? `Found ${n} vehicle${n === 1 ? "" : "s"} with a Bouncie device` : "No vehicles found on this Bouncie account", ok: n > 0 ? true : null, fix: n ? undefined : "Make sure the devices are activated in the Bouncie app under the account you connected." });
             const { data: veh } = await admin.from("vehicles").select("id,data");
             const { data: live } = await admin.from("vehicle_live").select("id,data").like("id", "b-%");
-            const linked = (live || []).filter((l) => (veh || []).some((v) => String((v.data as Rec).bouncieImei || "") === (l.data as Rec).imei || (!!(l.data as Rec).vin && String((v.data as Rec).vin || "").toUpperCase() === (l.data as Rec).vin))).length;
+            const linked = (live || []).filter((l) => (veh || []).some((v) => String((v.data as Rec).bouncieImei || "") === (l.data as Rec).imei || (!(v.data as Rec).bouncieImei && !!(l.data as Rec).vin && String((v.data as Rec).vin || "").toUpperCase() === (l.data as Rec).vin))).length;
             if (n) add({ label: linked === n ? "Every device is linked to a vehicle in Fleet" : `${linked} of ${n} devices linked to a vehicle in Fleet`, ok: linked === n ? true : null, fix: linked === n ? undefined : "Open each vehicle in Fleet and pick its Bouncie device, or enter the same VIN on the vehicle." });
           } catch (e) { add({ label: "Bouncie didn't accept the connection", ok: false, detail: (e as Error).message, fix: "Click Connect Bouncie again. If it keeps failing, check the Client ID, Client Secret and Redirect URL at bouncie.dev." }); }
           const st = await state(admin, "bouncie:sync");
